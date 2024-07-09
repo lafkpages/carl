@@ -104,7 +104,7 @@ const corePlugin: Plugin = {
       async handler() {
         console.log("[core] Triggering graceful stop");
 
-        await stopGracefully();
+        stopGracefully();
 
         return true;
       },
@@ -117,7 +117,7 @@ const corePlugin: Plugin = {
       async handler() {
         console.log("[core] Triggering force stop");
 
-        await stop();
+        stop();
 
         return true;
       },
