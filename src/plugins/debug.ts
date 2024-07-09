@@ -16,13 +16,21 @@ export default {
       minLevel: PermissionLevel.NONE,
 
       handler(message, client, rest, permissionLevel) {
-        return `\
+        let msg = `\
 Permission level: \`${permissionLevel}\` (${PermissionLevel[permissionLevel]})
+
 Message ID: \`${message.id}\`
+Chat ID: \`${message.chatId}\`
+
 From: \`${message.from}\`
 Author: \`${message.author}\`
-Sender: \`${message.sender.id}\`
-Chat ID: \`${message.chatId}\``;
+Sender: \`${message.sender.id}\``;
+
+        if (rest) {
+          msg += `\n\nRest: \`${rest}\``;
+        }
+
+        return msg;
       },
     },
     {
