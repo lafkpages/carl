@@ -89,7 +89,8 @@ Invalid arguments. Please either provide two numbers, or a data type. For exampl
 Valid data types:
 * \`uuid\`
 * \`letter\`
-* \`number\`\
+* \`number\`
+* \`boolean\`\
 `);
         }
       },
