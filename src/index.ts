@@ -3,7 +3,7 @@ import type { Command, Plugin } from "./plugins";
 
 import { create } from "venom-bot";
 
-import { plugins as pluginsToLoad } from "../config.json";
+import { plugins as configPlugins } from "../config.json";
 import { CommandError, CommandPermissionError } from "./error";
 import { getPermissionLevel, PermissionLevel } from "./perms";
 
@@ -33,10 +33,10 @@ function loadPlugin(plugin: Plugin) {
   }
 }
 
-async function loadPluginsFromConfig() {
+async function loadPluginsFromConfig(idsToLoad?: Set<string> | null) {
   const now = Date.now();
 
-  for (const pluginIdentifier of pluginsToLoad) {
+  for (const pluginIdentifier of configPlugins) {
     console.log("Importing plugin:", pluginIdentifier);
 
     // add a cache buster to the import path
@@ -49,11 +49,16 @@ async function loadPluginsFromConfig() {
       plugin = (await import(`./plugins/${pluginIdentifier}?${now}`)).default;
     }
 
+    if (idsToLoad && !idsToLoad.has(plugin.id)) {
+      continue;
+    }
+
     loadPlugin(plugin);
   }
 }
 
 const corePlugin: Plugin = {
+  id: "core",
   name: "Core",
   description: "Core commands",
   version: "0.0.1",
@@ -93,17 +98,26 @@ const corePlugin: Plugin = {
     },
     {
       name: "stop",
-      description: "Stop the bot",
+      description: "Stop the bot gracefully",
       minLevel: PermissionLevel.ADMIN,
 
-      handler(message, client) {
-        setTimeout(async () => {
-          await client.close();
+      async handler() {
+        console.log("[core] Triggering graceful stop");
 
-          setTimeout(() => {
-            process.exit();
-          }, 1000);
-        }, 1000);
+        await stopGracefully();
+
+        return true;
+      },
+    },
+    {
+      name: "forcestop",
+      description: "Stop the bot without unloading plugins",
+      minLevel: PermissionLevel.ADMIN,
+
+      async handler() {
+        console.log("[core] Triggering force stop");
+
+        await stop();
 
         return true;
       },
@@ -113,24 +127,57 @@ const corePlugin: Plugin = {
       description: "Reload plugins",
       minLevel: PermissionLevel.ADMIN,
 
-      async handler() {
+      async handler(message, client, rest) {
+        rest = rest.trim().toLowerCase();
+
+        const pluginsToReload = rest ? new Set(rest.split(/[,\s]+/)) : null;
+
+        if (pluginsToReload?.size === 0) {
+          return false;
+        }
+
         // Run plugin onUnload events
         for (const plugin of plugins) {
+          if (pluginsToReload && !pluginsToReload.has(plugin.id)) {
+            continue;
+          }
+
           if (plugin.onUnload) {
-            console.log("Unloading plugin on reload:", plugin.name);
-            await plugin.onUnload(client);
+            console.log("Unloading plugin on reload:", plugin.id);
+            plugin.onUnload(client);
           }
         }
 
-        // Clear commands and plugins
-        plugins.length = 0;
-        for (const command in commands) {
-          delete commands[command];
+        if (pluginsToReload) {
+          for (const plugin of plugins) {
+            if (
+              // only unload plugins that are in pluginsToReload
+              pluginsToReload.has(plugin.id)
+            ) {
+              // delete plugin from plugins array
+              plugins.splice(plugins.indexOf(plugin), 1);
+
+              // delete the plugin's commands from the commands object
+              for (const command in commands) {
+                if (commands[command].plugin === plugin) {
+                  delete commands[command];
+                }
+              }
+            }
+          }
+        } else {
+          // Clear all plugins and commands
+          plugins.length = 0;
+          for (const command in commands) {
+            delete commands[command];
+          }
         }
 
         // Reload plugins
-        loadPlugin(corePlugin);
-        await loadPluginsFromConfig();
+        if (!pluginsToReload || pluginsToReload.has("core")) {
+          loadPlugin(corePlugin);
+        }
+        await loadPluginsFromConfig(pluginsToReload);
 
         return true;
       },
@@ -220,14 +267,28 @@ async function handleError(error: unknown, message: Message) {
   }
 }
 
-process.on("beforeExit", async () => {
-  // Fire plugin onUnload events
+async function stopGracefully() {
   for (const plugin of plugins) {
     if (plugin.onUnload) {
-      console.log("Unloading plugin on beforeExit:", plugin.name);
-      await plugin.onUnload(client);
+      console.log("Unloading plugin on graceful stop:", plugin.id);
+      plugin.onUnload(client);
     }
   }
 
+  console.log("Gracefully stopping");
+  await stop();
+}
+
+async function stop() {
+  console.log("Waiting a second before closing client on stop");
+  await Bun.sleep(1000);
+
+  console.log("Closing client on stop");
   await client.close();
-});
+
+  console.log("Waiting a second before exiting process on stop");
+  await Bun.sleep(1000);
+
+  console.log("Exiting process on stop");
+  process.exit();
+}

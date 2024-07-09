@@ -96,6 +96,7 @@ let subscribedChatIds: Set<string> = new Set();
 let checkInterval: Timer;
 
 export default {
+  id: "football",
   name: "Football",
   description: "Commands related to football",
   version: "0.0.1",

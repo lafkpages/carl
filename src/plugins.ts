@@ -2,6 +2,7 @@ import type { Message, Whatsapp } from "venom-bot";
 import type { PermissionLevel } from "./perms";
 
 export interface Plugin {
+  id: string;
   name: string;
   description: string;
   version: string;

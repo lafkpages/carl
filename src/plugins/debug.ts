@@ -4,6 +4,7 @@ import { CommandPermissionError } from "../error";
 import { PermissionLevel } from "../perms";
 
 export default {
+  id: "debug",
   name: "Debug tools",
   description: "Helps debug WhatsApp PA core and plugins",
   version: "0.0.1",
@@ -28,6 +29,10 @@ Sender: \`${message.sender.id}\``;
 
         if (rest) {
           msg += `\n\nRest: \`${rest}\``;
+        }
+
+        if (message.quotedMsg) {
+          msg += `\n\nQuoted message:\n\`\`\`\n${Bun.inspect(message.quotedMsg, { colors: false })}\n\`\`\``;
         }
 
         return msg;

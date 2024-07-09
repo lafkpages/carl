@@ -6,6 +6,7 @@ import { CommandError } from "../error";
 import { PermissionLevel } from "../perms";
 
 export default {
+  id: "random",
   name: "Random",
   description: "Utilities for generating random data",
   version: "1.0.0",
