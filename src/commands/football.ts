@@ -26,11 +26,11 @@ export default {
     let msg = "Today's matches:";
 
     for (const match of data.matches) {
-      const date = new Date(match.utcDate).getTime();
+      const date = new Date(match.utcDate);
 
       msg += `\n\n*${match.homeTeam.shortName} vs ${match.awayTeam.shortName}*`;
       msg += `\n* ${match.competition.name}`;
-      msg += `\n* ${prettyDate(date, "date-time-human")}`;
+      msg += `\n* ${prettyDate(date.getTime(), "date-time-human")} (${date.toLocaleString()})`;
       msg += `\n* Winner: ${match.score.winner || "_N/A_"}`;
     }
 
