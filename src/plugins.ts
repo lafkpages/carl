@@ -33,7 +33,7 @@ export interface Command {
     client: Whatsapp,
     rest: string,
     permissionLevel: PermissionLevel,
-  ): MaybePromise<string | void>;
+  ): MaybePromise<string | boolean | void>;
 }
 
 type MaybePromise<T> = T | Promise<T>;

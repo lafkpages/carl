@@ -121,6 +121,8 @@ const corePlugin: Plugin = {
         // Reload plugins
         loadPlugin(corePlugin);
         await loadPluginsFromConfig();
+
+        return true;
       },
     },
   ],
@@ -154,8 +156,12 @@ client.onMessage(async (message) => {
             permissionLevel,
           );
 
-          if (result) {
+          if (typeof result === "string") {
             await client.reply(message.from, result, message.id);
+          } else if (result === true) {
+            await client.sendReactions(message.id, "\u2705");
+          } else if (result === false) {
+            await client.sendReactions(message.id, "\u274C");
           }
         } catch (err) {
           await handleError(err, message);
