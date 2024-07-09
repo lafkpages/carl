@@ -11,6 +11,21 @@ export default {
 
   commands: [
     {
+      name: "debuginfo",
+      description: "Get handy debug information",
+      minLevel: PermissionLevel.NONE,
+
+      handler(message, client, rest, permissionLevel) {
+        return `\
+Permission level: \`${permissionLevel}\` (${PermissionLevel[permissionLevel]})
+Message ID: \`${message.id}\`
+From: \`${message.from}\`
+Author: \`${message.author}\`
+Sender: \`${message.sender.id}\`
+Chat ID: \`${message.chatId}\``;
+      },
+    },
+    {
       name: "eval",
       description: "Evaluate JavaScript code",
       minLevel: PermissionLevel.ADMIN,
