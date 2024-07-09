@@ -75,7 +75,15 @@ Sender: \`${message.sender.id}\``;
       minLevel: PermissionLevel.TRUSTED,
 
       async handler(message, client, _rest, permissionLevel) {
-        const [, to, rest] = message.body.match(/^\/say (\S+) (.+)/s) || [];
+        if (message.mentionedJidList?.length) {
+          for (const jid of message.mentionedJidList) {
+            await client.sendText(jid, message.body.slice(5));
+          }
+
+          return true;
+        }
+
+        const [, to, rest] = _rest.match(/^(\S+) (.+)$/s) || [];
 
         if (to && rest) {
           if (permissionLevel < PermissionLevel.ADMIN) {
@@ -87,8 +95,12 @@ Sender: \`${message.sender.id}\``;
           }
 
           await client.sendText(to, rest);
+
+          return true;
         } else {
           await client.sendText(message.from, message.body.slice(5));
+
+          return true;
         }
       },
     },
