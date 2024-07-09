@@ -104,6 +104,8 @@ const corePlugin: Plugin = {
             process.exit();
           }, 1000);
         }, 1000);
+
+        return true;
       },
     },
     {
