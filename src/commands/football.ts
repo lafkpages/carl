@@ -9,7 +9,7 @@ import { PermissionLevel } from "../perms";
 export default {
   minLevel: PermissionLevel.TRUSTED,
 
-  description: "",
+  description: "Shows today's football matches",
   async handler(message, client, rest) {
     const data = await fetch("https://api.football-data.org/v4/matches", {
       headers: {
