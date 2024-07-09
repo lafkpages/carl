@@ -1,6 +1,7 @@
 import type { Plugin } from "../plugins";
 
 import { prettyDate } from "@based/pretty-date";
+import { array, nullable, object, parse, string } from "valibot";
 
 import { CommandError } from "../error";
 import { PermissionLevel } from "../perms";
@@ -23,11 +24,32 @@ export default {
       minLevel: PermissionLevel.TRUSTED,
 
       async handler() {
-        const data = await fetch("https://api.football-data.org/v4/matches", {
-          headers: {
-            "x-auth-token": footballDataDotOrgApiKey,
-          },
-        }).then((r) => r.json());
+        const data = parse(
+          object({
+            matches: array(
+              object({
+                utcDate: string(),
+                competition: object({
+                  name: string(),
+                }),
+                homeTeam: object({
+                  shortName: string(),
+                }),
+                awayTeam: object({
+                  shortName: string(),
+                }),
+                score: object({
+                  winner: nullable(string()),
+                }),
+              }),
+            ),
+          }),
+          await fetch("https://api.football-data.org/v4/matches", {
+            headers: {
+              "x-auth-token": footballDataDotOrgApiKey,
+            },
+          }).then((r) => r.json()),
+        );
 
         // todo: valibot
 
