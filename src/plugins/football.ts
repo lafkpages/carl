@@ -2,7 +2,15 @@ import type { InferOutput } from "valibot";
 import type { Plugin } from "../plugins";
 
 import { prettyDate } from "@based/pretty-date";
-import { array, nullable, number, object, parse, string } from "valibot";
+import {
+  array,
+  nullable,
+  number,
+  object,
+  parse,
+  picklist,
+  string,
+} from "valibot";
 
 import { CommandError } from "../error";
 import { PermissionLevel } from "../perms";
@@ -26,7 +34,16 @@ const matchSchema = object({
   id: number(),
   utcDate: string(),
 
-  status: string(), // todo: enum
+  status: picklist([
+    "SCHEDULED",
+    "LIVE",
+    "IN_PLAY",
+    "PAUSED",
+    "FINISHED",
+    "POSTPONED",
+    "SUSPENDED",
+    "CANCELLED",
+  ]),
 
   competition: object({
     name: string(),
