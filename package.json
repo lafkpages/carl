@@ -11,6 +11,7 @@
     "typescript": "^5.0.0"
   },
   "dependencies": {
+    "@based/pretty-date": "^1.0.4",
     "venom-bot": "^5.1.0"
   },
   "scripts": {

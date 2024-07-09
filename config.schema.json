@@ -8,6 +8,10 @@
         "$schema": {
           "type": "string"
         },
+        "footballDataDotOrgApiKey": {
+          "description": "API key for https://www.football-data.org.",
+          "type": ["string", "null"]
+        },
         "ratelimit": {
           "additionalProperties": false,
           "description": "How many seconds to wait before allowing a user to run a command again.",
@@ -43,7 +47,7 @@
           "type": "object"
         }
       },
-      "required": ["whitelist", "ratelimit"],
+      "required": ["whitelist", "ratelimit", "footballDataDotOrgApiKey"],
       "type": "object"
     }
   }

@@ -7,5 +7,6 @@
   "ratelimit": {
     "admin": 0,
     "trusted": 5
-  }
+  },
+  "footballDataDotOrgApiKey": null
 }

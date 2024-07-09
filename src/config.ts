@@ -16,4 +16,9 @@ export interface Config {
     admin: number;
     trusted: number;
   };
+
+  /**
+   * API key for https://www.football-data.org.
+   */
+  footballDataDotOrgApiKey: string | null;
 }
