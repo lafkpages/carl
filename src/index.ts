@@ -203,7 +203,7 @@ async function handleError(error: unknown, message: Message) {
   } else {
     await client.reply(
       message.from,
-      `Error:\n\`\`\`\n${Bun.inspect(error, { colors: false })}\n\`\`\``,
+      `Error:\n\`\`\`\n${Bun.inspect(error, { colors: false })}\`\`\``,
       message.id,
     );
   }
