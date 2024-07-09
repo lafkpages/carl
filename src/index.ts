@@ -138,6 +138,11 @@ const client = await create({
   session: "session-name",
 });
 
+// Fire plugin onLoad events
+for (const plugin of plugins) {
+  await plugin.onLoad?.(client);
+}
+
 client.onMessage(async (message) => {
   if (message.type !== "chat") {
     return;

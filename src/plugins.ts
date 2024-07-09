@@ -12,6 +12,8 @@ export interface Plugin {
   hidden?: boolean;
 
   commands: Command[];
+
+  onLoad?(client: Whatsapp): MaybePromise<void>;
 }
 
 export interface Command {
