@@ -14,6 +14,7 @@ export interface Plugin {
   commands: Command[];
 
   onLoad?(client: Whatsapp): MaybePromise<void>;
+  onUnload?(client: Whatsapp): MaybePromise<void>;
 }
 
 export interface Command {

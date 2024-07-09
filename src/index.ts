@@ -114,6 +114,14 @@ const corePlugin: Plugin = {
       minLevel: PermissionLevel.ADMIN,
 
       async handler() {
+        // Run plugin onUnload events
+        for (const plugin of plugins) {
+          if (plugin.onUnload) {
+            console.log("Unloading plugin on reload:", plugin.name);
+            await plugin.onUnload(client);
+          }
+        }
+
         // Clear commands and plugins
         plugins.length = 0;
         for (const command in commands) {
@@ -211,3 +219,15 @@ async function handleError(error: unknown, message: Message) {
     );
   }
 }
+
+process.on("beforeExit", async () => {
+  // Fire plugin onUnload events
+  for (const plugin of plugins) {
+    if (plugin.onUnload) {
+      console.log("Unloading plugin on beforeExit:", plugin.name);
+      await plugin.onUnload(client);
+    }
+  }
+
+  await client.close();
+});
