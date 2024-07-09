@@ -39,29 +39,16 @@ Sender: \`${message.sender.id}\``;
       minLevel: PermissionLevel.ADMIN,
 
       async handler(message, client, rest) {
-        await new Promise((resolve, reject) => {
-          try {
-            resolve(eval(rest));
-          } catch (err) {
-            reject(err);
-          }
-        })
-          .then(async (result: unknown) => {
-            await client.reply(
-              message.from,
-              `Result: ${Bun.inspect(result, { colors: false })}`,
-              message.id,
-            );
-          })
-          .catch(async (err) => {
-            await client.reply(
-              message.from,
-              `Error: ${Bun.inspect(err, {
-                colors: false,
-              })}`,
-              message.id,
-            );
-          });
+        return `Result: ${Bun.inspect(
+          await new Promise((resolve, reject) => {
+            try {
+              resolve(eval(rest));
+            } catch (err) {
+              reject(err);
+            }
+          }),
+          { colors: false },
+        )}`;
       },
     },
     {
