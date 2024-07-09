@@ -153,8 +153,6 @@ client.onMessage(async (message) => {
     getPermissionLevel(message.chatId),
   );
 
-  console.log("Received:", permissionLevel, message);
-
   const [, command, rest] = message.body.match(/^\/(\w+)(?: (.+))?/is) || [];
 
   if (command) {
