@@ -75,6 +75,11 @@ export default {
           case "n":
             return `Random number between 0 and 1: ${Math.random()}`;
 
+          case "boolean":
+          case "bool":
+          case "b":
+            return Math.random() < 0.5;
+
           default:
             throw new CommandError(`\
 Invalid arguments. Please either provide two numbers, or a data type. For example:
