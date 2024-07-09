@@ -1,0 +1,10 @@
+{
+  "whitelist": {
+    "admin": [],
+    "trusted": []
+  },
+  "ratelimit": {
+    "admin": 0,
+    "trusted": 5
+  }
+}

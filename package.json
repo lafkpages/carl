@@ -1,0 +1,13 @@
+{
+  "name": "@luisafk/whatsapp-pa",
+  "module": "src/index.ts",
+  "devDependencies": {
+    "@types/bun": "latest"
+  },
+  "peerDependencies": {
+    "typescript": "^5.0.0"
+  },
+  "dependencies": {
+    "venom-bot": "^5.1.0"
+  }
+}
