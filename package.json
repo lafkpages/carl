@@ -17,6 +17,7 @@
     "venom-bot": "^5.1.0"
   },
   "scripts": {
+    "build": "tsc --emitDeclarationOnly --declaration --resolveJsonModule --skipLibCheck --rootDir src --outDir dist src/pluginUtilsExports.ts && bun build --minify --outdir dist src/pluginUtilsExports.ts",
     "format": "prettier --write .",
     "gen-config-schema": "ts-json-schema-generator -p src/config.ts -t Config --no-type-check -o config.schema.json"
   }
