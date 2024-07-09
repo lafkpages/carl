@@ -34,6 +34,19 @@ Sender: \`${message.sender.id}\``;
       },
     },
     {
+      name: "ping",
+      description: "Check the bot's latency",
+      minLevel: PermissionLevel.NONE,
+
+      async handler(message, client) {
+        const start = Date.now();
+
+        await client.sendReactions(message.from, "\u{1F3D3}");
+
+        return `Latency: ${start - message.timestamp}ms`;
+      },
+    },
+    {
       name: "eval",
       description: "Evaluate JavaScript code",
       minLevel: PermissionLevel.ADMIN,
