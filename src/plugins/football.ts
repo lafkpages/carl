@@ -24,6 +24,24 @@ export default {
       minLevel: PermissionLevel.TRUSTED,
 
       async handler() {
+        const resp = await fetch("https://api.football-data.org/v4/matches", {
+          headers: {
+            "x-auth-token": footballDataDotOrgApiKey,
+          },
+        });
+
+        if (!resp.ok) {
+          if (resp.status === 429) {
+            throw new CommandError(
+              "Woah, slow down! You're making too many requests.",
+            );
+          } else {
+            throw new CommandError(
+              "Failed to fetch data from football-data.org",
+            );
+          }
+        }
+
         const data = parse(
           object({
             matches: array(
@@ -44,11 +62,7 @@ export default {
               }),
             ),
           }),
-          await fetch("https://api.football-data.org/v4/matches", {
-            headers: {
-              "x-auth-token": footballDataDotOrgApiKey,
-            },
-          }).then((r) => r.json()),
+          await resp.json(),
         );
 
         // todo: valibot
