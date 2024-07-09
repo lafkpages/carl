@@ -161,9 +161,9 @@ client.onMessage(async (message) => {
           if (typeof result === "string") {
             await client.reply(message.from, result, message.id);
           } else if (result === true) {
-            await client.sendReactions(message.id, "\u2705");
+            await client.sendReactions(message.id, "\u{1F44D}");
           } else if (result === false) {
-            await client.sendReactions(message.id, "\u274C");
+            await client.sendReactions(message.id, "\u{1F44E}");
           }
         } catch (err) {
           await handleError(err, message);
