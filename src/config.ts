@@ -16,6 +16,7 @@ export interface Config {
     admin: number;
     trusted: number;
   };
+  // TODO: implement ratelimits
 
   /**
    * API key for https://www.football-data.org.
