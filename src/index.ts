@@ -15,6 +15,8 @@ const commands: Record<string, Command & { plugin: Plugin }> = {};
 const plugins: Plugin[] = [];
 
 function loadPlugin(plugin: Plugin) {
+  console.log("Loading plugin:", plugin.name);
+
   plugins.push(plugin);
 
   for (const cmd of plugin.commands) {
@@ -31,7 +33,27 @@ function loadPlugin(plugin: Plugin) {
   }
 }
 
-loadPlugin({
+async function loadPluginsFromConfig() {
+  const now = Date.now();
+
+  for (const pluginIdentifier of pluginsToLoad) {
+    console.log("Importing plugin:", pluginIdentifier);
+
+    // add a cache buster to the import path
+    // so that plugins can be reloaded
+
+    let plugin: Plugin;
+    if (pluginIdentifier.includes("/")) {
+      plugin = (await import(`${pluginIdentifier}?${now}`)).default;
+    } else {
+      plugin = (await import(`./plugins/${pluginIdentifier}?${now}`)).default;
+    }
+
+    loadPlugin(plugin);
+  }
+}
+
+const corePlugin: Plugin = {
   name: "Core",
   description: "Core commands",
   version: "0.0.1",
@@ -84,21 +106,29 @@ loadPlugin({
         }, 1000);
       },
     },
+    {
+      name: "reload",
+      description: "Reload plugins",
+      minLevel: PermissionLevel.ADMIN,
+
+      async handler() {
+        // Clear commands and plugins
+        plugins.length = 0;
+        for (const command in commands) {
+          delete commands[command];
+        }
+
+        // Reload plugins
+        loadPlugin(corePlugin);
+        await loadPluginsFromConfig();
+      },
+    },
   ],
-});
+};
 
-for (const pluginIdentifier of pluginsToLoad) {
-  console.log("Loading plugin:", pluginIdentifier);
-
-  let plugin: Plugin;
-  if (pluginIdentifier.includes("/")) {
-    plugin = (await import(pluginIdentifier)).default;
-  } else {
-    plugin = (await import(`./plugins/${pluginIdentifier}`)).default;
-  }
-
-  loadPlugin(plugin);
-}
+// Load plugins
+loadPlugin(corePlugin);
+await loadPluginsFromConfig();
 
 const client = await create({
   session: "session-name",
