@@ -143,7 +143,10 @@ client.onMessage(async (message) => {
     return;
   }
 
-  const permissionLevel = getPermissionLevel(message.sender.id);
+  const permissionLevel = Math.max(
+    getPermissionLevel(message.sender.id),
+    getPermissionLevel(message.chatId),
+  );
 
   console.log("Received:", permissionLevel, message);
 
