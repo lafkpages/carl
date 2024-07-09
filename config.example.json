@@ -1,5 +1,6 @@
 {
   "$schema": "./config.schema.json",
+  "plugins": ["debug", "football", "random"],
   "whitelist": {
     "admin": [],
     "trusted": []
@@ -7,6 +8,5 @@
   "ratelimit": {
     "admin": 0,
     "trusted": 5
-  },
-  "footballDataDotOrgApiKey": null
+  }
 }

@@ -1,10 +1,91 @@
 import type { Message } from "venom-bot";
+import type { Command, Plugin } from "./plugins";
 
 import { create } from "venom-bot";
 
-import * as commands from "./commands";
+import { plugins as pluginsToLoad } from "../config.json";
 import { CommandError, CommandPermissionError } from "./error";
-import { getPermissionLevel } from "./perms";
+import { getPermissionLevel, PermissionLevel } from "./perms";
+
+const commands: Record<string, Command & { plugin: Plugin }> = {};
+const plugins: Plugin[] = [];
+
+function loadPlugin(plugin: Plugin) {
+  plugins.push(plugin);
+
+  for (const cmd of plugin.commands) {
+    if (cmd.name in commands) {
+      throw new Error(
+        `Command "${cmd.name}" is duplicated. Already loaded from plugin "${commands[cmd.name].plugin.name}", tried to load from plugin "${plugin.name}"`,
+      );
+    }
+
+    commands[cmd.name] = {
+      ...cmd,
+      plugin,
+    };
+  }
+}
+
+loadPlugin({
+  name: "Core",
+  description: "Core commands",
+  version: "0.0.1",
+
+  commands: [
+    {
+      name: "help",
+      description: "Shows this help message",
+      minLevel: PermissionLevel.NONE,
+
+      handler(message, client, rest) {
+        const showHidden = rest === "all";
+
+        let help = "Commands:";
+
+        // TODO: group commands by plugin
+
+        for (const [name, cmd] of Object.entries(commands)) {
+          if ("hidden" in cmd && cmd.hidden && !showHidden) {
+            continue;
+          }
+
+          help += `\n* \`/${name}\`: ${cmd.description}`;
+        }
+
+        return help;
+      },
+    },
+    {
+      name: "stop",
+      description: "Stop the bot",
+      minLevel: PermissionLevel.ADMIN,
+
+      handler(message, client) {
+        setTimeout(async () => {
+          await client.close();
+
+          setTimeout(() => {
+            process.exit();
+          }, 1000);
+        }, 1000);
+      },
+    },
+  ],
+});
+
+for (const pluginIdentifier of pluginsToLoad) {
+  console.log("Loading plugin:", pluginIdentifier);
+
+  let plugin: Plugin;
+  if (pluginIdentifier.includes("/")) {
+    plugin = (await import(pluginIdentifier)).default;
+  } else {
+    plugin = (await import(`./plugins/${pluginIdentifier}`)).default;
+  }
+
+  loadPlugin(plugin);
+}
 
 const client = await create({
   session: "session-name",

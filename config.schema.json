@@ -8,9 +8,12 @@
         "$schema": {
           "type": "string"
         },
-        "footballDataDotOrgApiKey": {
-          "description": "API key for https://www.football-data.org.",
-          "type": ["string", "null"]
+        "plugins": {
+          "description": "A list of plugins to load.\n\nEach plugin can either be a path to a plugin file, or the name of a built-in plugin.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
         },
         "ratelimit": {
           "additionalProperties": false,
@@ -47,7 +50,7 @@
           "type": "object"
         }
       },
-      "required": ["whitelist", "ratelimit", "footballDataDotOrgApiKey"],
+      "required": ["plugins", "whitelist", "ratelimit"],
       "type": "object"
     }
   }
