@@ -1,7 +1,9 @@
 import type { Command } from ".";
+
+import { randomUUID } from "node:crypto";
+
 import { CommandError } from "../error";
 import { PermissionLevel } from "../perms";
-import { randomUUID } from "node:crypto";
 
 export default {
   minLevel: PermissionLevel.NONE,
@@ -16,21 +18,21 @@ export default {
 
       if (isNaN(minNum) || isNaN(maxNum)) {
         throw new CommandError(
-          "Invalid minimum or maximum. Please provide two numbers. For example: `/random 1 5`"
+          "Invalid minimum or maximum. Please provide two numbers. For example: `/random 1 5`",
         );
       }
 
       if (minNum > maxNum) {
         throw new CommandError(
-          "The minimum number must be less than the maximum number"
+          "The minimum number must be less than the maximum number",
         );
       } else if (minNum === maxNum) {
         throw new CommandError(
-          "The minimum and maximum numbers must be different"
+          "The minimum and maximum numbers must be different",
         );
       } else if (minNum % 1 !== 0 || maxNum % 1 !== 0) {
         throw new CommandError(
-          "The minimum and maximum numbers must be integers"
+          "The minimum and maximum numbers must be integers",
         );
       } else {
         const randomNum =

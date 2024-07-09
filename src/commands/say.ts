@@ -1,4 +1,5 @@
 import type { Command } from ".";
+
 import { CommandPermissionError } from "../error";
 import { PermissionLevel } from "../perms";
 
@@ -14,7 +15,7 @@ export default {
         throw new CommandPermissionError(
           "say",
           PermissionLevel.ADMIN,
-          " with a chat specifier"
+          " with a chat specifier",
         );
       }
 

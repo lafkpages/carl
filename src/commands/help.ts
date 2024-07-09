@@ -1,7 +1,7 @@
 import type { Command } from ".";
-import { PermissionLevel } from "../perms";
 
 import * as commands from ".";
+import { PermissionLevel } from "../perms";
 
 export default {
   minLevel: PermissionLevel.NONE,

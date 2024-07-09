@@ -1,4 +1,5 @@
 import type { Command } from ".";
+
 import { PermissionLevel } from "../perms";
 
 export default {

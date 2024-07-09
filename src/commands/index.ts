@@ -12,7 +12,7 @@ export interface Command {
     message: Message,
     client: Whatsapp,
     rest: string,
-    permissionLevel: PermissionLevel
+    permissionLevel: PermissionLevel,
   ): MaybePromise<string | void>;
 }
 

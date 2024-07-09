@@ -1,4 +1,5 @@
 import type { Command } from ".";
+
 import { PermissionLevel } from "../perms";
 
 export default {
@@ -17,7 +18,7 @@ export default {
         await client.reply(
           message.from,
           `Result: ${Bun.inspect(result, { colors: false })}`,
-          message.id
+          message.id,
         );
       })
       .catch(async (err) => {
@@ -26,7 +27,7 @@ export default {
           `Error: ${Bun.inspect(err, {
             colors: false,
           })}`,
-          message.id
+          message.id,
         );
       });
   },

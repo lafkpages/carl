@@ -1,9 +1,10 @@
-import { create, type Message } from "venom-bot";
+import type { Message } from "venom-bot";
 
-import { getPermissionLevel } from "./perms";
+import { create } from "venom-bot";
 
 import * as commands from "./commands";
 import { CommandError, CommandPermissionError } from "./error";
+import { getPermissionLevel } from "./perms";
 
 const client = await create({
   session: "session-name",
@@ -26,7 +27,7 @@ client.onMessage(async (message) => {
             message,
             client,
             rest || "",
-            permissionLevel
+            permissionLevel,
           );
 
           if (result) {
@@ -38,14 +39,14 @@ client.onMessage(async (message) => {
       } else {
         await handleError(
           new CommandPermissionError(command, cmd.minLevel),
-          message
+          message,
         );
       }
     } else {
       await client.reply(
         message.from,
         `Unknown command \`${command}\``,
-        message.id
+        message.id,
       );
     }
   } else if (message.chatId === message.sender.id) {
@@ -64,7 +65,7 @@ async function handleError(error: unknown, message: Message) {
     await client.reply(
       message.from,
       `Error:\n${Bun.inspect(error, { colors: false })}`,
-      message.id
+      message.id,
     );
   }
 }
