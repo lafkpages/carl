@@ -80,6 +80,17 @@ export default {
           case "b":
             return Math.random() < 0.5;
 
+          case "coinflip":
+          case "coin":
+          case "c":
+          case "flip": {
+            await client.sendReactions(
+              message.id,
+              Math.random() < 0.5 ? "🪙" : "👑",
+            );
+            return;
+          }
+
           default:
             throw new CommandError(`\
 Invalid arguments. Please either provide two numbers, or a data type. For example:
@@ -90,7 +101,8 @@ Valid data types:
 * \`uuid\`
 * \`letter\`
 * \`number\`
-* \`boolean\`\
+* \`boolean\`
+* \`coinflip\`\
 `);
         }
       },
