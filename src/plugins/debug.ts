@@ -7,6 +7,7 @@ export default {
   name: "Debug tools",
   description: "Helps debug WhatsApp PA core and plugins",
   version: "0.0.1",
+  hidden: true,
 
   commands: [
     {
