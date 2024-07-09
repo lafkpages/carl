@@ -17,6 +17,7 @@ export interface Command {
 }
 
 export { default as eval } from "./eval";
+export { default as football } from "./football";
 export { default as help } from "./help";
 export { default as permerror } from "./permerror";
 export { default as random } from "./random";
