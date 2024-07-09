@@ -6,6 +6,11 @@ export interface Plugin {
   description: string;
   version: string;
 
+  /**
+   * Whether this plugin should be hidden from the help command
+   */
+  hidden?: boolean;
+
   commands: Command[];
 }
 

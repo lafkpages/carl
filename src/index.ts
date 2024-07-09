@@ -35,25 +35,34 @@ loadPlugin({
   commands: [
     {
       name: "help",
-      description: "Shows this help message",
+      description:
+        "Shows this help message (use `/help all` to show hidden commands)",
       minLevel: PermissionLevel.NONE,
 
       handler(message, client, rest) {
         const showHidden = rest === "all";
 
-        let help = "Commands:";
+        let msg = "Plugins:";
 
-        // TODO: group commands by plugin
-
-        for (const [name, cmd] of Object.entries(commands)) {
-          if ("hidden" in cmd && cmd.hidden && !showHidden) {
+        for (const plugin of plugins) {
+          if (plugin.hidden && !showHidden) {
             continue;
           }
 
-          help += `\n* \`/${name}\`: ${cmd.description}`;
+          msg += `\n\n*${plugin.name}* (${plugin.version})`;
+          msg += `\n> ${plugin.description}`;
+          msg += `\nCommands:`;
+
+          for (const command of plugin.commands) {
+            if (command.hidden && !showHidden) {
+              continue;
+            }
+
+            msg += `\n* \`/${command.name}\`: ${command.description}`;
+          }
         }
 
-        return help;
+        return msg;
       },
     },
     {
