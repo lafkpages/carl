@@ -7,6 +7,10 @@ import { plugins as pluginsToLoad } from "../config.json";
 import { CommandError, CommandPermissionError } from "./error";
 import { getPermissionLevel, PermissionLevel } from "./perms";
 
+if (!process.isBun) {
+  throw new Error("WhatsApp PA must be run with Bun");
+}
+
 const commands: Record<string, Command & { plugin: Plugin }> = {};
 const plugins: Plugin[] = [];
 
