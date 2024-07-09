@@ -1,0 +1,50 @@
+{
+  "$ref": "#/definitions/Config",
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "definitions": {
+    "Config": {
+      "additionalProperties": false,
+      "properties": {
+        "$schema": {
+          "type": "string"
+        },
+        "ratelimit": {
+          "additionalProperties": false,
+          "description": "How many seconds to wait before allowing a user to run a command again.",
+          "properties": {
+            "admin": {
+              "type": "number"
+            },
+            "trusted": {
+              "type": "number"
+            }
+          },
+          "required": ["admin", "trusted"],
+          "type": "object"
+        },
+        "whitelist": {
+          "additionalProperties": false,
+          "description": "User IDs that should be given certain permissions.",
+          "properties": {
+            "admin": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "trusted": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            }
+          },
+          "required": ["admin", "trusted"],
+          "type": "object"
+        }
+      },
+      "required": ["whitelist", "ratelimit"],
+      "type": "object"
+    }
+  }
+}
