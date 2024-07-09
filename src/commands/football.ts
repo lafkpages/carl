@@ -23,7 +23,7 @@ export default {
       throw new CommandError("No matches today.");
     }
 
-    let msg = "Matches:";
+    let msg = "Today's matches:";
 
     for (const match of data.matches) {
       const date = new Date(match.utcDate).getTime();
