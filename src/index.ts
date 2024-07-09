@@ -139,6 +139,10 @@ const client = await create({
 });
 
 client.onMessage(async (message) => {
+  if (message.type !== "chat") {
+    return;
+  }
+
   const permissionLevel = getPermissionLevel(message.sender.id);
 
   console.log("Received:", permissionLevel, message);
