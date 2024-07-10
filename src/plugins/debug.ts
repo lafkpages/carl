@@ -24,6 +24,15 @@ ${Bun.inspect(message, { colors: false })}
       },
     },
     {
+      name: "chatid",
+      description: "Get the chat ID",
+      minLevel: PermissionLevel.NONE,
+
+      handler(message) {
+        return `\`${message.chatId}\``;
+      },
+    },
+    {
       name: "ping",
       description: "Check the bot's latency",
       minLevel: PermissionLevel.NONE,
