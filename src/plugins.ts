@@ -32,12 +32,14 @@ export interface Command {
    */
   hidden?: boolean;
 
-  handler(
-    message: Message,
-    client: Whatsapp,
-    rest: string,
-    permissionLevel: PermissionLevel,
-  ): MaybePromise<string | boolean | void>;
+  handler({}: {
+    message: Message;
+    rest: string;
+
+    permissionLevel: PermissionLevel;
+
+    client: Whatsapp;
+  }): MaybePromise<string | boolean | void>;
 }
 
 type MaybePromise<T> = T | Promise<T>;

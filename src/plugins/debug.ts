@@ -16,7 +16,7 @@ export default {
       description: "Get handy debug information",
       minLevel: PermissionLevel.NONE,
 
-      handler(message) {
+      handler({ message }) {
         return `\
 \`\`\`
 ${Bun.inspect(message, { colors: false })}
@@ -24,12 +24,12 @@ ${Bun.inspect(message, { colors: false })}
       },
     },
     {
-      name: "chatid",
-      description: "Get the chat ID",
+      name: "botid",
+      description: "Get the bot's ID",
       minLevel: PermissionLevel.NONE,
 
-      handler(message) {
-        return `\`${message.chatId}\``;
+      handler({ message }) {
+        return `\`${message.to}\``;
       },
     },
     {
@@ -37,7 +37,7 @@ ${Bun.inspect(message, { colors: false })}
       description: "Check the bot's latency",
       minLevel: PermissionLevel.NONE,
 
-      async handler(message, client) {
+      async handler({ message, client }) {
         const start = Date.now();
 
         await client.sendReactions(message.from, "\u{1F3D3}");
@@ -50,7 +50,7 @@ ${Bun.inspect(message, { colors: false })}
       description: "Evaluate JavaScript code",
       minLevel: PermissionLevel.ADMIN,
 
-      async handler(message, client, rest) {
+      async handler({ rest }) {
         return `Result: ${Bun.inspect(
           await new Promise((resolve, reject) => {
             try {
@@ -68,7 +68,7 @@ ${Bun.inspect(message, { colors: false })}
       description: "Send a message, optionally to a specific chat",
       minLevel: PermissionLevel.TRUSTED,
 
-      async handler(message, client, _rest, permissionLevel) {
+      async handler({ message, client, rest, permissionLevel }) {
         if (message.mentionedJidList?.length) {
           for (const jid of message.mentionedJidList) {
             await client.sendText(jid, message.body.slice(5));
@@ -77,9 +77,9 @@ ${Bun.inspect(message, { colors: false })}
           return true;
         }
 
-        const [, to, rest] = _rest.match(/^(\S+) (.+)$/s) || [];
+        const [, to, msg] = rest.match(/^(\S+) (.+)$/s) || [];
 
-        if (to && rest) {
+        if (to && msg) {
           if (permissionLevel < PermissionLevel.ADMIN) {
             throw new CommandPermissionError(
               "say",
@@ -88,7 +88,7 @@ ${Bun.inspect(message, { colors: false })}
             );
           }
 
-          await client.sendText(to, rest);
+          await client.sendText(to, msg);
 
           return true;
         } else {

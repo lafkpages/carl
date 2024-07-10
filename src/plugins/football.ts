@@ -185,6 +185,8 @@ export default {
   async onLoad(client) {
     await fetchMatches();
 
+    console.debug("[football] Starting match update interval...");
+
     checkInterval = setInterval(async () => {
       const oldMatches = latestMatches;
       const oldMatchesRecord: Record<
@@ -260,6 +262,7 @@ export default {
   },
 
   onUnload() {
+    console.debug("[football] Stopping match update interval...");
     clearInterval(checkInterval);
   },
 } satisfies Plugin;

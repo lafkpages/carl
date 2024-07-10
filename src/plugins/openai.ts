@@ -1,3 +1,4 @@
+import type { Message } from "venom-bot";
 import type { Plugin } from "../plugins";
 
 import OpenAI from "openai";
@@ -18,16 +19,20 @@ export default {
       description: "Ask a question to AI",
       minLevel: PermissionLevel.TRUSTED,
 
-      async handler(message, client, rest, permissionLevel) {
+      async handler({ message, client, rest }) {
         // todo: handle thread of replies as chat history
+        // for future self: this is really hard, good luck
+
+        const messages: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = [
+          {
+            name: message.from,
+            role: "user",
+            content: rest,
+          },
+        ];
 
         const completion = await openai.chat.completions.create({
-          messages: [
-            {
-              role: "user",
-              content: rest,
-            },
-          ],
+          messages,
           model: "gpt-3.5-turbo",
         });
 

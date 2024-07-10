@@ -70,7 +70,7 @@ const corePlugin: Plugin = {
         "Shows this help message (use `/help all` to show hidden commands)",
       minLevel: PermissionLevel.NONE,
 
-      handler(message, client, rest) {
+      handler({ rest }) {
         const showHidden = rest === "all";
 
         let msg = "Plugins:";
@@ -102,7 +102,7 @@ const corePlugin: Plugin = {
       minLevel: PermissionLevel.ADMIN,
 
       async handler() {
-        console.log("[core] Triggering graceful stop");
+        console.log("[core/stop] Triggering graceful stop");
 
         stopGracefully();
 
@@ -115,7 +115,7 @@ const corePlugin: Plugin = {
       minLevel: PermissionLevel.ADMIN,
 
       async handler() {
-        console.log("[core] Triggering force stop");
+        console.log("[core/forcestop] Triggering force stop");
 
         stop();
 
@@ -127,7 +127,7 @@ const corePlugin: Plugin = {
       description: "Reload plugins",
       minLevel: PermissionLevel.ADMIN,
 
-      async handler(message, client, rest) {
+      async handler({ rest }) {
         rest = rest.trim().toLowerCase();
 
         const pluginsToReload = rest ? new Set(rest.split(/[,\s]+/)) : null;
@@ -143,7 +143,7 @@ const corePlugin: Plugin = {
           }
 
           if (plugin.onUnload) {
-            console.log("Unloading plugin on reload:", plugin.id);
+            console.log("[core/reload] Unloading plugin:", plugin.id);
             plugin.onUnload(client);
           }
         }
@@ -179,6 +179,18 @@ const corePlugin: Plugin = {
         }
         await loadPluginsFromConfig(pluginsToReload);
 
+        // Fire plugin onLoad events
+        for (const plugin of plugins) {
+          if (pluginsToReload && !pluginsToReload.has(plugin.id)) {
+            continue;
+          }
+
+          if (plugin.onLoad) {
+            console.log("[core/reload] Loading plugin:", plugin.id);
+            await plugin.onLoad(client);
+          }
+        }
+
         return true;
       },
     },
@@ -190,7 +202,7 @@ loadPlugin(corePlugin);
 await loadPluginsFromConfig();
 
 const client = await create({
-  session: "session-name",
+  session: "pa",
 });
 
 // Fire plugin onLoad events
@@ -216,12 +228,12 @@ client.onMessage(async (message) => {
 
       if (permissionLevel >= cmd.minLevel) {
         try {
-          const result = await cmd.handler(
+          const result = await cmd.handler({
             message,
             client,
-            rest || "",
+            rest: rest || "",
             permissionLevel,
-          );
+          });
 
           if (typeof result === "string") {
             await client.reply(message.from, result, message.id);
@@ -259,6 +271,9 @@ async function handleError(error: unknown, message: Message) {
   if (error instanceof CommandError) {
     await client.reply(message.from, `Error: ${error.message}`, message.id);
   } else {
+    console.error("Error while handling command");
+    console.error(error);
+
     await client.reply(
       message.from,
       `Error:\n\`\`\`\n${Bun.inspect(error, { colors: false })}\`\`\``,
