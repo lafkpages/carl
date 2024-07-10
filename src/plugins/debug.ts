@@ -16,26 +16,11 @@ export default {
       description: "Get handy debug information",
       minLevel: PermissionLevel.NONE,
 
-      handler(message, client, rest, permissionLevel) {
-        let msg = `\
-Permission level: \`${permissionLevel}\` (${PermissionLevel[permissionLevel]})
-
-Message ID: \`${message.id}\`
-Chat ID: \`${message.chatId}\`
-
-From: \`${message.from}\`
-Author: \`${message.author}\`
-Sender: \`${message.sender.id}\``;
-
-        if (rest) {
-          msg += `\n\nRest: \`${rest}\``;
-        }
-
-        if (message.quotedMsg) {
-          msg += `\n\nQuoted message:\n\`\`\`\n${Bun.inspect(message.quotedMsg, { colors: false })}\n\`\`\``;
-        }
-
-        return msg;
+      handler(message) {
+        return `\
+\`\`\`
+${Bun.inspect(message, { colors: false })}
+\`\`\``;
       },
     },
     {
