@@ -48,7 +48,7 @@ Sender: \`${message.sender.id}\``;
 
         await client.sendReactions(message.from, "\u{1F3D3}");
 
-        return `Latency: ${start - message.timestamp}ms`;
+        return `Latency: ${start - message.timestamp * 1000}ms`;
       },
     },
     {
