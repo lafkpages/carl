@@ -1,4 +1,3 @@
-import type { Message } from "venom-bot";
 import type { Plugin } from "../plugins";
 
 import OpenAI from "openai";
