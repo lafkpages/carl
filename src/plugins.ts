@@ -1,3 +1,4 @@
+import type { Database } from "bun:sqlite";
 import type { Message, Whatsapp } from "venom-bot";
 import type { PermissionLevel } from "./perms";
 
@@ -12,10 +13,16 @@ export interface Plugin {
    */
   hidden?: boolean;
 
+  /**
+   * Whether this plugin requires an isolated SQLite database for
+   * persistent storage of plugin-specific data
+   */
+  database?: boolean;
+
   commands: Command[];
 
-  onLoad?(client: Whatsapp): MaybePromise<void>;
-  onUnload?(client: Whatsapp): MaybePromise<void>;
+  onLoad?(client: Whatsapp, database: Database | null): MaybePromise<void>;
+  onUnload?(client: Whatsapp, database: Database | null): MaybePromise<void>;
 }
 
 export interface Command {
@@ -39,6 +46,8 @@ export interface Command {
     permissionLevel: PermissionLevel;
 
     client: Whatsapp;
+
+    database: Database | null;
   }): MaybePromise<string | boolean | void>;
 }
 

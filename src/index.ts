@@ -1,6 +1,7 @@
 import type { Message } from "venom-bot";
 import type { Command, Plugin } from "./plugins";
 
+import { Database } from "bun:sqlite";
 import { create } from "venom-bot";
 
 import { plugins as configPlugins } from "../config.json";
@@ -11,13 +12,19 @@ if (!process.isBun) {
   throw new Error("WhatsApp PA must be run with Bun");
 }
 
-const commands: Record<string, Command & { plugin: Plugin }> = {};
-const plugins: Plugin[] = [];
+type InternalPlugin = Plugin & {
+  _db: Database | null;
+};
+const commands: Record<string, Command & { plugin: InternalPlugin }> = {};
+const plugins: InternalPlugin[] = [];
 
 function loadPlugin(plugin: Plugin) {
   console.log("Loading plugin:", plugin.name);
 
-  plugins.push(plugin);
+  const _db = plugin.database ? new Database(`db/${plugin.id}.sqlite`) : null;
+  const _plugin = { ...plugin, _db };
+
+  plugins.push(_plugin);
 
   for (const cmd of plugin.commands) {
     if (cmd.name in commands) {
@@ -28,7 +35,7 @@ function loadPlugin(plugin: Plugin) {
 
     commands[cmd.name] = {
       ...cmd,
-      plugin,
+      plugin: _plugin,
     };
   }
 }
@@ -144,7 +151,7 @@ const corePlugin: Plugin = {
 
           if (plugin.onUnload) {
             console.log("[core/reload] Unloading plugin:", plugin.id);
-            plugin.onUnload(client);
+            plugin.onUnload(client, plugin._db);
           }
         }
 
@@ -181,14 +188,7 @@ const corePlugin: Plugin = {
 
         // Fire plugin onLoad events
         for (const plugin of plugins) {
-          if (pluginsToReload && !pluginsToReload.has(plugin.id)) {
-            continue;
-          }
-
-          if (plugin.onLoad) {
-            console.log("[core/reload] Loading plugin:", plugin.id);
-            await plugin.onLoad(client);
-          }
+          await plugin.onLoad?.(client, plugin._db);
         }
 
         return true;
@@ -207,7 +207,7 @@ const client = await create({
 
 // Fire plugin onLoad events
 for (const plugin of plugins) {
-  await plugin.onLoad?.(client);
+  await plugin.onLoad?.(client, plugin._db);
 }
 
 client.onMessage(async (message) => {
@@ -233,6 +233,7 @@ client.onMessage(async (message) => {
             client,
             rest: rest || "",
             permissionLevel,
+            database: cmd.plugin._db,
           });
 
           if (typeof result === "string") {
@@ -286,7 +287,7 @@ async function stopGracefully() {
   for (const plugin of plugins) {
     if (plugin.onUnload) {
       console.log("Unloading plugin on graceful stop:", plugin.id);
-      plugin.onUnload(client);
+      plugin.onUnload(client, plugin._db);
     }
   }
 
