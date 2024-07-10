@@ -48,6 +48,7 @@ const matchSchema = object({
 
   competition: object({
     name: string(),
+    code: string(),
   }),
 
   homeTeam: teamSchema,
@@ -67,10 +68,16 @@ const matchesSchema = object({
 
 let latestMatches: InferOutput<typeof matchesSchema>["matches"] = [];
 
-async function fetchMatches() {
+async function fetchMatches(competitions?: string[] | null) {
   console.log("[football] Fetching matches...");
 
-  const resp = await fetch("https://api.football-data.org/v4/matches", {
+  const url = new URL("https://api.football-data.org/v4/matches");
+
+  if (competitions) {
+    url.searchParams.set("competitions", competitions.join(","));
+  }
+
+  const resp = await fetch(url, {
     headers: {
       "x-auth-token": footballDataDotOrgApiKey!,
     },
@@ -93,7 +100,11 @@ async function fetchMatches() {
   return data;
 }
 
-let subscribedChatIds: Set<string> = new Set();
+function parseCompetitionsList(rest: string) {
+  return rest ? rest.toUpperCase().split(/[,\s]+/) : null;
+}
+
+let subscribedChatIds: Record<string, string[] | null> = {};
 let checkInterval: Timer;
 
 export default {
@@ -108,8 +119,8 @@ export default {
       description: "Shows today's football matches",
       minLevel: PermissionLevel.TRUSTED,
 
-      async handler() {
-        const { matches } = await fetchMatches();
+      async handler({ rest }) {
+        const { matches } = await fetchMatches(parseCompetitionsList(rest));
 
         if (!matches.length) {
           throw new CommandError("No matches today.");
@@ -125,20 +136,26 @@ export default {
           const formattedDate = prettyDate(dateNumber, "date-time-human");
           const localeDate = date.toLocaleString();
 
-          const starts = now > dateNumber ? "Starts" : "Started";
+          const starts = now > dateNumber ? "Started" : "Starts";
 
-          const winner =
-            {
-              HOME_TEAM: match.homeTeam.shortName,
-              AWAY_TEAM: match.awayTeam.shortName,
-              DRAW: "Draw",
-            }[match.score.winner || ""] || "_N/A_";
+          const shouldShowWinner = match.status === "FINISHED";
+          const winner = shouldShowWinner
+            ? {
+                HOME_TEAM: match.homeTeam.shortName,
+                AWAY_TEAM: match.awayTeam.shortName,
+                DRAW: "Draw",
+              }[match.score.winner || ""] || "_N/A_"
+            : "";
 
           msg += `\n\n*${match.homeTeam.shortName} vs ${match.awayTeam.shortName}*`;
-          msg += `\n* ${match.competition.name}`;
+          msg += `\n* ${match.competition.name} (\`${match.competition.code}\`)`;
           msg += `\n* ${starts}: ${formattedDate} (${localeDate})`;
           msg += `\n* Status: ${match.status}`;
-          msg += `\n* Winner: ${winner}`;
+
+          if (shouldShowWinner) {
+            msg += `\n* Winner: ${winner}`;
+          }
+
           if (match.score.halfTime.home !== null) {
             msg += `\n* Half time scores: ${match.score.halfTime.home} - ${match.score.halfTime.away}`;
           }
@@ -155,12 +172,12 @@ export default {
       description: "Subscribe the current chat to football match updates",
       minLevel: PermissionLevel.TRUSTED,
 
-      async handler(message) {
-        if (subscribedChatIds.has(message.chatId)) {
+      async handler({ message, rest }) {
+        if (message.chatId in subscribedChatIds) {
           throw new CommandError("This chat is already subscribed.");
         }
 
-        subscribedChatIds.add(message.chatId);
+        subscribedChatIds[message.chatId] = parseCompetitionsList(rest);
 
         return true;
       },
@@ -170,12 +187,12 @@ export default {
       description: "Unsubscribe the current chat from football match updates",
       minLevel: PermissionLevel.TRUSTED,
 
-      async handler(message) {
-        if (!subscribedChatIds.has(message.chatId)) {
+      async handler({ message }) {
+        if (!(message.chatId in subscribedChatIds)) {
           throw new CommandError("This chat is not subscribed.");
         }
 
-        subscribedChatIds.delete(message.chatId);
+        delete subscribedChatIds[message.chatId];
 
         return true;
       },
@@ -208,7 +225,8 @@ export default {
       }
 
       if (latestMatches.length !== oldMatches.length) {
-        for (const chatId of subscribedChatIds) {
+        // TODO: filter out matches that are not in the subscribed competitions
+        for (const chatId in subscribedChatIds) {
           await client.sendText(
             chatId,
             "New football matches available! Use `/football` to see them.",
@@ -224,7 +242,16 @@ export default {
         }
 
         if (oldMatch.status !== match.status) {
-          for (const chatId of subscribedChatIds) {
+          for (const chatId in subscribedChatIds) {
+            const chatSubscribedCompetitions = subscribedChatIds[chatId];
+
+            if (
+              chatSubscribedCompetitions &&
+              !chatSubscribedCompetitions.includes(match.competition.code)
+            ) {
+              continue;
+            }
+
             await client.sendText(
               chatId,
               `Match update\n\n*${match.homeTeam.shortName} vs ${match.awayTeam.shortName}*\n* Status: ${match.status}`,
@@ -236,7 +263,16 @@ export default {
           oldMatch.score.fullTime.home !== match.score.fullTime.home ||
           oldMatch.score.fullTime.away !== match.score.fullTime.away
         ) {
-          for (const chatId of subscribedChatIds) {
+          for (const chatId in subscribedChatIds) {
+            const chatSubscribedCompetitions = subscribedChatIds[chatId];
+
+            if (
+              chatSubscribedCompetitions &&
+              !chatSubscribedCompetitions.includes(match.competition.code)
+            ) {
+              continue;
+            }
+
             await client.sendText(
               chatId,
               `Match update\n\n*${match.homeTeam.shortName} vs ${match.awayTeam.shortName}*\n* Full time scores: ${match.score.fullTime.home} - ${match.score.fullTime.away}`,
@@ -248,7 +284,17 @@ export default {
           oldMatch.score.halfTime.home !== match.score.halfTime.home ||
           oldMatch.score.halfTime.away !== match.score.halfTime.away
         ) {
-          for (const chatId of subscribedChatIds) {
+          for (const chatId in subscribedChatIds) {
+            const chatSubscribedCompetitions = subscribedChatIds[chatId];
+
+            // TODO: DRY
+            if (
+              chatSubscribedCompetitions &&
+              !chatSubscribedCompetitions.includes(match.competition.code)
+            ) {
+              continue;
+            }
+
             await client.sendText(
               chatId,
               `Match update\n\n*${match.homeTeam.shortName} vs ${match.awayTeam.shortName}*\n* Half time scores: ${match.score.halfTime.home} - ${match.score.halfTime.away}`,
