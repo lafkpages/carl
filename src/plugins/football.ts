@@ -35,6 +35,7 @@ const matchSchema = object({
   utcDate: string(),
 
   status: picklist([
+    "TIMED",
     "SCHEDULED",
     "LIVE",
     "IN_PLAY",
