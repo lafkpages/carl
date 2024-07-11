@@ -122,6 +122,7 @@ const corePlugin: Plugin = {
       name: "stop",
       description: "Stop the bot gracefully",
       minLevel: PermissionLevel.ADMIN,
+      hidden: true,
 
       async handler() {
         console.log("[core/stop] Triggering graceful stop");
@@ -135,6 +136,7 @@ const corePlugin: Plugin = {
       name: "forcestop",
       description: "Stop the bot without unloading plugins",
       minLevel: PermissionLevel.ADMIN,
+      hidden: true,
 
       async handler() {
         console.log("[core/forcestop] Triggering force stop");
@@ -148,6 +150,7 @@ const corePlugin: Plugin = {
       name: "reload",
       description: "Reload plugins",
       minLevel: PermissionLevel.ADMIN,
+      hidden: true,
 
       async handler({ rest }) {
         rest = rest.trim().toLowerCase();
