@@ -426,3 +426,5 @@ async function stop() {
   console.log("Exiting process on stop");
   process.exit();
 }
+
+process.on("SIGINT", stopGracefully);
