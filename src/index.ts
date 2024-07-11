@@ -69,6 +69,12 @@ async function loadPluginsFromConfig(idsToLoad?: Set<string> | null) {
       plugin = (await import(`../${pluginIdentifier}?${now}`)).default;
     } else {
       plugin = (await import(`./plugins/${pluginIdentifier}?${now}`)).default;
+
+      if (plugin.id !== pluginIdentifier) {
+        throw new Error(
+          `Built-in plugin ID "${plugin.id}" does not match plugin file name "${pluginIdentifier}". This is a WhatsApp PA bug. Please report this issue.`,
+        );
+      }
     }
 
     if (idsToLoad && !idsToLoad.has(plugin.id)) {
