@@ -259,6 +259,9 @@ client.onMessage(async (message) => {
   const quotedMsgId = getMessageId(message.quotedMsg);
   if (quotedMsgId && quotedMsgId in interactionContinuations) {
     try {
+      client.markMarkSeenMessage(message.from);
+      client.startTyping(message.from, true);
+
       const {
         handler: interactionContinuationHandler,
         _data,
@@ -281,12 +284,14 @@ client.onMessage(async (message) => {
       await handleError(err, message);
     }
 
-    await client.markMarkSeenMessage(message.from);
-
     return;
   }
 
   if (command) {
+    client.markMarkSeenMessage(message.from);
+    client.startTyping(message.from, true);
+    // TODO: figure out what the second argument does
+
     if (command in commands) {
       const cmd = commands[command as keyof typeof commands];
 
@@ -321,8 +326,6 @@ client.onMessage(async (message) => {
   } else if (message.chatId === message.sender.id) {
     await client.sendReactions(message.id, "\u2753");
   }
-
-  await client.markMarkSeenMessage(message.from);
 });
 
 async function handleHandlerResult(
@@ -332,7 +335,8 @@ async function handleHandlerResult(
 ) {
   const isInteractionContinuation =
     result instanceof InteractionContinuation ||
-    // Also check for objects with _interactionContinuation property because instanceof doesn't work across module boundaries
+    // Also check for interaction continuations objects without using instanceof
+    // because instanceof doesn't work across module boundaries
     (typeof result === "object" && "handler" in result);
 
   if (isInteractionContinuation) {
