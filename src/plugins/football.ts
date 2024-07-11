@@ -1,3 +1,4 @@
+import type { Logger } from "pino";
 import type { InferOutput } from "valibot";
 import type { Plugin } from "../plugins";
 
@@ -68,8 +69,8 @@ const matchesSchema = object({
 
 let latestMatches: InferOutput<typeof matchesSchema>["matches"] = [];
 
-async function fetchMatches(competitions?: string[] | null) {
-  console.log("[football] Fetching matches...");
+async function fetchMatches(logger: Logger, competitions?: string[] | null) {
+  logger.info("Fetching matches...");
 
   const url = new URL("https://api.football-data.org/v4/matches");
 
@@ -119,8 +120,11 @@ export default {
       description: "Shows today's football matches",
       minLevel: PermissionLevel.TRUSTED,
 
-      async handler({ rest }) {
-        const { matches } = await fetchMatches(parseCompetitionsList(rest));
+      async handler({ rest, logger }) {
+        const { matches } = await fetchMatches(
+          logger,
+          parseCompetitionsList(rest),
+        );
 
         if (!matches.length) {
           throw new CommandError("No matches today.");
@@ -199,10 +203,10 @@ export default {
     },
   ],
 
-  async onLoad(client) {
-    await fetchMatches();
+  async onLoad({ client, logger }) {
+    await fetchMatches(logger);
 
-    console.debug("[football] Starting match update interval...");
+    logger.debug("Starting match update interval...");
 
     checkInterval = setInterval(async () => {
       const oldMatches = latestMatches;
@@ -214,7 +218,7 @@ export default {
         oldMatchesRecord[match.id] = match;
       }
 
-      await fetchMatches();
+      await fetchMatches(logger);
 
       const latestMatchesRecord: Record<
         number,
@@ -307,8 +311,8 @@ export default {
     checkInterval.unref();
   },
 
-  onUnload() {
-    console.debug("[football] Stopping match update interval...");
+  onUnload({ logger }) {
+    logger.debug("Stopping match update interval...");
     clearInterval(checkInterval);
   },
 } satisfies Plugin;

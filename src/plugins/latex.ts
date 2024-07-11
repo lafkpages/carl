@@ -19,7 +19,7 @@ export default {
       description: "Render a LaTeX equation",
       minLevel: PermissionLevel.TRUSTED,
 
-      async handler({ message, rest, client }) {
+      async handler({ message, rest, client, logger }) {
         rest = rest.trim();
 
         if (!rest) {
@@ -55,7 +55,7 @@ export default {
           );
         }
 
-        console.log(`[plugins/latex] Rendered LaTeX equation: ${imageUrl}`);
+        logger.info({ imageUrl }, "Rendered LaTeX equation");
 
         // TODO: why is the image so massive?
         await client.sendImage(
@@ -70,8 +70,8 @@ export default {
     },
   ],
 
-  async onLoad() {
-    console.log("[plugins/latex] Fetching latex2image endpoint");
+  async onLoad({ logger }) {
+    logger.debug("Fetching latex2image endpoint");
 
     [, , latex2imageEndpoint] =
       (
@@ -84,6 +84,6 @@ export default {
       throw new Error("Failed to get latex2image endpoint");
     }
 
-    console.log(`[plugins/latex] latex2image endpoint: ${latex2imageEndpoint}`);
+    logger.debug({ latex2imageEndpoint }, "Fetched latex2image endpoint");
   },
 } satisfies Plugin;

@@ -1,3 +1,4 @@
+import type { Logger } from "pino";
 import type { Message } from "venom-bot";
 import type {
   Command,
@@ -9,6 +10,7 @@ import type {
 import { mkdir } from "node:fs/promises";
 
 import { Database } from "bun:sqlite";
+import { pino } from "pino";
 import { create } from "venom-bot";
 
 import { plugins as configPlugins } from "../config.json";
@@ -17,40 +19,55 @@ import { getPermissionLevel, PermissionLevel } from "./perms";
 import { InteractionContinuation } from "./plugins";
 import { getMessageId } from "./utils";
 
+const logger = pino({ base: null });
+
 if (!process.isBun) {
-  throw new Error("WhatsApp PA must be run with Bun");
+  logger.fatal("WhatsApp PA must be run with Bun");
+  process.exit(1);
 }
 
 await mkdir("db", { recursive: true });
 
 type InternalPlugin = Plugin & {
+  _logger: Logger;
   _db: Database | null;
 };
-const commands: Record<string, Command & { plugin: InternalPlugin }> = {};
+type InternalCommand = Command & { plugin: InternalPlugin; _logger: Logger };
+const commands: Record<string, InternalCommand> = {};
 const plugins: InternalPlugin[] = [];
 
 function loadPlugin(plugin: Plugin) {
-  console.log("Loading plugin:", plugin.name);
+  logger.info({ plugin }, "Loading plugin");
+
+  const _logger = logger.child({ pluginId: plugin.id });
 
   const _db = plugin.database
     ? new Database(`db/${plugin.id}.sqlite`, { strict: true })
     : null;
   _db?.exec("PRAGMA journal_mode = WAL;");
 
-  const _plugin = { ...plugin, _db };
+  const _plugin = { ...plugin, _logger, _db };
 
   plugins.push(_plugin);
 
   for (const cmd of plugin.commands) {
     if (cmd.name in commands) {
-      throw new Error(
-        `Command "${cmd.name}" is duplicated. Already loaded from plugin "${commands[cmd.name].plugin.name}", tried to load from plugin "${plugin.name}"`,
+      logger.error(
+        {
+          cmdName: cmd.name,
+          existingPlugin: commands[cmd.name].plugin.id,
+          newPlugin: plugin.id,
+        },
+        "Duplicate command, dupe not loaded",
       );
+
+      continue;
     }
 
     commands[cmd.name] = {
       ...cmd,
       plugin: _plugin,
+      _logger: _logger.child({ command: cmd.name }),
     };
   }
 }
@@ -59,7 +76,7 @@ async function loadPluginsFromConfig(idsToLoad?: Set<string> | null) {
   const now = Date.now();
 
   for (const pluginIdentifier of configPlugins) {
-    console.log("Importing plugin:", pluginIdentifier);
+    logger.info({ pluginIdentifier }, "Importing plugin");
 
     // add a cache buster to the import path
     // so that plugins can be reloaded
@@ -71,8 +88,12 @@ async function loadPluginsFromConfig(idsToLoad?: Set<string> | null) {
       plugin = (await import(`./plugins/${pluginIdentifier}?${now}`)).default;
 
       if (plugin.id !== pluginIdentifier) {
-        throw new Error(
-          `Built-in plugin ID "${plugin.id}" does not match plugin file name "${pluginIdentifier}". This is a WhatsApp PA bug. Please report this issue.`,
+        logger.error(
+          {
+            pluginId: plugin.id,
+            pluginIdentifier,
+          },
+          "Built-in plugin ID does not match plugin file name. This is a WhatsApp PA bug. Please report this issue.",
         );
       }
     }
@@ -131,10 +152,7 @@ const corePlugin: Plugin = {
       hidden: true,
 
       async handler() {
-        console.log("[core/stop] Triggering graceful stop");
-
         stopGracefully();
-
         return true;
       },
     },
@@ -145,10 +163,7 @@ const corePlugin: Plugin = {
       hidden: true,
 
       async handler() {
-        console.log("[core/forcestop] Triggering force stop");
-
         stop();
-
         return true;
       },
     },
@@ -158,7 +173,7 @@ const corePlugin: Plugin = {
       minLevel: PermissionLevel.ADMIN,
       hidden: true,
 
-      async handler({ rest }) {
+      async handler({ rest, logger }) {
         rest = rest.trim().toLowerCase();
 
         const pluginsToReload = rest ? new Set(rest.split(/[,\s]+/)) : null;
@@ -174,8 +189,18 @@ const corePlugin: Plugin = {
           }
 
           if (plugin.onUnload) {
-            console.log("[core/reload] Unloading plugin:", plugin.id);
-            plugin.onUnload(client, plugin._db);
+            logger.info(
+              {
+                unloadPluginId: plugin.id,
+              },
+              "Unloading plugin",
+            );
+            plugin.onUnload({
+              client,
+              logger: plugin._logger,
+
+              database: plugin._db,
+            });
           }
         }
 
@@ -212,7 +237,12 @@ const corePlugin: Plugin = {
 
         // Fire plugin onLoad events
         for (const plugin of plugins) {
-          await plugin.onLoad?.(client, plugin._db);
+          await plugin.onLoad?.({
+            client,
+            logger: plugin._logger,
+
+            database: plugin._db,
+          });
         }
 
         return true;
@@ -231,7 +261,12 @@ const client = await create({
 
 // Fire plugin onLoad events
 for (const plugin of plugins) {
-  await plugin.onLoad?.(client, plugin._db);
+  await plugin.onLoad?.({
+    client,
+    logger: plugin._logger,
+
+    database: plugin._db,
+  });
 }
 
 const interactionContinuations: Record<
@@ -278,10 +313,17 @@ client.onMessage(async (message) => {
 
       const result = await interactionContinuationHandler({
         message,
-        client,
         rest,
+
         permissionLevel,
+
+        client,
+        logger: _plugin._logger.child({
+          interaction: interactionContinuationHandler.name,
+        }),
+
         database: _plugin._db,
+
         data: _data,
       });
 
@@ -294,6 +336,8 @@ client.onMessage(async (message) => {
   }
 
   if (command) {
+    logger.info({ command, rest }, "Command received");
+
     client.markMarkSeenMessage(message.from);
     client.startTyping(message.from, true);
     // TODO: figure out what the second argument does
@@ -305,10 +349,15 @@ client.onMessage(async (message) => {
         try {
           const result = await cmd.handler({
             message,
-            client,
             rest,
+
             permissionLevel,
+
+            client,
+            logger: cmd._logger,
+
             database: cmd.plugin._db,
+
             data: null,
           });
 
@@ -376,7 +425,7 @@ async function handleInteractionResult(
         );
       }
     } else {
-      console.debug("Reply:", reply);
+      logger.debug({ reply }, "Reply:");
       throw new Error("Failed to get reply ID for interaction continuation");
     }
   } else {
@@ -411,8 +460,7 @@ async function handleError(error: unknown, message: Message) {
       message.id,
     );
   } else {
-    console.error("Error while handling command");
-    console.error(error);
+    logger.error({ error }, "Error while handling command");
 
     await client.reply(
       message.from,
@@ -423,28 +471,39 @@ async function handleError(error: unknown, message: Message) {
 }
 
 async function stopGracefully() {
+  logger.info("Graceful stop triggered");
+
   for (const plugin of plugins) {
     if (plugin.onUnload) {
-      console.log("Unloading plugin on graceful stop:", plugin.id);
-      plugin.onUnload(client, plugin._db);
+      logger.info(
+        {
+          pluginId: plugin.id,
+        },
+        "Unloading plugin on graceful stop",
+      );
+      plugin.onUnload({
+        client,
+        logger: plugin._logger,
+
+        database: plugin._db,
+      });
     }
   }
 
-  console.log("Gracefully stopping");
   await stop();
 }
 
 async function stop() {
-  console.log("Waiting a second before closing client on stop");
+  logger.info("Waiting a second before closing client on stop");
   await Bun.sleep(1000);
 
-  console.log("Closing client on stop");
+  logger.info("Closing client on stop");
   await client.close();
 
-  console.log("Waiting a second before exiting process on stop");
+  logger.info("Waiting a second before exiting process on stop");
   await Bun.sleep(1000);
 
-  console.log("Exiting process on stop");
+  logger.info("Exiting process on stop");
   process.exit();
 }
 
