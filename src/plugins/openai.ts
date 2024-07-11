@@ -22,16 +22,13 @@ export default {
         // todo: handle thread of replies as chat history
         // for future self: this is really hard, good luck
 
-        const messages: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = [
-          {
-            name: message.from,
-            role: "user",
-            content: rest,
-          },
-        ];
-
         const completion = await openai.chat.completions.create({
-          messages,
+          messages: [
+            {
+              role: "user",
+              content: rest,
+            },
+          ],
           model: "gpt-3.5-turbo",
         });
 

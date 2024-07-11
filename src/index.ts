@@ -1,6 +1,8 @@
 import type { Message } from "venom-bot";
 import type { Command, Plugin } from "./plugins";
 
+import { mkdir } from "node:fs/promises";
+
 import { Database } from "bun:sqlite";
 import { create } from "venom-bot";
 
@@ -12,6 +14,8 @@ if (!process.isBun) {
   throw new Error("WhatsApp PA must be run with Bun");
 }
 
+await mkdir("db", { recursive: true });
+
 type InternalPlugin = Plugin & {
   _db: Database | null;
 };
@@ -21,7 +25,11 @@ const plugins: InternalPlugin[] = [];
 function loadPlugin(plugin: Plugin) {
   console.log("Loading plugin:", plugin.name);
 
-  const _db = plugin.database ? new Database(`db/${plugin.id}.sqlite`) : null;
+  const _db = plugin.database
+    ? new Database(`db/${plugin.id}.sqlite`, { strict: true })
+    : null;
+  _db?.exec("PRAGMA journal_mode = WAL;");
+
   const _plugin = { ...plugin, _db };
 
   plugins.push(_plugin);
@@ -51,7 +59,7 @@ async function loadPluginsFromConfig(idsToLoad?: Set<string> | null) {
 
     let plugin: Plugin;
     if (pluginIdentifier.includes("/")) {
-      plugin = (await import(`${pluginIdentifier}?${now}`)).default;
+      plugin = (await import(`../${pluginIdentifier}?${now}`)).default;
     } else {
       plugin = (await import(`./plugins/${pluginIdentifier}?${now}`)).default;
     }
@@ -269,8 +277,23 @@ client.onMessage(async (message) => {
 async function handleError(error: unknown, message: Message) {
   await client.sendReactions(message.id, "\u274C");
 
-  if (error instanceof CommandError) {
-    await client.reply(message.from, `Error: ${error.message}`, message.id);
+  let isCommandError = error instanceof CommandError;
+  if (
+    !isCommandError &&
+    error instanceof Error &&
+    error.name === "CommandError"
+  ) {
+    isCommandError = true;
+  }
+
+  // check name as well because instanceof doesn't work across module boundaries
+
+  if (isCommandError) {
+    await client.reply(
+      message.from,
+      `Error: ${(error as CommandError).message}`,
+      message.id,
+    );
   } else {
     console.error("Error while handling command");
     console.error(error);
