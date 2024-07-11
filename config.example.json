@@ -1,7 +1,7 @@
 {
   "$schema": "./config.schema.json",
 
-  "plugins": ["debug", "admin-utils", "football", "random", "openai"],
+  "plugins": ["debug", "admin-utils", "football", "random", "openai", "latex"],
 
   "whitelist": {
     "admin": [],
