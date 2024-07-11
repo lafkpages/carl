@@ -83,7 +83,7 @@ const corePlugin: Plugin = {
   id: "core",
   name: "Core",
   description: "Core commands",
-  version: "0.0.1",
+  version: "1.0.0",
 
   commands: [
     {
