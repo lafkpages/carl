@@ -239,6 +239,7 @@ const interactionContinuations: Record<
   Interaction & {
     _data: unknown;
     _plugin: InternalPlugin;
+    _timeout: Timer;
   }
 > = {};
 
@@ -266,8 +267,13 @@ client.onMessage(async (message) => {
         handler: interactionContinuationHandler,
         _data,
         _plugin,
+        _timeout,
       } = interactionContinuations[quotedMsgId];
 
+      // prevent the expiration timeout from running
+      clearTimeout(_timeout);
+
+      // delete the interaction continuation to prevent it from being used again
       delete interactionContinuations[quotedMsgId];
 
       const result = await interactionContinuationHandler({
@@ -279,7 +285,7 @@ client.onMessage(async (message) => {
         data: _data,
       });
 
-      await handleHandlerResult(result, message, _plugin);
+      await handleInteractionResult(result, message, _plugin);
     } catch (err) {
       await handleError(err, message);
     }
@@ -306,7 +312,7 @@ client.onMessage(async (message) => {
             data: null,
           });
 
-          await handleHandlerResult(result, message, cmd.plugin);
+          await handleInteractionResult(result, message, cmd.plugin);
         } catch (err) {
           await handleError(err, message);
         }
@@ -328,7 +334,7 @@ client.onMessage(async (message) => {
   }
 });
 
-async function handleHandlerResult(
+async function handleInteractionResult(
   result: InteractionResult,
   message: Message,
   plugin: InternalPlugin,
@@ -348,10 +354,21 @@ async function handleHandlerResult(
         plugin.interactions?.[result.handler];
 
       if (interactionContinuationHandler) {
+        // expire continuations after 5 minutes
+        const _timeout = setTimeout(
+          async () => {
+            await client.sendReactions(replyId, "\u231B");
+
+            delete interactionContinuations[replyId];
+          },
+          5 * 60 * 1000,
+        );
+
         interactionContinuations[replyId] = {
           ...interactionContinuationHandler,
           _data: result.data,
           _plugin: plugin,
+          _timeout,
         };
       } else {
         throw new Error(
