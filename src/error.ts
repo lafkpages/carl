@@ -1,3 +1,4 @@
+import { plugins } from "../config.json";
 import { PermissionLevel } from "./perms";
 
 export class CommandError extends Error {
@@ -17,6 +18,15 @@ export class CommandPermissionError extends CommandError {
 
     if (minLevel !== undefined) {
       message += `. Requires at least permission level \`${PermissionLevel[minLevel]}\``;
+    }
+
+    if (plugins.includes("admin-utils")) {
+      message +=
+        ". If you believe this is an error, you can request permission using the `/requestpermission";
+      if (minLevel !== undefined) {
+        message += ` ${PermissionLevel[minLevel]}`;
+      }
+      message += "` command.";
     }
 
     super(message);

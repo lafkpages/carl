@@ -85,7 +85,7 @@ ${Bun.inspect(message, { colors: false })}
             throw new CommandPermissionError(
               "say",
               PermissionLevel.ADMIN,
-              " with a chat specifier",
+              "with a chat specifier",
             );
           }
 
