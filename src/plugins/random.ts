@@ -17,7 +17,7 @@ export default {
       description: "Generates random data",
       minLevel: PermissionLevel.NONE,
 
-      async handler(message, client, rest) {
+      async handler({ message, client, rest }) {
         const [, min, max] = rest.match(/^(\d+) (\d+)$/) || [];
 
         if (min && max) {
