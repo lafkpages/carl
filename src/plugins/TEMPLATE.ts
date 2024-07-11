@@ -14,7 +14,7 @@ export default {
       description: "",
       minLevel: PermissionLevel.ADMIN,
 
-      handler(message, client, rest, permissionLevel) {},
+      handler({ message, rest }) {},
     },
   ],
 } satisfies Plugin;
