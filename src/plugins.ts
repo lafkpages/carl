@@ -20,12 +20,13 @@ export interface Plugin {
   database?: boolean;
 
   commands: Command[];
+  interactions?: Record<string, Interaction>;
 
   onLoad?(client: Whatsapp, database: Database | null): MaybePromise<void>;
   onUnload?(client: Whatsapp, database: Database | null): MaybePromise<void>;
 }
 
-export interface Command {
+export interface Command extends Interaction {
   name: string;
   description: string;
 
@@ -38,7 +39,9 @@ export interface Command {
    * Whether this command should be hidden from the help command
    */
   hidden?: boolean;
+}
 
+export interface Interaction {
   handler({}: {
     message: Message;
     rest: string;
@@ -48,7 +51,23 @@ export interface Command {
     client: Whatsapp;
 
     database: Database | null;
-  }): MaybePromise<string | boolean | void>;
+  }): MaybePromise<InteractionResult>;
+}
+
+export type InteractionResult =
+  | InteractionContinuation
+  | string
+  | boolean
+  | void;
+
+export class InteractionContinuation {
+  handler;
+  message;
+
+  constructor(handler: string, message: string) {
+    this.handler = handler;
+    this.message = message;
+  }
 }
 
 type MaybePromise<T> = T | Promise<T>;

@@ -2,6 +2,7 @@ import type { Plugin } from "../plugins";
 
 import { CommandPermissionError } from "../error";
 import { PermissionLevel } from "../perms";
+import { InteractionContinuation } from "../plugins";
 
 export default {
   id: "debug",
@@ -107,5 +108,25 @@ ${Bun.inspect(message, { colors: false })}
         return "Unreachable code";
       },
     },
+    {
+      name: "testinteractioncontinuation",
+      description: "Test interaction continuations",
+      minLevel: PermissionLevel.NONE,
+
+      handler() {
+        return new InteractionContinuation(
+          "testinteractioncontinuation",
+          "Hello, what's your name?",
+        );
+      },
+    },
   ],
+
+  interactions: {
+    testinteractioncontinuation: {
+      handler({ message }) {
+        return `Hello, ${message.body}!`;
+      },
+    },
+  },
 } satisfies Plugin;

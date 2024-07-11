@@ -1,14 +1,22 @@
 import type { Message } from "venom-bot";
-import type { Command, Plugin } from "./plugins";
+import type {
+  Command,
+  Interaction,
+  InteractionResult,
+  Plugin,
+} from "./plugins";
 
 import { mkdir } from "node:fs/promises";
 
+import { plugin } from "bun";
 import { Database } from "bun:sqlite";
 import { create } from "venom-bot";
 
 import { plugins as configPlugins } from "../config.json";
 import { CommandError, CommandPermissionError } from "./error";
 import { getPermissionLevel, PermissionLevel } from "./perms";
+import { InteractionContinuation } from "./plugins";
+import { getMessageId } from "./utils";
 
 if (!process.isBun) {
   throw new Error("WhatsApp PA must be run with Bun");
@@ -218,8 +226,16 @@ for (const plugin of plugins) {
   await plugin.onLoad?.(client, plugin._db);
 }
 
+const interactionContinuations: Record<
+  string,
+  Interaction & {
+    _plugin: InternalPlugin;
+  }
+> = {};
+
 client.onMessage(async (message) => {
-  if (message.type !== "chat") {
+  const messageBody = message.type === "chat" ? message.body : message.caption;
+  if (!messageBody) {
     return;
   }
 
@@ -228,7 +244,36 @@ client.onMessage(async (message) => {
     getPermissionLevel(message.chatId),
   );
 
-  const [, command, rest] = message.body.match(/^\/(\w+)(?: (.+))?/is) || [];
+  let [, command, rest] = messageBody.match(/^\/(\w+)(?: (.+))?/is) || [];
+  rest ||= "";
+
+  const quotedMsgId = getMessageId(message.quotedMsg);
+  console.debug({ quotedMsgId });
+
+  if (quotedMsgId && quotedMsgId in interactionContinuations) {
+    try {
+      const { handler: interactionContinuationHandler, _plugin } =
+        interactionContinuations[quotedMsgId];
+
+      delete interactionContinuations[quotedMsgId];
+
+      const result = await interactionContinuationHandler({
+        message,
+        client,
+        rest,
+        permissionLevel,
+        database: _plugin._db,
+      });
+
+      await handleHandlerResult(result, message, _plugin);
+    } catch (err) {
+      await handleError(err, message);
+    }
+
+    await client.markMarkSeenMessage(message.from);
+
+    return;
+  }
 
   if (command) {
     if (command in commands) {
@@ -239,18 +284,12 @@ client.onMessage(async (message) => {
           const result = await cmd.handler({
             message,
             client,
-            rest: rest || "",
+            rest,
             permissionLevel,
             database: cmd.plugin._db,
           });
 
-          if (typeof result === "string") {
-            await client.reply(message.from, result, message.id);
-          } else if (result === true) {
-            await client.sendReactions(message.id, "\u{1F44D}");
-          } else if (result === false) {
-            await client.sendReactions(message.id, "\u{1F44E}");
-          }
+          await handleHandlerResult(result, message, cmd.plugin);
         } catch (err) {
           await handleError(err, message);
         }
@@ -273,6 +312,49 @@ client.onMessage(async (message) => {
 
   await client.markMarkSeenMessage(message.from);
 });
+
+async function handleHandlerResult(
+  result: InteractionResult,
+  message: Message,
+  plugin: InternalPlugin,
+) {
+  const isInteractionContinuation =
+    result instanceof InteractionContinuation ||
+    // Also check for objects with _interactionContinuation property because instanceof doesn't work across module boundaries
+    (typeof result === "object" && "handler" in result);
+
+  if (isInteractionContinuation) {
+    const reply = await client.reply(message.from, result.message, message.id);
+    const replyId = getMessageId(reply);
+
+    if (typeof replyId === "string") {
+      const interactionContinuationHandler =
+        plugin.interactions?.[result.handler];
+
+      if (interactionContinuationHandler) {
+        interactionContinuations[replyId] = {
+          ...interactionContinuationHandler,
+          _plugin: plugin,
+        };
+      } else {
+        throw new Error(
+          `Interaction continuation \`${result.handler}\` handler not found for plugin \`${plugin.id}\``,
+        );
+      }
+    } else {
+      console.debug("Reply:", reply);
+      throw new Error("Failed to get reply ID for interaction continuation");
+    }
+  } else {
+    if (typeof result === "string") {
+      await client.reply(message.from, result, message.id);
+    } else if (result === true) {
+      await client.sendReactions(message.id, "\u{1F44D}");
+    } else if (result === false) {
+      await client.sendReactions(message.id, "\u{1F44E}");
+    }
+  }
+}
 
 async function handleError(error: unknown, message: Message) {
   await client.sendReactions(message.id, "\u274C");
