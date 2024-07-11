@@ -8,7 +8,6 @@ import type {
 
 import { mkdir } from "node:fs/promises";
 
-import { plugin } from "bun";
 import { Database } from "bun:sqlite";
 import { create } from "venom-bot";
 
@@ -229,6 +228,7 @@ for (const plugin of plugins) {
 const interactionContinuations: Record<
   string,
   Interaction & {
+    _data: unknown;
     _plugin: InternalPlugin;
   }
 > = {};
@@ -250,8 +250,11 @@ client.onMessage(async (message) => {
   const quotedMsgId = getMessageId(message.quotedMsg);
   if (quotedMsgId && quotedMsgId in interactionContinuations) {
     try {
-      const { handler: interactionContinuationHandler, _plugin } =
-        interactionContinuations[quotedMsgId];
+      const {
+        handler: interactionContinuationHandler,
+        _data,
+        _plugin,
+      } = interactionContinuations[quotedMsgId];
 
       delete interactionContinuations[quotedMsgId];
 
@@ -261,6 +264,7 @@ client.onMessage(async (message) => {
         rest,
         permissionLevel,
         database: _plugin._db,
+        data: _data,
       });
 
       await handleHandlerResult(result, message, _plugin);
@@ -285,6 +289,7 @@ client.onMessage(async (message) => {
             rest,
             permissionLevel,
             database: cmd.plugin._db,
+            data: null,
           });
 
           await handleHandlerResult(result, message, cmd.plugin);
@@ -332,6 +337,7 @@ async function handleHandlerResult(
       if (interactionContinuationHandler) {
         interactionContinuations[replyId] = {
           ...interactionContinuationHandler,
+          _data: result.data,
           _plugin: plugin,
         };
       } else {

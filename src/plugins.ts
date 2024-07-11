@@ -51,6 +51,8 @@ export interface Interaction {
     client: Whatsapp;
 
     database: Database | null;
+
+    data: unknown;
   }): MaybePromise<InteractionResult>;
 }
 
@@ -63,10 +65,12 @@ export type InteractionResult =
 export class InteractionContinuation {
   handler;
   message;
+  data;
 
-  constructor(handler: string, message: string) {
+  constructor(handler: string, message: string, data?: unknown) {
     this.handler = handler;
     this.message = message;
+    this.data = data;
   }
 }
 

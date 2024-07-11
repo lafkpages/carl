@@ -111,7 +111,7 @@ ${Bun.inspect(message, { colors: false })}
     {
       name: "testinteractioncontinuation",
       description: "Test interaction continuations",
-      minLevel: PermissionLevel.NONE,
+      minLevel: PermissionLevel.TRUSTED,
 
       handler() {
         return new InteractionContinuation(
@@ -124,8 +124,16 @@ ${Bun.inspect(message, { colors: false })}
 
   interactions: {
     testinteractioncontinuation: {
-      handler({ message }) {
-        return `Hello, ${message.body}!`;
+      handler({ message, data }) {
+        if (data) {
+          return `Hello, you are \`${data}\` and you are \`${message.body}\` years old`;
+        }
+
+        return new InteractionContinuation(
+          "testinteractioncontinuation",
+          "How old are you?",
+          message.body,
+        );
       },
     },
   },
