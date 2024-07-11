@@ -248,8 +248,6 @@ client.onMessage(async (message) => {
   rest ||= "";
 
   const quotedMsgId = getMessageId(message.quotedMsg);
-  console.debug({ quotedMsgId });
-
   if (quotedMsgId && quotedMsgId in interactionContinuations) {
     try {
       const { handler: interactionContinuationHandler, _plugin } =
