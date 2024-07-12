@@ -278,7 +278,7 @@ const interactionContinuations: Record<
   }
 > = {};
 
-client.onMessage(async (message) => {
+const { dispose } = await client.onMessage(async (message) => {
   const messageBody = message.type === "chat" ? message.body : message.caption;
   if (!messageBody) {
     return;
@@ -494,6 +494,12 @@ async function stopGracefully() {
 }
 
 async function stop() {
+  logger.debug("Removing SIGINT listener");
+  process.off("SIGINT", stopGracefully);
+
+  logger.debug("Disposing client message listener");
+  dispose();
+
   logger.info("Waiting a second before closing client on stop");
   await Bun.sleep(1000);
 
