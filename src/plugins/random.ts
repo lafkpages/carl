@@ -112,6 +112,24 @@ export default {
             return commitMsg;
           }
 
+          case "metaphor":
+          case "met":
+          case "m": {
+            const resp = await fetch("http://metaphorpsum.com/sentences/1");
+
+            if (!resp.ok) {
+              throw new CommandError("Failed to fetch random metaphor");
+            }
+
+            const metaphor = (await resp.text()).trim();
+
+            if (!metaphor) {
+              throw new CommandError("Failed to fetch random metaphor");
+            }
+
+            return metaphor;
+          }
+
           default:
             throw new CommandError(`\
 Invalid arguments. Please either provide two numbers, or a data type. For example:
@@ -124,7 +142,8 @@ Valid data types:
 * \`number\`
 * \`boolean\`
 * \`coinflip\`
-* \`git-commit\`\
+* \`git-commit\`
+* \`metaphor\`\
 `);
         }
       },
