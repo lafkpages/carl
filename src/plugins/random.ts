@@ -92,6 +92,26 @@ export default {
             return;
           }
 
+          case "git-commit":
+          case "gitcommit":
+          case "commit":
+          case "git":
+          case "gc": {
+            const resp = await fetch("https://whatthecommit.com/index.txt");
+
+            if (!resp.ok) {
+              throw new CommandError("Failed to fetch random commit message");
+            }
+
+            const commitMsg = (await resp.text()).trim();
+
+            if (!commitMsg) {
+              throw new CommandError("Failed to fetch random commit message");
+            }
+
+            return commitMsg;
+          }
+
           default:
             throw new CommandError(`\
 Invalid arguments. Please either provide two numbers, or a data type. For example:
@@ -103,7 +123,8 @@ Valid data types:
 * \`letter\`
 * \`number\`
 * \`boolean\`
-* \`coinflip\`\
+* \`coinflip\`
+* \`git-commit\`\
 `);
         }
       },
