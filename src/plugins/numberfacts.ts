@@ -89,5 +89,15 @@ export default {
         return await apiCall([month, day], "date");
       },
     },
+    {
+      name: "todayfact",
+      description: "Get a random fact about today",
+      minLevel: PermissionLevel.TRUSTED,
+
+      async handler() {
+        const now = new Date();
+        return await apiCall([now.getMonth() + 1, now.getDate()], "date");
+      },
+    },
   ],
 } satisfies Plugin;
