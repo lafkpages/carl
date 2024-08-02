@@ -35,6 +35,14 @@ export interface Plugin {
 
     database: Database | null;
   }): MaybePromise<void>;
+  onMessage?({}: {
+    client: Whatsapp;
+    logger: ConsolaInstance;
+
+    database: Database | null;
+
+    message: Message;
+  }): MaybePromise<InteractionResult>;
 }
 
 export interface Command extends Interaction {

@@ -335,11 +335,7 @@ const { dispose } = await client.onMessage(async (message) => {
     } catch (err) {
       await handleError(err, message);
     }
-
-    return;
-  }
-
-  if (command) {
+  } else if (command) {
     consola.info("Command received:", { command, rest });
 
     client.markMarkSeenMessage(message.from);
@@ -382,8 +378,19 @@ const { dispose } = await client.onMessage(async (message) => {
         message.id,
       );
     }
-  } else if (message.chatId === message.sender.id) {
-    await client.sendReactions(message.id, "\u2753");
+  }
+
+  for (const plugin of plugins) {
+    const result = await plugin.onMessage?.({
+      client,
+      logger: plugin._logger,
+
+      database: plugin._db,
+
+      message,
+    });
+
+    await handleInteractionResult(result, message, plugin);
   }
 });
 
