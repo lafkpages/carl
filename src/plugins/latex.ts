@@ -55,7 +55,7 @@ export default {
           );
         }
 
-        logger.info({ imageUrl }, "Rendered LaTeX equation");
+        logger.info("Rendered LaTeX equation:", imageUrl);
 
         // TODO: why is the image so massive?
         await client.sendImage(
@@ -84,6 +84,6 @@ export default {
       throw new Error("Failed to get latex2image endpoint");
     }
 
-    logger.debug({ latex2imageEndpoint }, "Fetched latex2image endpoint");
+    logger.debug("Fetched latex2image endpoint:", latex2imageEndpoint);
   },
 } satisfies Plugin;

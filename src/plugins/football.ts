@@ -1,4 +1,4 @@
-import type { Logger } from "pino";
+import type { ConsolaInstance } from "consola";
 import type { InferOutput } from "valibot";
 import type { Plugin } from "../plugins";
 
@@ -69,7 +69,10 @@ const matchesSchema = object({
 
 let latestMatches: InferOutput<typeof matchesSchema>["matches"] = [];
 
-async function fetchMatches(logger: Logger, competitions?: string[] | null) {
+async function fetchMatches(
+  logger: ConsolaInstance,
+  competitions?: string[] | null,
+) {
   logger.info("Fetching matches...");
 
   const url = new URL("https://api.football-data.org/v4/matches");

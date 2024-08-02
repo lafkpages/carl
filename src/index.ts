@@ -1,4 +1,4 @@
-import type { Logger } from "pino";
+import type { ConsolaInstance } from "consola";
 import type { Message } from "venom-bot";
 import type {
   Command,
@@ -10,7 +10,7 @@ import type {
 import { mkdir } from "node:fs/promises";
 
 import { Database } from "bun:sqlite";
-import { pino } from "pino";
+import { consola } from "consola";
 import { create } from "venom-bot";
 
 import { plugins as configPlugins } from "../config.json";
@@ -19,27 +19,30 @@ import { getPermissionLevel, PermissionLevel } from "./perms";
 import { InteractionContinuation } from "./plugins";
 import { getMessageId } from "./utils";
 
-const logger = pino({ base: null });
-
 if (!process.isBun) {
-  logger.fatal("WhatsApp PA must be run with Bun");
+  consola.fatal("WhatsApp PA must be run with Bun");
   process.exit(1);
 }
 
 await mkdir("db", { recursive: true });
 
 type InternalPlugin = Plugin & {
-  _logger: Logger;
+  _logger: ConsolaInstance;
   _db: Database | null;
 };
-type InternalCommand = Command & { plugin: InternalPlugin; _logger: Logger };
+type InternalCommand = Command & {
+  plugin: InternalPlugin;
+  _logger: ConsolaInstance;
+};
 const commands: Record<string, InternalCommand> = {};
 const plugins: InternalPlugin[] = [];
 
 function loadPlugin(plugin: Plugin) {
-  logger.info({ plugin }, "Loading plugin");
+  consola.info("Loading plugin:", plugin);
 
-  const _logger = logger.child({ pluginId: plugin.id });
+  const _logger = consola.withDefaults({
+    tag: plugin.id,
+  });
 
   const _db = plugin.database
     ? new Database(`db/${plugin.id}.sqlite`, { strict: true })
@@ -52,14 +55,11 @@ function loadPlugin(plugin: Plugin) {
 
   for (const cmd of plugin.commands) {
     if (cmd.name in commands) {
-      logger.error(
-        {
-          cmdName: cmd.name,
-          existingPlugin: commands[cmd.name].plugin.id,
-          newPlugin: plugin.id,
-        },
-        "Duplicate command, dupe not loaded",
-      );
+      consola.error("Duplicate command, dupe not loaded", {
+        cmdName: cmd.name,
+        existingPlugin: commands[cmd.name].plugin.id,
+        newPlugin: plugin.id,
+      });
 
       continue;
     }
@@ -67,7 +67,9 @@ function loadPlugin(plugin: Plugin) {
     commands[cmd.name] = {
       ...cmd,
       plugin: _plugin,
-      _logger: _logger.child({ command: cmd.name }),
+      _logger: _logger.withDefaults({
+        tag: `${plugin.id}/${cmd.name}`,
+      }),
     };
   }
 }
@@ -76,7 +78,7 @@ async function loadPluginsFromConfig(idsToLoad?: Set<string> | null) {
   const now = Date.now();
 
   for (const pluginIdentifier of configPlugins) {
-    logger.info({ pluginIdentifier }, "Importing plugin");
+    consola.info("Importing plugin:", pluginIdentifier);
 
     // add a cache buster to the import path
     // so that plugins can be reloaded
@@ -88,12 +90,12 @@ async function loadPluginsFromConfig(idsToLoad?: Set<string> | null) {
       plugin = (await import(`./plugins/${pluginIdentifier}?${now}`)).default;
 
       if (plugin.id !== pluginIdentifier) {
-        logger.error(
+        consola.error(
+          "Built-in plugin ID does not match plugin file name. This is a WhatsApp PA bug. Please report this issue.",
           {
             pluginId: plugin.id,
             pluginIdentifier,
           },
-          "Built-in plugin ID does not match plugin file name. This is a WhatsApp PA bug. Please report this issue.",
         );
       }
     }
@@ -318,8 +320,8 @@ const { dispose } = await client.onMessage(async (message) => {
         permissionLevel,
 
         client,
-        logger: _plugin._logger.child({
-          interaction: interactionContinuationHandler.name,
+        logger: _plugin._logger.withDefaults({
+          tag: `${_plugin.id}:${interactionContinuationHandler.name}`,
         }),
 
         database: _plugin._db,
@@ -336,7 +338,7 @@ const { dispose } = await client.onMessage(async (message) => {
   }
 
   if (command) {
-    logger.info({ command, rest }, "Command received");
+    consola.info("Command received:", { command, rest });
 
     client.markMarkSeenMessage(message.from);
     client.startTyping(message.from, true);
@@ -425,7 +427,7 @@ async function handleInteractionResult(
         );
       }
     } else {
-      logger.debug({ reply }, "Reply:");
+      consola.debug("Reply:", reply);
       throw new Error("Failed to get reply ID for interaction continuation");
     }
   } else {
@@ -460,7 +462,7 @@ async function handleError(error: unknown, message: Message) {
       message.id,
     );
   } else {
-    logger.error({ error }, "Error while handling command");
+    consola.error("Error while handling command:", error);
 
     await client.reply(
       message.from,
@@ -471,11 +473,11 @@ async function handleError(error: unknown, message: Message) {
 }
 
 async function stopGracefully() {
-  logger.info("Graceful stop triggered");
+  consola.info("Graceful stop triggered");
 
   for (const plugin of plugins) {
     if (plugin.onUnload) {
-      logger.info(
+      consola.info(
         {
           pluginId: plugin.id,
         },
@@ -494,22 +496,22 @@ async function stopGracefully() {
 }
 
 async function stop() {
-  logger.debug("Removing SIGINT listener");
+  consola.debug("Removing SIGINT listener");
   process.off("SIGINT", stopGracefully);
 
-  logger.debug("Disposing client message listener");
+  consola.debug("Disposing client message listener");
   dispose();
 
-  logger.info("Waiting a second before closing client on stop");
+  consola.info("Waiting a second before closing client on stop");
   await Bun.sleep(1000);
 
-  logger.info("Closing client on stop");
+  consola.info("Closing client on stop");
   await client.close();
 
-  logger.info("Waiting a second before exiting process on stop");
+  consola.info("Waiting a second before exiting process on stop");
   await Bun.sleep(1000);
 
-  logger.info("Exiting process on stop");
+  consola.info("Exiting process on stop");
   process.exit();
 }
 
