@@ -53,24 +53,26 @@ function loadPlugin(plugin: Plugin) {
 
   plugins.push(_plugin);
 
-  for (const cmd of plugin.commands) {
-    if (cmd.name in commands) {
-      consola.error("Duplicate command, dupe not loaded", {
-        cmdName: cmd.name,
-        existingPlugin: commands[cmd.name].plugin.id,
-        newPlugin: plugin.id,
-      });
+  if (plugin.commands) {
+    for (const cmd of plugin.commands) {
+      if (cmd.name in commands) {
+        consola.error("Duplicate command, dupe not loaded", {
+          cmdName: cmd.name,
+          existingPlugin: commands[cmd.name].plugin.id,
+          newPlugin: plugin.id,
+        });
 
-      continue;
+        continue;
+      }
+
+      commands[cmd.name] = {
+        ...cmd,
+        plugin: _plugin,
+        _logger: _logger.withDefaults({
+          tag: `${plugin.id}/${cmd.name}`,
+        }),
+      };
     }
-
-    commands[cmd.name] = {
-      ...cmd,
-      plugin: _plugin,
-      _logger: _logger.withDefaults({
-        tag: `${plugin.id}/${cmd.name}`,
-      }),
-    };
   }
 }
 
@@ -135,12 +137,14 @@ const corePlugin: Plugin = {
           msg += `\n> ${plugin.description}`;
           msg += `\nCommands:`;
 
-          for (const command of plugin.commands) {
-            if (command.hidden && !showHidden) {
-              continue;
-            }
+          if (plugin.commands) {
+            for (const command of plugin.commands) {
+              if (command.hidden && !showHidden) {
+                continue;
+              }
 
-            msg += `\n* \`/${command.name}\`: ${command.description}`;
+              msg += `\n* \`/${command.name}\`: ${command.description}`;
+            }
           }
         }
 

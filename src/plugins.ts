@@ -20,7 +20,7 @@ export interface Plugin {
    */
   database?: boolean;
 
-  commands: Command[];
+  commands?: Command[];
   interactions?: Record<string, Interaction>;
 
   onLoad?({}: {
