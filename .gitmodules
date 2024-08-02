@@ -1,0 +1,3 @@
+[submodule "src/geek-jokes"]
+	path = src/geek-jokes
+	url = https://github.com/sameerkumar18/geek-joke-api

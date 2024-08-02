@@ -3,7 +3,21 @@ import type { Plugin } from "../plugins";
 import { randomUUID } from "node:crypto";
 
 import { CommandError } from "../error";
+import geekJokes from "../geek-jokes/data.json";
 import { PermissionLevel } from "../perms";
+
+// Remove Chuck Norris jokes because they're overdone
+// and not very funny anymore
+// Let's be honest, they never were
+// (I'm sorry, Chuck Norris, please don't hurt me)
+// but seriously, they're not funny anymore
+// Also, I'm sorry for the bad jokes in the geek-jokes data
+// I didn't write them, I swear
+// ---
+// Lol GitHub Copilot is cooking with these comments
+const geekJokesFiltered = geekJokes.filter(
+  (joke) => !/chuck\s*norris/i.test(joke),
+);
 
 export default {
   id: "random",
@@ -130,6 +144,18 @@ export default {
             return metaphor;
           }
 
+          case "geek-joke":
+          case "geekjoke":
+          case "nerd-joke":
+          case "nerdjoke": {
+            const joke =
+              geekJokesFiltered[
+                Math.floor(Math.random() * geekJokesFiltered.length)
+              ];
+
+            return joke;
+          }
+
           default:
             throw new CommandError(`\
 Invalid arguments. Please either provide two numbers, or a data type. For example:
@@ -143,7 +169,8 @@ Valid data types:
 * \`boolean\`
 * \`coinflip\`
 * \`git-commit\`
-* \`metaphor\`\
+* \`metaphor\`
+* \`geek-joke\`\
 `);
         }
       },

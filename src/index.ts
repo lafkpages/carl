@@ -291,6 +291,8 @@ const { dispose } = await client.onMessage(async (message) => {
     getPermissionLevel(message.chatId),
   );
 
+  consola.debug("Message received:", { message, messageBody, permissionLevel });
+
   let [, command, rest] = messageBody.match(/^\/(\w+)(?: (.+))?/is) || [];
   rest ||= "";
 
