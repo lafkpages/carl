@@ -7,7 +7,8 @@
     "random",
     "openai",
     "numberfacts",
-    "math"
+    "math",
+    "dictionary"
   ],
 
   "whitelist": {
