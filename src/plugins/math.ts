@@ -6,6 +6,7 @@ import {
   integrate,
   simplify,
   solve,
+  tangent,
   zeroes,
 } from "@metadelta/core";
 
@@ -70,6 +71,22 @@ export default {
 
       handler({ rest }) {
         return integrate(rest);
+      },
+    },
+    {
+      name: "tangent",
+      description: "Find the tangent line of a function at a given point",
+      minLevel: PermissionLevel.NONE,
+
+      handler({ rest }) {
+        const [, expr, x] =
+          rest.match(/^(.+)\s+at\s+(?:x\s*=\s*)?(\d+)$/) ?? [];
+
+        if (!expr || !x) {
+          throw new Error("Invalid arguments");
+        }
+
+        return tangent(expr, parseInt(x));
       },
     },
   ],
