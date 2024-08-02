@@ -85,7 +85,9 @@ export default {
         }
 
         if (!text) {
-          throw new CommandError("no text to translate provided");
+          throw new CommandError(
+            "no text to translate provided.\n\nUsage: `/translate (es) Hola, que tal?`\nThe language code in parentheses is optional. If not provided, the language will be detected automatically, but detection will delay the response.\n\nYou can also reply to a message with `/translate` to translate it.",
+          );
         }
 
         if (from === "auto") {
