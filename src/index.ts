@@ -385,16 +385,20 @@ const { dispose } = await client.onMessage(async (message) => {
   }
 
   for (const plugin of plugins) {
-    const result = await plugin.onMessage?.({
-      client,
-      logger: plugin._logger,
+    if (plugin.onMessage) {
+      consola.debug("Running plugin onMessage:", plugin.id);
 
-      database: plugin._db,
+      const result = await plugin.onMessage({
+        client,
+        logger: plugin._logger,
 
-      message,
-    });
+        database: plugin._db,
 
-    await handleInteractionResult(result, message, plugin);
+        message,
+      });
+
+      await handleInteractionResult(result, message, plugin);
+    }
   }
 });
 
@@ -490,12 +494,7 @@ async function stopGracefully() {
 
   for (const plugin of plugins) {
     if (plugin.onUnload) {
-      consola.info(
-        {
-          pluginId: plugin.id,
-        },
-        "Unloading plugin on graceful stop",
-      );
+      consola.info("Unloading plugin on graceful stop:", plugin.id);
       plugin.onUnload({
         client,
         logger: plugin._logger,
