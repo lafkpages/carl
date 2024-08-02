@@ -297,7 +297,7 @@ const { dispose } = await client.onMessage(async (message) => {
 
   consola.debug("Message received:", { message, messageBody, permissionLevel });
 
-  let [, command, rest] = messageBody.match(/^\/(\w+)(?: (.+))?/is) || [];
+  let [, command, rest] = messageBody.match(/^\/(\w+)\s*(.*)?$/is) || [];
   rest ||= "";
 
   const quotedMsgId = getMessageId(message.quotedMsg);
