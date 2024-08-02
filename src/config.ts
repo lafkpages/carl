@@ -25,4 +25,17 @@ export interface Config {
     trusted: number;
   };
   // TODO: implement ratelimits
+
+  /**
+   * Configuration for specific plugins.
+   */
+  pluginsConfig?: {
+    translate?: {
+      /**
+       * The URL to a LibreTranslate server. D
+       */
+      url?: string;
+    };
+    [pluginId: string]: any;
+  };
 }

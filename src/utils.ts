@@ -1,3 +1,5 @@
+import type { Message } from "venom-bot";
+
 function getIdFromObject(obj: unknown) {
   return typeof obj === "string"
     ? obj
@@ -17,4 +19,8 @@ export function getMessageId(message: unknown) {
         ? getIdFromObject(message.to)
         : null
     : null;
+}
+
+export function getMessageTextContent(message: Message) {
+  return message.type === "chat" ? message.body : message.caption;
 }

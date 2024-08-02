@@ -7,9 +7,9 @@ import type {
   Plugin,
 } from "./plugins";
 
+import { Database } from "bun:sqlite";
 import { mkdir } from "node:fs/promises";
 
-import { Database } from "bun:sqlite";
 import { consola } from "consola";
 import { create } from "venom-bot";
 
@@ -17,7 +17,7 @@ import config from "../config.json";
 import { CommandError, CommandPermissionError } from "./error";
 import { getPermissionLevel, PermissionLevel } from "./perms";
 import { InteractionContinuation } from "./plugins";
-import { getMessageId } from "./utils";
+import { getMessageId, getMessageTextContent } from "./utils";
 
 if (!process.isBun) {
   consola.fatal("WhatsApp PA must be run with Bun");
@@ -288,7 +288,7 @@ const interactionContinuations: Record<
 > = {};
 
 const { dispose } = await client.onMessage(async (message) => {
-  const messageBody = message.type === "chat" ? message.body : message.caption;
+  const messageBody = getMessageTextContent(message);
   if (!messageBody) {
     return;
   }

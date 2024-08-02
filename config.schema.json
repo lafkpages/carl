@@ -15,6 +15,21 @@
           },
           "type": "array"
         },
+        "pluginsConfig": {
+          "description": "Configuration for specific plugins.",
+          "properties": {
+            "translate": {
+              "additionalProperties": false,
+              "properties": {
+                "url": {
+                  "type": "string"
+                }
+              },
+              "type": "object"
+            }
+          },
+          "type": "object"
+        },
         "ratelimit": {
           "additionalProperties": false,
           "description": "How many seconds to wait before allowing a user to run a command again.",
