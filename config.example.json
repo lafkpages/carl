@@ -4,7 +4,6 @@
   "plugins": [
     "debug",
     "admin-utils",
-    "football",
     "random",
     "openai",
     "latex",
