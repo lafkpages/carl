@@ -1,5 +1,6 @@
 import type { ConsolaInstance } from "consola";
 import type { InferOutput } from "valibot";
+import type { Whatsapp } from "venom-bot";
 import type { Plugin } from "../plugins";
 
 import { prettyDate } from "@based/pretty-date";
@@ -108,8 +109,126 @@ function parseCompetitionsList(rest: string) {
   return rest ? rest.toUpperCase().split(/[,\s]+/) : null;
 }
 
-let subscribedChatIds: Record<string, string[] | null> = {};
-let checkInterval: Timer;
+function startMatchUpdateInterval(logger: ConsolaInstance, client: Whatsapp) {
+  if (checkInterval) {
+    return;
+  }
+
+  logger.debug("Starting match update interval...");
+
+  checkInterval = setInterval(async () => {
+    const oldMatches = latestMatches;
+    const oldMatchesRecord: Record<
+      number,
+      InferOutput<typeof matchSchema>
+    > = {};
+    for (const match of oldMatches) {
+      oldMatchesRecord[match.id] = match;
+    }
+
+    await fetchMatches(logger);
+
+    const latestMatchesRecord: Record<
+      number,
+      InferOutput<typeof matchSchema>
+    > = {};
+    for (const match of latestMatches) {
+      latestMatchesRecord[match.id] = match;
+    }
+
+    if (latestMatches.length !== oldMatches.length) {
+      // TODO: filter out matches that are not in the subscribed competitions
+      for (const chatId in subscribedChatIds) {
+        await client.sendText(
+          chatId,
+          "New football matches available! Use `/football` to see them.",
+        );
+      }
+    }
+
+    for (const match of latestMatches) {
+      const oldMatch = oldMatchesRecord[match.id];
+
+      if (!oldMatch) {
+        continue;
+      }
+
+      if (oldMatch.status !== match.status) {
+        for (const chatId in subscribedChatIds) {
+          const chatSubscribedCompetitions = subscribedChatIds.get(chatId);
+
+          if (
+            chatSubscribedCompetitions &&
+            !chatSubscribedCompetitions.includes(match.competition.code)
+          ) {
+            continue;
+          }
+
+          await client.sendText(
+            chatId,
+            `Match update\n\n*${match.homeTeam.shortName} vs ${match.awayTeam.shortName}*\n* Status: ${match.status}`,
+          );
+        }
+      }
+
+      if (
+        oldMatch.score.fullTime.home !== match.score.fullTime.home ||
+        oldMatch.score.fullTime.away !== match.score.fullTime.away
+      ) {
+        for (const chatId in subscribedChatIds) {
+          const chatSubscribedCompetitions = subscribedChatIds.get(chatId);
+
+          if (
+            chatSubscribedCompetitions &&
+            !chatSubscribedCompetitions.includes(match.competition.code)
+          ) {
+            continue;
+          }
+
+          await client.sendText(
+            chatId,
+            `Match update\n\n*${match.homeTeam.shortName} vs ${match.awayTeam.shortName}*\n* Full time scores: ${match.score.fullTime.home} - ${match.score.fullTime.away}`,
+          );
+        }
+      }
+
+      if (
+        oldMatch.score.halfTime.home !== match.score.halfTime.home ||
+        oldMatch.score.halfTime.away !== match.score.halfTime.away
+      ) {
+        for (const chatId in subscribedChatIds) {
+          const chatSubscribedCompetitions = subscribedChatIds.get(chatId);
+
+          // TODO: DRY
+          if (
+            chatSubscribedCompetitions &&
+            !chatSubscribedCompetitions.includes(match.competition.code)
+          ) {
+            continue;
+          }
+
+          await client.sendText(
+            chatId,
+            `Match update\n\n*${match.homeTeam.shortName} vs ${match.awayTeam.shortName}*\n* Half time scores: ${match.score.halfTime.home} - ${match.score.halfTime.away}`,
+          );
+        }
+      }
+    }
+  }, 60000);
+
+  checkInterval.unref();
+}
+
+function stopMatchUpdateInterval(logger: ConsolaInstance) {
+  if (checkInterval) {
+    logger.debug("Stopping match update interval...");
+    clearInterval(checkInterval);
+    checkInterval = null;
+  }
+}
+
+let subscribedChatIds = new Map<string, string[] | null>();
+let checkInterval: Timer | null = null;
 
 export default {
   id: "football",
@@ -179,12 +298,14 @@ export default {
       description: "Subscribe the current chat to football match updates",
       minLevel: PermissionLevel.TRUSTED,
 
-      async handler({ message, rest }) {
+      async handler({ message, rest, logger, client }) {
         if (message.chatId in subscribedChatIds) {
           throw new CommandError("This chat is already subscribed.");
         }
 
-        subscribedChatIds[message.chatId] = parseCompetitionsList(rest);
+        subscribedChatIds.set(message.chatId, parseCompetitionsList(rest));
+
+        startMatchUpdateInterval(logger, client);
 
         return true;
       },
@@ -194,128 +315,28 @@ export default {
       description: "Unsubscribe the current chat from football match updates",
       minLevel: PermissionLevel.TRUSTED,
 
-      async handler({ message }) {
+      async handler({ message, logger }) {
         if (!(message.chatId in subscribedChatIds)) {
           throw new CommandError("This chat is not subscribed.");
         }
 
-        delete subscribedChatIds[message.chatId];
+        subscribedChatIds.delete(message.chatId);
+
+        if (subscribedChatIds.size === 0) {
+          stopMatchUpdateInterval(logger);
+        }
 
         return true;
       },
     },
   ],
 
-  async onLoad({ client, logger }) {
+  async onLoad({ logger }) {
+    logger.debug("Fetching initial matches...");
     await fetchMatches(logger);
-
-    logger.debug("Starting match update interval...");
-
-    checkInterval = setInterval(async () => {
-      const oldMatches = latestMatches;
-      const oldMatchesRecord: Record<
-        number,
-        InferOutput<typeof matchSchema>
-      > = {};
-      for (const match of oldMatches) {
-        oldMatchesRecord[match.id] = match;
-      }
-
-      await fetchMatches(logger);
-
-      const latestMatchesRecord: Record<
-        number,
-        InferOutput<typeof matchSchema>
-      > = {};
-      for (const match of latestMatches) {
-        latestMatchesRecord[match.id] = match;
-      }
-
-      if (latestMatches.length !== oldMatches.length) {
-        // TODO: filter out matches that are not in the subscribed competitions
-        for (const chatId in subscribedChatIds) {
-          await client.sendText(
-            chatId,
-            "New football matches available! Use `/football` to see them.",
-          );
-        }
-      }
-
-      for (const match of latestMatches) {
-        const oldMatch = oldMatchesRecord[match.id];
-
-        if (!oldMatch) {
-          continue;
-        }
-
-        if (oldMatch.status !== match.status) {
-          for (const chatId in subscribedChatIds) {
-            const chatSubscribedCompetitions = subscribedChatIds[chatId];
-
-            if (
-              chatSubscribedCompetitions &&
-              !chatSubscribedCompetitions.includes(match.competition.code)
-            ) {
-              continue;
-            }
-
-            await client.sendText(
-              chatId,
-              `Match update\n\n*${match.homeTeam.shortName} vs ${match.awayTeam.shortName}*\n* Status: ${match.status}`,
-            );
-          }
-        }
-
-        if (
-          oldMatch.score.fullTime.home !== match.score.fullTime.home ||
-          oldMatch.score.fullTime.away !== match.score.fullTime.away
-        ) {
-          for (const chatId in subscribedChatIds) {
-            const chatSubscribedCompetitions = subscribedChatIds[chatId];
-
-            if (
-              chatSubscribedCompetitions &&
-              !chatSubscribedCompetitions.includes(match.competition.code)
-            ) {
-              continue;
-            }
-
-            await client.sendText(
-              chatId,
-              `Match update\n\n*${match.homeTeam.shortName} vs ${match.awayTeam.shortName}*\n* Full time scores: ${match.score.fullTime.home} - ${match.score.fullTime.away}`,
-            );
-          }
-        }
-
-        if (
-          oldMatch.score.halfTime.home !== match.score.halfTime.home ||
-          oldMatch.score.halfTime.away !== match.score.halfTime.away
-        ) {
-          for (const chatId in subscribedChatIds) {
-            const chatSubscribedCompetitions = subscribedChatIds[chatId];
-
-            // TODO: DRY
-            if (
-              chatSubscribedCompetitions &&
-              !chatSubscribedCompetitions.includes(match.competition.code)
-            ) {
-              continue;
-            }
-
-            await client.sendText(
-              chatId,
-              `Match update\n\n*${match.homeTeam.shortName} vs ${match.awayTeam.shortName}*\n* Half time scores: ${match.score.halfTime.home} - ${match.score.halfTime.away}`,
-            );
-          }
-        }
-      }
-    }, 60000);
-
-    checkInterval.unref();
   },
 
   onUnload({ logger }) {
-    logger.debug("Stopping match update interval...");
-    clearInterval(checkInterval);
+    stopMatchUpdateInterval(logger);
   },
 } satisfies Plugin;
