@@ -6,7 +6,6 @@
     "admin-utils",
     "random",
     "openai",
-    "latex",
     "numberfacts",
     "math"
   ],
