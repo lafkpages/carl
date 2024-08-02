@@ -106,12 +106,10 @@ export default {
           throw new CommandError("Invalid arguments");
         }
 
-        logger.debug("Debug areaunder", expr, {
+        return areaUnder(expr, {
           start: parseFloat(a),
           finish: parseFloat(b),
-        });
-
-        return areaUnder(expr, { start: parseFloat(a), finish: parseFloat(b) });
+        }).toString();
       },
     },
   ],
