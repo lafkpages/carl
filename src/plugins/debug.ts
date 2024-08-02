@@ -51,7 +51,7 @@ ${Bun.inspect(message, { colors: false })}
       description: "Evaluate JavaScript code",
       minLevel: PermissionLevel.ADMIN,
 
-      async handler({ rest, message, client }) {
+      async handler({ rest, message, client, logger }) {
         return `\`\`\`\n${Bun.inspect(
           await new Promise((resolve, reject) => {
             try {
