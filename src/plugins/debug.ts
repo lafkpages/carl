@@ -109,6 +109,15 @@ ${Bun.inspect(message, { colors: false })}
       },
     },
     {
+      name: "emptymessage",
+      description: "Send an empty message",
+      minLevel: PermissionLevel.NONE,
+
+      async handler() {
+        return "";
+      },
+    },
+    {
       name: "testinteractioncontinuation",
       description: "Test interaction continuations",
       minLevel: PermissionLevel.TRUSTED,
