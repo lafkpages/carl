@@ -15,6 +15,7 @@
   },
   "dependencies": {
     "@based/pretty-date": "^1.0.4",
+    "@metadelta/core": "^1.1.2",
     "openai": "^4.52.4",
     "pino": "^9.2.0",
     "valibot": "^0.36.0",
