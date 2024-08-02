@@ -74,7 +74,7 @@ async function fetchMatches(
   logger: ConsolaInstance,
   competitions?: string[] | null,
 ) {
-  logger.info("Fetching matches...");
+  logger.debug("Fetching matches...");
 
   const url = new URL("https://api.football-data.org/v4/matches");
 
