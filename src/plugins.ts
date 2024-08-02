@@ -1,6 +1,7 @@
 import type { Database } from "bun:sqlite";
 import type { ConsolaInstance } from "consola";
 import type { Message, Whatsapp } from "venom-bot";
+import type { Config } from "./config";
 import type { PermissionLevel } from "./perms";
 
 export interface Plugin {
@@ -26,18 +27,21 @@ export interface Plugin {
   onLoad?({}: {
     client: Whatsapp;
     logger: ConsolaInstance;
+    config: Config;
 
     database: Database | null;
   }): MaybePromise<void>;
   onUnload?({}: {
     client: Whatsapp;
     logger: ConsolaInstance;
+    config: Config;
 
     database: Database | null;
   }): MaybePromise<void>;
   onMessage?({}: {
     client: Whatsapp;
     logger: ConsolaInstance;
+    config: Config;
 
     database: Database | null;
 
@@ -69,6 +73,7 @@ export interface Interaction {
 
     client: Whatsapp;
     logger: ConsolaInstance;
+    config: Config;
 
     database: Database | null;
 

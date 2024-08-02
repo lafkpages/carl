@@ -13,7 +13,7 @@ import { Database } from "bun:sqlite";
 import { consola } from "consola";
 import { create } from "venom-bot";
 
-import { plugins as configPlugins } from "../config.json";
+import config from "../config.json";
 import { CommandError, CommandPermissionError } from "./error";
 import { getPermissionLevel, PermissionLevel } from "./perms";
 import { InteractionContinuation } from "./plugins";
@@ -79,7 +79,7 @@ function loadPlugin(plugin: Plugin) {
 async function loadPluginsFromConfig(idsToLoad?: Set<string> | null) {
   const now = Date.now();
 
-  for (const pluginIdentifier of configPlugins) {
+  for (const pluginIdentifier of config.plugins) {
     consola.info("Importing plugin:", pluginIdentifier);
 
     // add a cache buster to the import path
@@ -204,6 +204,7 @@ const corePlugin: Plugin = {
             plugin.onUnload({
               client,
               logger: plugin._logger,
+              config,
 
               database: plugin._db,
             });
@@ -246,6 +247,7 @@ const corePlugin: Plugin = {
           await plugin.onLoad?.({
             client,
             logger: plugin._logger,
+            config,
 
             database: plugin._db,
           });
@@ -270,6 +272,7 @@ for (const plugin of plugins) {
   await plugin.onLoad?.({
     client,
     logger: plugin._logger,
+    config,
 
     database: plugin._db,
   });
@@ -329,6 +332,7 @@ const { dispose } = await client.onMessage(async (message) => {
         logger: _plugin._logger.withDefaults({
           tag: `${_plugin.id}:${interactionContinuationHandler.name}`,
         }),
+        config,
 
         database: _plugin._db,
 
@@ -359,6 +363,7 @@ const { dispose } = await client.onMessage(async (message) => {
 
             client,
             logger: cmd._logger,
+            config,
 
             database: cmd.plugin._db,
 
@@ -391,6 +396,7 @@ const { dispose } = await client.onMessage(async (message) => {
       const result = await plugin.onMessage({
         client,
         logger: plugin._logger,
+        config,
 
         database: plugin._db,
 
@@ -498,6 +504,7 @@ async function stopGracefully() {
       plugin.onUnload({
         client,
         logger: plugin._logger,
+        config,
 
         database: plugin._db,
       });
