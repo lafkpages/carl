@@ -374,9 +374,9 @@ const { dispose } = await client.onMessage(async (message) => {
     }
     hasCheckedUserRateLimit = true;
 
-    if (command in commands) {
-      const cmd = commands[command as keyof typeof commands];
+    const cmd = resolveCommand(command);
 
+    if (cmd) {
       client.markMarkSeenMessage(message.from);
 
       if (
@@ -455,6 +455,20 @@ const { dispose } = await client.onMessage(async (message) => {
     }
   }
 });
+
+function resolveCommand(command: string) {
+  if (command in commands) {
+    return commands[command];
+  }
+
+  if (config.aliases && command in config.aliases) {
+    return resolveCommand(
+      config.aliases[command as keyof typeof config.aliases],
+    );
+  }
+
+  return null;
+}
 
 async function handleInteractionResult(
   result: InteractionResult,

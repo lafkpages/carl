@@ -28,6 +28,12 @@ export interface Config {
   };
 
   /**
+   * Global command aliases. The key is the command name for the alias,
+   * and the value is the command name to alias.
+   */
+  aliases?: Record<string, string>;
+
+  /**
    * Configuration for specific plugins.
    */
   pluginsConfig?: {

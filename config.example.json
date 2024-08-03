@@ -19,5 +19,12 @@
     "admin": 0,
     "trusted": 2000,
     "default": 5000
+  },
+
+  "aliases": {
+    "dw": "defineword",
+    "rf": "random",
+    "t": "translate",
+    "soccer": "football"
   }
 }

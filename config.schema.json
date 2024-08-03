@@ -8,6 +8,13 @@
         "$schema": {
           "type": "string"
         },
+        "aliases": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "description": "Global command aliases. The key is the command name for the alias, and the value is the command name to alias.",
+          "type": "object"
+        },
         "plugins": {
           "description": "A list of plugins to load.\n\nEach plugin can either be a path to a plugin file, or the name of a built-in plugin.",
           "items": {
