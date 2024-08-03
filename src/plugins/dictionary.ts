@@ -51,7 +51,8 @@ export default {
     {
       name: "defineword",
       description: "Define a word.",
-      minLevel: PermissionLevel.TRUSTED,
+      minLevel: PermissionLevel.NONE,
+      rateLimit: 5000,
 
       async handler({ rest, logger }) {
         const resp = await fetch(

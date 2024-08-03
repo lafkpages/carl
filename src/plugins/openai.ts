@@ -16,7 +16,8 @@ export default {
     {
       name: "ai",
       description: "Ask a question to AI",
-      minLevel: PermissionLevel.TRUSTED,
+      minLevel: PermissionLevel.NONE,
+      rateLimit: 5000,
 
       async handler({ rest }) {
         // todo: handle thread of replies as chat history

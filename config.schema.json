@@ -22,6 +22,7 @@
               "additionalProperties": false,
               "properties": {
                 "url": {
+                  "description": "The URL to a LibreTranslate server. D",
                   "type": "string"
                 }
               },
@@ -32,16 +33,19 @@
         },
         "ratelimit": {
           "additionalProperties": false,
-          "description": "How many seconds to wait before allowing a user to run a command again.",
+          "description": "Per-user rate limits for different permission levels, in milliseconds.",
           "properties": {
             "admin": {
+              "type": "number"
+            },
+            "default": {
               "type": "number"
             },
             "trusted": {
               "type": "number"
             }
           },
-          "required": ["admin", "trusted"],
+          "required": ["admin", "trusted", "default"],
           "type": "object"
         },
         "whitelist": {

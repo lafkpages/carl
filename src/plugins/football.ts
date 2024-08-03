@@ -240,7 +240,8 @@ export default {
     {
       name: "football",
       description: "Shows today's football matches",
-      minLevel: PermissionLevel.TRUSTED,
+      minLevel: PermissionLevel.NONE,
+      rateLimit: 10000,
 
       async handler({ rest, logger }) {
         const { matches } = await fetchMatches(

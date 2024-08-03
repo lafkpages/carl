@@ -18,11 +18,13 @@ export interface Config {
   };
 
   /**
-   * How many seconds to wait before allowing a user to run a command again.
+   * Per-user rate limits for different permission levels,
+   * in milliseconds.
    */
   ratelimit: {
     admin: number;
     trusted: number;
+    default: number;
   };
   // TODO: implement ratelimits
 

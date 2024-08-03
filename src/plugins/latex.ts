@@ -18,6 +18,7 @@ export default {
       name: "latex",
       description: "Render a LaTeX equation",
       minLevel: PermissionLevel.TRUSTED,
+      rateLimit: 5000,
 
       async handler({ message, rest, client, logger }) {
         rest = rest.trim();

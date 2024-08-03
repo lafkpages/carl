@@ -20,7 +20,8 @@ export default {
     {
       name: "isitwater",
       description: "Check if a location is on water or land",
-      minLevel: PermissionLevel.TRUSTED,
+      minLevel: PermissionLevel.NONE,
+      rateLimit: 10000,
 
       async handler({ message, client, logger, rest }) {
         let lat: number;

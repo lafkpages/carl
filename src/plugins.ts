@@ -62,6 +62,16 @@ export interface Command extends Interaction {
    * Whether this command should be hidden from the help command
    */
   hidden?: boolean;
+
+  /**
+   * Optional rate limit for this command in milliseconds. If set
+   * to 0 or omitted, the command will not be rate limited. Note
+   * that rate limiting is per user, per plugin, per command.
+   *
+   * It is a good idea to rate limit commands that interact with
+   * external APIs to prevent abuse.
+   */
+  rateLimit?: number;
 }
 
 export interface Interaction {

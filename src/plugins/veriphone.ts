@@ -45,7 +45,8 @@ export default {
     {
       name: "veriphone",
       description: "Looks up a phone number",
-      minLevel: PermissionLevel.TRUSTED,
+      minLevel: PermissionLevel.NONE,
+      rateLimit: 10000,
 
       async handler({ message, rest }) {
         const phoneNumber =

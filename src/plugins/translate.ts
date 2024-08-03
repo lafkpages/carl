@@ -24,7 +24,8 @@ export default {
     {
       name: "detect",
       description: "Detect the language of a text",
-      minLevel: PermissionLevel.TRUSTED,
+      minLevel: PermissionLevel.NONE,
+      rateLimit: 2000,
 
       async handler({ message, rest }) {
         let text = "";
@@ -55,7 +56,8 @@ export default {
     {
       name: "translate",
       description: "Translate text to a different language",
-      minLevel: PermissionLevel.TRUSTED,
+      minLevel: PermissionLevel.NONE,
+      rateLimit: 10000,
 
       async handler({ message, rest, database, client }) {
         let from = "auto";
@@ -165,6 +167,7 @@ export default {
       name: "translatelangs",
       description: "List available languages for translation",
       minLevel: PermissionLevel.NONE,
+      rateLimit: 10000,
 
       async handler() {
         const languages = await libreTranslate.listLanguages();

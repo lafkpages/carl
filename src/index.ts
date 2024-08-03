@@ -17,6 +17,7 @@ import config from "../config.json";
 import { CommandError, CommandPermissionError } from "./error";
 import { getPermissionLevel, PermissionLevel } from "./perms";
 import { InteractionContinuation } from "./plugins";
+import { isCommandRateLimited, isUserRateLimited } from "./ratelimits";
 import { getMessageId, getMessageTextContent } from "./utils";
 
 if (!process.isBun) {
@@ -298,7 +299,22 @@ const { dispose } = await client.onMessage(async (message) => {
     getPermissionLevel(message.chatId),
   );
 
-  consola.debug("Message received:", { message, messageBody, permissionLevel });
+  // TODO: rework PermissionLevel; enum is painful
+  const rateLimit =
+    permissionLevel === PermissionLevel.ADMIN
+      ? config.ratelimit.admin
+      : permissionLevel === PermissionLevel.TRUSTED
+        ? config.ratelimit.trusted
+        : config.ratelimit.default;
+
+  consola.debug("Message received:", {
+    message,
+    messageBody,
+    permissionLevel,
+    rateLimit,
+  });
+
+  let hasCheckedUserRateLimit = false;
 
   let [, command, rest] = messageBody.match(/^\/(\w+)\s*(.*)?$/is) || [];
   rest ||= "";
@@ -346,39 +362,57 @@ const { dispose } = await client.onMessage(async (message) => {
   } else if (command) {
     consola.info("Command received:", { command, rest });
 
-    client.markMarkSeenMessage(message.from);
-    client.startTyping(message.from, true);
-    // TODO: figure out what the second argument does
+    if (isUserRateLimited(message.sender.id, rateLimit)) {
+      consola.info("User rate limited at command:", message.sender.id);
+      return;
+    }
+    hasCheckedUserRateLimit = true;
 
     if (command in commands) {
       const cmd = commands[command as keyof typeof commands];
 
-      if (permissionLevel >= cmd.minLevel) {
-        try {
-          const result = await cmd.handler({
-            message,
-            rest,
+      client.markMarkSeenMessage(message.from);
 
-            permissionLevel,
-
-            client,
-            logger: cmd._logger,
-            config,
-
-            database: cmd.plugin._db,
-
-            data: null,
-          });
-
-          await handleInteractionResult(result, message, cmd.plugin);
-        } catch (err) {
-          await handleError(err, message);
-        }
+      if (
+        isCommandRateLimited(
+          message.sender.id,
+          cmd.plugin.id,
+          cmd.name,
+          cmd.rateLimit ?? 0,
+        )
+      ) {
+        await client.sendReactions(message.id, "\u23F3");
       } else {
-        await handleError(
-          new CommandPermissionError(command, cmd.minLevel),
-          message,
-        );
+        client.startTyping(message.from, true);
+        // TODO: figure out what the second argument does
+
+        if (permissionLevel >= cmd.minLevel) {
+          try {
+            const result = await cmd.handler({
+              message,
+              rest,
+
+              permissionLevel,
+
+              client,
+              logger: cmd._logger,
+              config,
+
+              database: cmd.plugin._db,
+
+              data: null,
+            });
+
+            await handleInteractionResult(result, message, cmd.plugin);
+          } catch (err) {
+            await handleError(err, message);
+          }
+        } else {
+          await handleError(
+            new CommandPermissionError(command, cmd.minLevel),
+            message,
+          );
+        }
       }
     } else {
       await client.reply(
@@ -391,6 +425,14 @@ const { dispose } = await client.onMessage(async (message) => {
 
   for (const plugin of plugins) {
     if (plugin.onMessage) {
+      if (!hasCheckedUserRateLimit) {
+        if (isUserRateLimited(message.sender.id, rateLimit)) {
+          consola.info("User rate limited at onMessage:", message.sender.id);
+          return;
+        }
+        hasCheckedUserRateLimit = true;
+      }
+
       consola.debug("Running plugin onMessage:", plugin.id);
 
       const result = await plugin.onMessage({

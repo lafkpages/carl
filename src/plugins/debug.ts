@@ -120,7 +120,7 @@ ${Bun.inspect(message, { colors: false })}
     {
       name: "testinteractioncontinuation",
       description: "Test interaction continuations",
-      minLevel: PermissionLevel.TRUSTED,
+      minLevel: PermissionLevel.NONE,
 
       handler() {
         return new InteractionContinuation(
