@@ -26,7 +26,6 @@ export interface Config {
     trusted: number;
     default: number;
   };
-  // TODO: implement ratelimits
 
   /**
    * Configuration for specific plugins.
