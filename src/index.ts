@@ -7,9 +7,9 @@ import type {
   Plugin,
 } from "./plugins";
 
-import { Database } from "bun:sqlite";
 import { mkdir } from "node:fs/promises";
 
+import { Database } from "bun:sqlite";
 import { consola } from "consola";
 import { create } from "venom-bot";
 
@@ -18,7 +18,11 @@ import { CommandError, CommandPermissionError } from "./error";
 import { getPermissionLevel, PermissionLevel } from "./perms";
 import { InteractionContinuation } from "./plugins";
 import { isCommandRateLimited, isUserRateLimited } from "./ratelimits";
-import { getMessageId, getMessageTextContent } from "./utils";
+import {
+  getMessageId,
+  getMessageTextContent,
+  getQuotedMessageId,
+} from "./utils";
 
 if (!process.isBun) {
   consola.fatal("WhatsApp PA must be run with Bun");
@@ -279,14 +283,14 @@ for (const plugin of plugins) {
   });
 }
 
-const interactionContinuations: Record<
+const interactionContinuations = new Map<
   string,
   Interaction & {
     _data: unknown;
     _plugin: InternalPlugin;
     _timeout: Timer;
   }
-> = {};
+>();
 
 const { dispose } = await client.onMessage(async (message) => {
   const messageBody = getMessageTextContent(message);
@@ -319,8 +323,10 @@ const { dispose } = await client.onMessage(async (message) => {
   let [, command, rest] = messageBody.match(/^\/(\w+)\s*(.*)?$/is) || [];
   rest ||= "";
 
-  const quotedMsgId = getMessageId(message.quotedMsg);
-  if (quotedMsgId && quotedMsgId in interactionContinuations) {
+  const quotedMsgId = getQuotedMessageId(message);
+  if (quotedMsgId && interactionContinuations.has(quotedMsgId)) {
+    consola.debug("Interaction continuation found:", quotedMsgId);
+
     try {
       client.markMarkSeenMessage(message.from);
       client.startTyping(message.from, true);
@@ -330,13 +336,13 @@ const { dispose } = await client.onMessage(async (message) => {
         _data,
         _plugin,
         _timeout,
-      } = interactionContinuations[quotedMsgId];
+      } = interactionContinuations.get(quotedMsgId)!;
 
       // prevent the expiration timeout from running
       clearTimeout(_timeout);
 
       // delete the interaction continuation to prevent it from being used again
-      delete interactionContinuations[quotedMsgId];
+      interactionContinuations.delete(quotedMsgId);
 
       const result = await interactionContinuationHandler({
         message,
@@ -475,17 +481,17 @@ async function handleInteractionResult(
           async () => {
             await client.sendReactions(replyId, "\u231B");
 
-            delete interactionContinuations[replyId];
+            interactionContinuations.delete(replyId);
           },
           5 * 60 * 1000,
         );
 
-        interactionContinuations[replyId] = {
+        interactionContinuations.set(replyId, {
           ...interactionContinuationHandler,
           _data: result.data,
           _plugin: plugin,
           _timeout,
-        };
+        });
       } else {
         throw new Error(
           `Interaction continuation \`${result.handler}\` handler not found for plugin \`${plugin.id}\``,

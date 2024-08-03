@@ -21,6 +21,23 @@ export function getMessageId(message: unknown) {
     : null;
 }
 
+export function getQuotedMessageId(message: Message) {
+  if ("quotedMsg" in message) {
+    const quotedMsgId = getMessageId(message.quotedMsg);
+
+    if (quotedMsgId) {
+      return quotedMsgId;
+    }
+  }
+
+  if ("quotedStanzaID" in message) {
+    // TODO: why true_?
+    return `true_${message.from}_${message.quotedStanzaID}`;
+  }
+
+  return null;
+}
+
 export function getMessageTextContent(message: Message) {
   return message.type === "chat" ? message.body : message.caption;
 }
