@@ -341,6 +341,26 @@ const corePlugin: Plugin = {
         return true;
       },
     },
+    {
+      name: "resolvecommand",
+      description: "Resolve a command [DEBUG]",
+      minLevel: PermissionLevel.NONE,
+      hidden: true,
+
+      handler({ rest }) {
+        if (!rest) {
+          throw new CommandError("Usage: `/resolvecommand <command>`");
+        }
+
+        const cmd = resolveCommand(rest);
+
+        if (cmd) {
+          return `Command \`${rest}\` resolves to \`${cmd.plugin.id}/${cmd.name}\``;
+        } else {
+          return false;
+        }
+      },
+    },
   ],
 
   onLoad({ database }) {
