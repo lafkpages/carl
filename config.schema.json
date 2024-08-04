@@ -55,6 +55,10 @@
           "required": ["admin", "trusted", "default"],
           "type": "object"
         },
+        "visible": {
+          "description": "If true, disables Puppeteer's headless mode.",
+          "type": "boolean"
+        },
         "whitelist": {
           "additionalProperties": false,
           "description": "User IDs that should be given certain permissions.",

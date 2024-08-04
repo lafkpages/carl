@@ -1,4 +1,4 @@
-/tokens
+/.wwebjs_*
 /db
 /config.json
 

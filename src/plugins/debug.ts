@@ -38,10 +38,10 @@ ${Bun.inspect(message, { colors: false })}
       description: "Check the bot's latency",
       minLevel: PermissionLevel.NONE,
 
-      async handler({ message, client }) {
+      async handler({ message }) {
         const start = Date.now();
 
-        await client.sendReactions(message.from, "\u{1F3D3}");
+        await message.react("\u{1F3D3}");
 
         return `Latency: ${start - message.timestamp * 1000}ms`;
       },
@@ -70,9 +70,9 @@ ${Bun.inspect(message, { colors: false })}
       minLevel: PermissionLevel.TRUSTED,
 
       async handler({ message, client, rest, permissionLevel }) {
-        if (message.mentionedJidList?.length) {
-          for (const jid of message.mentionedJidList) {
-            await client.sendText(jid, message.body.slice(5));
+        if (message.mentionedIds.length) {
+          for (const id of message.mentionedIds) {
+            await client.sendMessage(id._serialized, rest);
           }
 
           return true;
@@ -89,11 +89,11 @@ ${Bun.inspect(message, { colors: false })}
             );
           }
 
-          await client.sendText(to, msg);
+          await client.sendMessage(to, msg);
 
           return true;
         } else {
-          await client.sendText(message.from, message.body.slice(5));
+          await client.sendMessage(message.from, rest);
 
           return true;
         }

@@ -1,6 +1,7 @@
 import type { Plugin } from "../plugins";
 
 import { nullable, object, parse, string } from "valibot";
+import { MessageMedia } from "whatsapp-web.js";
 
 import { CommandError } from "../error";
 import { PermissionLevel } from "../perms";
@@ -59,11 +60,12 @@ export default {
         logger.info("Rendered LaTeX equation:", imageUrl);
 
         // TODO: why is the image so massive?
-        await client.sendImage(
+        await client.sendMessage(
           message.from,
-          imageUrl,
-          `latex-${Date.now()}.png`,
           `Rendered LaTeX equation:\n\`\`\`\n${latexInput}\n\`\`\``,
+          {
+            media: await MessageMedia.fromUrl(imageUrl),
+          },
         );
 
         return true;

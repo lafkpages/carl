@@ -1,5 +1,6 @@
-import type { Message } from "venom-bot";
 import type { Plugin } from "../plugins";
+
+import { MessageTypes } from "whatsapp-web.js";
 
 import { CommandError } from "../error";
 import { PermissionLevel } from "../perms";
@@ -23,28 +24,34 @@ export default {
       minLevel: PermissionLevel.NONE,
       rateLimit: 10000,
 
-      async handler({ message, client, logger, rest }) {
-        let lat: number;
-        let lng: number;
+      async handler({ message, logger, rest }) {
+        let latitude = "";
+        let longitude = "";
 
-        if (message.type === "location") {
-          ({ lat, lng } = message);
-        } else if (message.quotedMsg?.type === "location") {
-          ({ lat, lng } = message.quotedMsg);
+        if (message.type === MessageTypes.LOCATION) {
+          latitude = message.location.latitude;
+          longitude = message.location.longitude;
+        } else if (message.hasQuotedMsg) {
+          const quotedMsg = await message.getQuotedMessage();
+
+          if (quotedMsg.type === MessageTypes.LOCATION) {
+            latitude = quotedMsg.location.latitude;
+            longitude = quotedMsg.location.longitude;
+          }
         } else {
           const [, latArg, lngArg] = rest.match(/^\s*(.+?)[\s,]+(.+?)$/) ?? [];
-          lat = parseFloat(latArg);
-          lng = parseFloat(lngArg);
+          latitude = latArg;
+          longitude = lngArg;
         }
 
-        if (isNaN(lat) || isNaN(lng)) {
+        if (!latitude || !longitude) {
           throw new CommandError(
             "Invalid location. Please provide a valid location or reply to a message with a location.",
           );
         }
 
         const resp = await fetch(
-          `https://isitwater-com.p.rapidapi.com/?latitude=${encodeURIComponent(lat)}&longitude=${encodeURIComponent(lng)}&rapidapi-key=${encodeURIComponent(apiKey)}`,
+          `https://isitwater-com.p.rapidapi.com/?latitude=${encodeURIComponent(latitude)}&longitude=${encodeURIComponent(longitude)}&rapidapi-key=${encodeURIComponent(apiKey)}`,
         );
 
         if (!resp.ok) {
@@ -67,12 +74,7 @@ export default {
           return;
         }
 
-        await client.sendReactions(
-          message.id,
-          water ? "\u{1F30A}" : "\u26F0\uFE0F",
-        );
-
-        logger.debug("shit2", water);
+        await message.react(water ? "\u{1F30A}" : "\u26F0\uFE0F");
       },
     },
   ],

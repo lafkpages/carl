@@ -96,7 +96,7 @@ export default {
       description: "Find the area under a curve",
       minLevel: PermissionLevel.NONE,
 
-      handler({ logger, rest }) {
+      handler({ rest }) {
         const [, expr, a, b] =
           rest.match(
             /^(.+?)\s+from\s+(-?\d+(?:\.\d+)?)\s+to\s+(-?\d+(?:\.\d+)?)$/,

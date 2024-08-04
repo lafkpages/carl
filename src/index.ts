@@ -1,5 +1,6 @@
 import type { ConsolaInstance } from "consola";
-import type { Message } from "venom-bot";
+import type { Message } from "whatsapp-web.js";
+import type { Config } from "./config";
 import type {
   Command,
   Interaction,
@@ -11,23 +12,24 @@ import { mkdir } from "node:fs/promises";
 
 import { Database } from "bun:sqlite";
 import { consola } from "consola";
-import { create } from "venom-bot";
+import { generate } from "qrcode-terminal";
+import { LocalAuth } from "whatsapp-web.js";
 
-import config from "../config.json";
+import _config from "../config.json";
 import { CommandError, CommandPermissionError } from "./error";
 import { getPermissionLevel, PermissionLevel } from "./perms";
 import { InteractionContinuation } from "./plugins";
 import { isCommandRateLimited, isUserRateLimited } from "./ratelimits";
-import {
-  getMessageId,
-  getMessageTextContent,
-  getQuotedMessageId,
-} from "./utils";
+
+const { Client } =
+  require("whatsapp-web.js") as typeof import("whatsapp-web.js");
 
 if (!process.isBun) {
   consola.fatal("WhatsApp PA must be run with Bun");
   process.exit(1);
 }
+
+const config = _config as Config;
 
 await mkdir("db", { recursive: true });
 
@@ -269,18 +271,16 @@ const corePlugin: Plugin = {
       description: "Set an alias for a command",
       minLevel: PermissionLevel.NONE,
 
-      handler({ message, rest, database }) {
+      handler({ message, rest, sender, database }) {
         if (!rest) {
           // List user's aliases
-          if (!userCommandAliases.has(message.sender.id)) {
+          if (!userCommandAliases.has(sender)) {
             return "You have no aliases set";
           }
 
           let msg = "Your aliases:";
 
-          for (const [alias, command] of userCommandAliases.get(
-            message.sender.id,
-          )!) {
+          for (const [alias, command] of userCommandAliases.get(sender)!) {
             msg += `\n* \`${alias}\`: \`${command}\``;
           }
 
@@ -295,14 +295,14 @@ const corePlugin: Plugin = {
 
         database!.run<[string, string, string]>(
           "INSERT OR REPLACE INTO aliases (user, alias, command) VALUES (?, ?, ?)",
-          [message.sender.id, alias, command],
+          [sender, alias, command],
         );
 
-        if (!userCommandAliases.has(message.sender.id)) {
-          userCommandAliases.set(message.sender.id, new Map());
+        if (!userCommandAliases.has(sender)) {
+          userCommandAliases.set(sender, new Map());
         }
 
-        userCommandAliases.get(message.sender.id)!.set(alias, command);
+        userCommandAliases.get(sender)!.set(alias, command);
 
         return true;
       },
@@ -312,12 +312,12 @@ const corePlugin: Plugin = {
       description: "Remove an alias",
       minLevel: PermissionLevel.NONE,
 
-      handler({ message, rest, database }) {
+      handler({ message, rest, sender, database }) {
         if (!rest) {
           throw new CommandError("Usage: `/unalias <alias>`");
         }
 
-        const userAliases = userCommandAliases.get(message.sender.id);
+        const userAliases = userCommandAliases.get(sender);
 
         if (!userAliases) {
           throw new CommandError("You have no aliases set");
@@ -329,13 +329,13 @@ const corePlugin: Plugin = {
 
         database!.run<[string, string]>(
           "DELETE FROM aliases WHERE user = ? AND alias = ?",
-          [message.sender.id, rest],
+          [sender, rest],
         );
 
         userAliases.delete(rest);
 
         if (userAliases.size === 0) {
-          userCommandAliases.delete(message.sender.id);
+          userCommandAliases.delete(sender);
         }
 
         return true;
@@ -400,9 +400,33 @@ CREATE TABLE IF NOT EXISTS aliases (
 loadPlugin(corePlugin);
 await loadPluginsFromConfig();
 
-const client = await create({
-  session: "pa",
+const client = new Client({
+  authStrategy: new LocalAuth(),
+  puppeteer: { headless: config.visible ? false : undefined },
 });
+
+client.on("qr", (qr) => {
+  consola.info("QR code received", qr);
+  generate(qr, { small: true }, consola.box);
+
+  // TODO: qrcode-terminal not working
+});
+
+const clientReadyPromise = Promise.withResolvers<void>();
+
+client.on("ready", () => {
+  consola.success("Client ready");
+
+  clientReadyPromise.resolve();
+});
+
+client.on("auth_failure", (message) => {
+  clientReadyPromise.reject(new Error(message));
+});
+
+await client.initialize();
+
+await clientReadyPromise.promise;
 
 // Fire plugin onLoad events
 for (const plugin of plugins) {
@@ -424,15 +448,17 @@ const interactionContinuations = new Map<
   }
 >();
 
-const { dispose } = await client.onMessage(async (message) => {
-  const messageBody = getMessageTextContent(message);
-  if (!messageBody) {
+client.on("message", async (message) => {
+  if (!message.body) {
     return;
   }
 
+  const sender = message.author || message.from;
+  const chat = await message.getChat();
+
   const permissionLevel = Math.max(
-    getPermissionLevel(message.sender.id),
-    getPermissionLevel(message.chatId),
+    getPermissionLevel(sender),
+    getPermissionLevel(chat.id._serialized),
   );
 
   // TODO: rework PermissionLevel; enum is painful
@@ -445,40 +471,45 @@ const { dispose } = await client.onMessage(async (message) => {
 
   consola.debug("Message received:", {
     message,
-    messageBody,
+    messageSenderId: sender,
+    messageBody: message.body,
     permissionLevel,
     rateLimit,
   });
 
   let hasCheckedUserRateLimit = false;
 
-  let [, command, rest] = messageBody.match(/^\/(\w+)\s*(.*)?$/is) || [];
+  let [, command, rest] = message.body.match(/^\/(\w+)\s*(.*)?$/is) || [];
   rest ||= "";
 
-  const quotedMsgId = getQuotedMessageId(message);
-  if (quotedMsgId && interactionContinuations.has(quotedMsgId)) {
-    consola.debug("Interaction continuation found:", quotedMsgId);
+  const quotedMsg = message.hasQuotedMsg
+    ? await message.getQuotedMessage()
+    : null;
+  if (quotedMsg && interactionContinuations.has(quotedMsg.id._serialized)) {
+    consola.debug("Interaction continuation found:", quotedMsg.id);
 
     try {
-      client.markMarkSeenMessage(message.from);
-      client.startTyping(message.from, true);
+      chat.sendSeen();
+      chat.sendStateTyping();
 
       const {
         handler: interactionContinuationHandler,
         _data,
         _plugin,
         _timeout,
-      } = interactionContinuations.get(quotedMsgId)!;
+      } = interactionContinuations.get(quotedMsg.id._serialized)!;
 
       // prevent the expiration timeout from running
       clearTimeout(_timeout);
 
       // delete the interaction continuation to prevent it from being used again
-      interactionContinuations.delete(quotedMsgId);
+      interactionContinuations.delete(quotedMsg.id._serialized);
 
       const result = await interactionContinuationHandler({
         message,
         rest,
+        sender,
+        chat,
 
         permissionLevel,
 
@@ -500,35 +531,36 @@ const { dispose } = await client.onMessage(async (message) => {
   } else if (command) {
     consola.info("Command received:", { command, rest });
 
-    if (isUserRateLimited(message.sender.id, rateLimit)) {
-      consola.info("User rate limited at command:", message.sender.id);
+    if (isUserRateLimited(sender, rateLimit)) {
+      consola.info("User rate limited at command:", sender);
       return;
     }
     hasCheckedUserRateLimit = true;
 
-    const cmd = resolveCommand(command, message.sender.id);
+    const cmd = resolveCommand(command, sender);
 
     if (cmd) {
-      client.markMarkSeenMessage(message.from);
+      chat.sendSeen();
 
       if (
         isCommandRateLimited(
-          message.sender.id,
+          sender,
           cmd.plugin.id,
           cmd.name,
           cmd.rateLimit ?? 0,
         )
       ) {
-        await client.sendReactions(message.id, "\u23F3");
+        await message.react("\u23F3");
       } else {
-        client.startTyping(message.from, true);
-        // TODO: figure out what the second argument does
+        chat.sendStateTyping();
 
         if (permissionLevel >= cmd.minLevel) {
           try {
             const result = await cmd.handler({
               message,
               rest,
+              sender,
+              chat,
 
               permissionLevel,
 
@@ -553,19 +585,15 @@ const { dispose } = await client.onMessage(async (message) => {
         }
       }
     } else {
-      await client.reply(
-        message.from,
-        `Unknown command \`${command}\``,
-        message.id,
-      );
+      await message.reply(`Unknown command \`${command}\``);
     }
   }
 
   for (const plugin of plugins) {
     if (plugin.onMessage) {
       if (!hasCheckedUserRateLimit) {
-        if (isUserRateLimited(message.sender.id, rateLimit)) {
-          consola.info("User rate limited at onMessage:", message.sender.id);
+        if (isUserRateLimited(sender, rateLimit)) {
+          consola.info("User rate limited at onMessage:", sender);
           return;
         }
         hasCheckedUserRateLimit = true;
@@ -581,6 +609,8 @@ const { dispose } = await client.onMessage(async (message) => {
         database: plugin._db,
 
         message,
+        sender,
+        chat,
       });
 
       await handleInteractionResult(result, message, plugin);
@@ -622,8 +652,8 @@ async function handleInteractionResult(
     (typeof result === "object" && "handler" in result);
 
   if (isInteractionContinuation) {
-    const reply = await client.reply(message.from, result.message, message.id);
-    const replyId = getMessageId(reply);
+    const reply = await message.reply(result.message);
+    const replyId = reply.id._serialized;
 
     if (typeof replyId === "string") {
       const interactionContinuationHandler =
@@ -633,7 +663,7 @@ async function handleInteractionResult(
         // expire continuations after 5 minutes
         const _timeout = setTimeout(
           async () => {
-            await client.sendReactions(replyId, "\u231B");
+            await message.react("\u231B");
 
             interactionContinuations.delete(replyId);
           },
@@ -657,17 +687,17 @@ async function handleInteractionResult(
     }
   } else {
     if (typeof result === "string") {
-      await client.reply(message.from, result, message.id);
+      await message.reply(result);
     } else if (result === true) {
-      await client.sendReactions(message.id, "\u{1F44D}");
+      await message.react("\u{1F44D}");
     } else if (result === false) {
-      await client.sendReactions(message.id, "\u{1F44E}");
+      await message.react("\u{1F44E}");
     }
   }
 }
 
 async function handleError(error: unknown, message: Message) {
-  await client.sendReactions(message.id, "\u274C");
+  await message.react("\u274C");
 
   let isCommandError = error instanceof CommandError;
   if (
@@ -681,18 +711,12 @@ async function handleError(error: unknown, message: Message) {
   // check name as well because instanceof doesn't work across module boundaries
 
   if (isCommandError) {
-    await client.reply(
-      message.from,
-      `Error: ${(error as CommandError).message}`,
-      message.id,
-    );
+    await message.reply(`Error: ${(error as CommandError).message}`);
   } else {
     consola.error("Error while handling command:", error);
 
-    await client.reply(
-      message.from,
+    await message.reply(
       `Error:\n\`\`\`\n${Bun.inspect(error, { colors: false })}\`\`\``,
-      message.id,
     );
   }
 }
@@ -720,20 +744,17 @@ async function stop() {
   consola.debug("Removing SIGINT listener");
   process.off("SIGINT", stopGracefully);
 
-  consola.debug("Disposing client message listener");
-  dispose();
-
   consola.info("Waiting a second before closing client on stop");
   await Bun.sleep(1000);
 
-  consola.info("Closing client on stop");
-  await client.close();
+  consola.info("Destroying client on stop");
+  await client.destroy();
 
-  consola.info("Waiting a second before exiting process on stop");
-  await Bun.sleep(1000);
+  // consola.info("Waiting a second before exiting process on stop");
+  // await Bun.sleep(1000);
 
-  consola.info("Exiting process on stop");
-  process.exit();
+  // consola.info("Exiting process on stop");
+  // process.exit();
 }
 
 process.on("SIGINT", stopGracefully);

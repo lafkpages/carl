@@ -49,12 +49,13 @@ export default {
       rateLimit: 10000,
 
       async handler({ message, rest }) {
-        const phoneNumber =
-          rest ||
-          (message.author || message.sender.id).match(/^(.+?)@c.us$/)?.[1];
+        let phoneNumber = "";
 
-        if (!phoneNumber) {
-          throw new CommandError("you must provide a phone number to look up");
+        if (rest) {
+          phoneNumber = rest;
+        } else {
+          const contact = await message.getContact();
+          phoneNumber = contact.number;
         }
 
         const data = parse(

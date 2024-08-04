@@ -21,10 +21,10 @@ export default {
       minLevel: PermissionLevel.NONE,
       rateLimit: /* 1 hour */ 1000 * 60 * 60,
 
-      async handler({ message, rest, client }) {
-        if (message.sender.id in pendingPermissionRequests) {
+      async handler({ message, rest, sender, client }) {
+        if (sender in pendingPermissionRequests) {
           throw new CommandError(
-            `you already have a pending permission request for permission level \`${PermissionLevel[pendingPermissionRequests[message.sender.id]]}\``,
+            `you already have a pending permission request for permission level \`${PermissionLevel[pendingPermissionRequests[sender]]}\``,
           );
         }
 
@@ -42,15 +42,17 @@ export default {
           );
         }
 
+        const contact = await message.getContact();
+
         const requestedPermissionLevel =
           PermissionLevel[rest as keyof typeof PermissionLevel];
 
-        pendingPermissionRequests[message.sender.id] = requestedPermissionLevel;
+        pendingPermissionRequests[sender] = requestedPermissionLevel;
 
         for (const admin of whitelist.admin) {
-          await client.sendText(
+          await client.sendMessage(
             admin,
-            `User \`${message.sender.id}\` (\`${message.notifyName}\`) has requested permission level \`${PermissionLevel[requestedPermissionLevel]}\` (\`${requestedPermissionLevel}\`). To grant this permission, edit the config file and restart the bot.`,
+            `User \`${sender}\` (\`${contact.pushname}\`) has requested permission level \`${PermissionLevel[requestedPermissionLevel]}\` (\`${requestedPermissionLevel}\`). To grant this permission, edit the config file and restart the bot.`,
           );
         }
 

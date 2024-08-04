@@ -4,7 +4,6 @@ import { libreTranslate } from "libretranslate-ts";
 
 import { CommandError } from "../error";
 import { PermissionLevel } from "../perms";
-import { getMessageTextContent } from "../utils";
 
 const apiKey = process.env.TRANSLATE_API_KEY;
 
@@ -30,11 +29,11 @@ export default {
       async handler({ message, rest }) {
         let text = "";
 
-        if (message.quotedMsg) {
-          const quotedContent = getMessageTextContent(message.quotedMsg);
+        if (message.hasQuotedMsg) {
+          const quotedMsg = await message.getQuotedMessage();
 
-          if (quotedContent) {
-            text = quotedContent;
+          if (quotedMsg.body) {
+            text = quotedMsg.body;
           }
         } else if (rest) {
           text = rest;
@@ -59,21 +58,21 @@ export default {
       minLevel: PermissionLevel.NONE,
       rateLimit: 10000,
 
-      async handler({ message, rest, database, client }) {
+      async handler({ message, rest, sender, database, client }) {
         let from = "auto";
         let text = "";
 
-        if (message.quotedMsg) {
-          const quotedContent = getMessageTextContent(message.quotedMsg);
+        if (message.hasQuotedMsg) {
+          const quotedMsg = await message.getQuotedMessage();
 
-          if (quotedContent) {
+          if (quotedMsg.body) {
             if (rest) {
               const [, fromArg] = rest.match(/^\((\w+)\)/) || [];
 
               from = fromArg || rest;
             }
 
-            text = quotedContent;
+            text = quotedMsg.body;
           }
         } else if (rest) {
           const [, fromArg, textArg] = rest.match(/^\((\w+)\)\s+(.+)$/) || [];
@@ -110,24 +109,22 @@ export default {
           throw new CommandError("source language not specified");
         }
 
-        const senderId = message.author || message.sender.id;
-
         const toEntry = database!
           .query<
             { to: string },
             [string]
           >('SELECT "to" FROM translate WHERE user = ?')
-          .get(senderId);
+          .get(sender);
         const to = toEntry?.to || "en";
 
         if (!toEntry) {
           database!.run<[string, string]>(
             'INSERT INTO translate (user, "to") VALUES (?, ?)',
-            [message.author || message.sender.id, to],
+            [sender, to],
           );
 
-          await client.sendText(
-            senderId,
+          await client.sendMessage(
+            sender,
             "Your default language for `/translate` has been set to English. You can change it by using `/translatelang <language>`",
           );
         }
@@ -146,14 +143,14 @@ export default {
       description: "Set your default language for translations",
       minLevel: PermissionLevel.NONE,
 
-      handler({ message, rest, database }) {
+      handler({ rest, sender, database }) {
         if (!rest) {
           throw new CommandError("no language provided");
         }
 
         const changes = database!.run<[string, string]>(
           'INSERT OR REPLACE INTO translate (user, "to") VALUES (?, ?)',
-          [message.author || message.sender.id, rest],
+          [sender, rest],
         );
 
         if (changes.changes === 0) {

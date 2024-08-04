@@ -45,4 +45,9 @@ export interface Config {
     };
     [pluginId: string]: any;
   };
+
+  /**
+   * If true, disables Puppeteer's headless mode.
+   */
+  visible?: boolean;
 }

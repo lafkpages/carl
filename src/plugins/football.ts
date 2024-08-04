@@ -1,6 +1,6 @@
 import type { ConsolaInstance } from "consola";
 import type { InferOutput } from "valibot";
-import type { Whatsapp } from "venom-bot";
+import type { Client } from "whatsapp-web.js";
 import type { Plugin } from "../plugins";
 
 import { prettyDate } from "@based/pretty-date";
@@ -109,7 +109,7 @@ function parseCompetitionsList(rest: string) {
   return rest ? rest.toUpperCase().split(/[,\s]+/) : null;
 }
 
-function startMatchUpdateInterval(logger: ConsolaInstance, client: Whatsapp) {
+function startMatchUpdateInterval(logger: ConsolaInstance, client: Client) {
   if (checkInterval) {
     return;
   }
@@ -139,7 +139,7 @@ function startMatchUpdateInterval(logger: ConsolaInstance, client: Whatsapp) {
     if (latestMatches.length !== oldMatches.length) {
       // TODO: filter out matches that are not in the subscribed competitions
       for (const chatId in subscribedChatIds) {
-        await client.sendText(
+        await client.sendMessage(
           chatId,
           "New football matches available! Use `/football` to see them.",
         );
@@ -164,7 +164,7 @@ function startMatchUpdateInterval(logger: ConsolaInstance, client: Whatsapp) {
             continue;
           }
 
-          await client.sendText(
+          await client.sendMessage(
             chatId,
             `Match update\n\n*${match.homeTeam.shortName} vs ${match.awayTeam.shortName}*\n* Status: ${match.status}`,
           );
@@ -185,7 +185,7 @@ function startMatchUpdateInterval(logger: ConsolaInstance, client: Whatsapp) {
             continue;
           }
 
-          await client.sendText(
+          await client.sendMessage(
             chatId,
             `Match update\n\n*${match.homeTeam.shortName} vs ${match.awayTeam.shortName}*\n* Full time scores: ${match.score.fullTime.home} - ${match.score.fullTime.away}`,
           );
@@ -207,7 +207,7 @@ function startMatchUpdateInterval(logger: ConsolaInstance, client: Whatsapp) {
             continue;
           }
 
-          await client.sendText(
+          await client.sendMessage(
             chatId,
             `Match update\n\n*${match.homeTeam.shortName} vs ${match.awayTeam.shortName}*\n* Half time scores: ${match.score.halfTime.home} - ${match.score.halfTime.away}`,
           );
@@ -299,12 +299,12 @@ export default {
       description: "Subscribe the current chat to football match updates",
       minLevel: PermissionLevel.TRUSTED,
 
-      async handler({ message, rest, logger, client }) {
-        if (message.chatId in subscribedChatIds) {
+      async handler({ message, rest, chat, logger, client }) {
+        if (chat.id._serialized in subscribedChatIds) {
           throw new CommandError("This chat is already subscribed.");
         }
 
-        subscribedChatIds.set(message.chatId, parseCompetitionsList(rest));
+        subscribedChatIds.set(chat.id._serialized, parseCompetitionsList(rest));
 
         startMatchUpdateInterval(logger, client);
 
@@ -316,12 +316,12 @@ export default {
       description: "Unsubscribe the current chat from football match updates",
       minLevel: PermissionLevel.TRUSTED,
 
-      async handler({ message, logger }) {
-        if (!(message.chatId in subscribedChatIds)) {
+      async handler({ message, chat, logger }) {
+        if (!(chat.id._serialized in subscribedChatIds)) {
           throw new CommandError("This chat is not subscribed.");
         }
 
-        subscribedChatIds.delete(message.chatId);
+        subscribedChatIds.delete(chat.id._serialized);
 
         if (subscribedChatIds.size === 0) {
           stopMatchUpdateInterval(logger);

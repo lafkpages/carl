@@ -66,7 +66,7 @@ export default {
                   ? "\u{1F51F}"
                   : `${String.fromCharCode(48 + randomNum)}\uFE0F\u20E3`;
 
-              await client.sendReactions(message.id, emoji);
+              await message.react(emoji);
 
               return;
             } else {
@@ -99,10 +99,7 @@ export default {
           case "coin":
           case "c":
           case "flip": {
-            await client.sendReactions(
-              message.id,
-              Math.random() < 0.5 ? "🪙" : "👑",
-            );
+            await message.react(Math.random() < 0.5 ? "🪙" : "👑");
             return;
           }
 
