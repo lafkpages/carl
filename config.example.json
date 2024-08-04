@@ -23,7 +23,7 @@
 
   "aliases": {
     "dw": "defineword",
-    "rf": "random",
+    "r": "random",
     "t": "translate",
     "soccer": "football"
   }

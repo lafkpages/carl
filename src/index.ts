@@ -42,6 +42,8 @@ type InternalCommand = Command & {
 const commands: Record<string, InternalCommand> = {};
 const plugins: InternalPlugin[] = [];
 
+const userCommandAliases = new Map<string, Map<string, string>>();
+
 function loadPlugin(plugin: Plugin) {
   consola.info("Loading plugin:", plugin);
 
@@ -120,6 +122,7 @@ const corePlugin: Plugin = {
   name: "Core",
   description: "Core commands",
   version: "1.0.0",
+  database: true,
 
   commands: [
     {
@@ -261,7 +264,116 @@ const corePlugin: Plugin = {
         return true;
       },
     },
+    {
+      name: "alias",
+      description: "Set an alias for a command",
+      minLevel: PermissionLevel.NONE,
+
+      handler({ message, rest, database }) {
+        if (!rest) {
+          // List user's aliases
+          if (!userCommandAliases.has(message.sender.id)) {
+            return "You have no aliases set";
+          }
+
+          let msg = "Your aliases:";
+
+          for (const [alias, command] of userCommandAliases.get(
+            message.sender.id,
+          )!) {
+            msg += `\n* \`${alias}\`: \`${command}\``;
+          }
+
+          return msg;
+        }
+
+        const [, alias, command] = rest.match(/^\/?(.+)\s+\/?(.+)$/) || [];
+
+        if (!alias) {
+          throw new CommandError("Usage: `/alias <alias> <command>`");
+        }
+
+        database!.run<[string, string, string]>(
+          "INSERT OR REPLACE INTO aliases (user, alias, command) VALUES (?, ?, ?)",
+          [message.sender.id, alias, command],
+        );
+
+        if (!userCommandAliases.has(message.sender.id)) {
+          userCommandAliases.set(message.sender.id, new Map());
+        }
+
+        userCommandAliases.get(message.sender.id)!.set(alias, command);
+
+        return true;
+      },
+    },
+    {
+      name: "unalias",
+      description: "Remove an alias",
+      minLevel: PermissionLevel.NONE,
+
+      handler({ message, rest, database }) {
+        if (!rest) {
+          throw new CommandError("Usage: `/unalias <alias>`");
+        }
+
+        const userAliases = userCommandAliases.get(message.sender.id);
+
+        if (!userAliases) {
+          throw new CommandError("You have no aliases set");
+        }
+
+        if (!userAliases.has(rest)) {
+          return `Alias \`${rest}\` not found`;
+        }
+
+        database!.run<[string, string]>(
+          "DELETE FROM aliases WHERE user = ? AND alias = ?",
+          [message.sender.id, rest],
+        );
+
+        userAliases.delete(rest);
+
+        if (userAliases.size === 0) {
+          userCommandAliases.delete(message.sender.id);
+        }
+
+        return true;
+      },
+    },
   ],
+
+  onLoad({ database }) {
+    database!.run(`\
+CREATE TABLE IF NOT EXISTS aliases (
+  user TEXT NOT NULL,
+  alias TEXT NOT NULL,
+  command TEXT NOT NULL,
+  PRIMARY KEY (user, alias)
+);
+`);
+
+    const aliasEntries = database!
+      .query<
+        {
+          user: string;
+          alias: string;
+          command: string;
+        },
+        []
+      >("SELECT user, alias, command FROM aliases")
+      .all();
+
+    for (const aliasEntry of aliasEntries) {
+      if (!userCommandAliases.has(aliasEntry.user)) {
+        userCommandAliases.set(aliasEntry.user, new Map());
+      }
+
+      userCommandAliases
+        .get(aliasEntry.user)!
+        .set(aliasEntry.alias, aliasEntry.command);
+    }
+  },
 };
 
 // Load plugins
@@ -374,7 +486,7 @@ const { dispose } = await client.onMessage(async (message) => {
     }
     hasCheckedUserRateLimit = true;
 
-    const cmd = resolveCommand(command);
+    const cmd = resolveCommand(command, message.sender.id);
 
     if (cmd) {
       client.markMarkSeenMessage(message.from);
@@ -456,9 +568,17 @@ const { dispose } = await client.onMessage(async (message) => {
   }
 });
 
-function resolveCommand(command: string) {
+function resolveCommand(command: string, user?: string) {
   if (command in commands) {
     return commands[command];
+  }
+
+  if (user && userCommandAliases.has(user)) {
+    const userAliases = userCommandAliases.get(user)!;
+
+    if (userAliases.has(command)) {
+      return resolveCommand(userAliases.get(command)!, user);
+    }
   }
 
   if (config.aliases && command in config.aliases) {
