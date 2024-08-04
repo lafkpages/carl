@@ -15,7 +15,7 @@ export default {
     {
       name: "debuginfo",
       description: "Get handy debug information",
-      minLevel: PermissionLevel.NONE,
+      minLevel: PermissionLevel.ADMIN,
 
       handler({ message }) {
         return `\
