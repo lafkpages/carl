@@ -1,6 +1,6 @@
 import type { Database } from "bun:sqlite";
 import type { ConsolaInstance } from "consola";
-import type { Chat, Client, Message } from "whatsapp-web.js";
+import type { Chat, Client, Message, Reaction } from "whatsapp-web.js";
 import type { Config } from "./config";
 import type { PermissionLevel } from "./perms";
 
@@ -24,30 +24,12 @@ export interface Plugin {
   commands?: Command[];
   interactions?: Record<string, Interaction>;
 
-  onLoad?({}: {
-    client: Client;
-    logger: ConsolaInstance;
-    config: Config;
+  onLoad?({}: BaseInteractionHandlerArgs): MaybePromise<void>;
+  onUnload?({}: BaseInteractionHandlerArgs): MaybePromise<void>;
 
-    database: Database | null;
-  }): MaybePromise<void>;
-  onUnload?({}: {
-    client: Client;
-    logger: ConsolaInstance;
-    config: Config;
-
-    database: Database | null;
-  }): MaybePromise<void>;
-  onMessage?({}: {
-    client: Client;
-    logger: ConsolaInstance;
-    config: Config;
-
-    database: Database | null;
-
-    message: Message;
-    sender: string;
-    chat: Chat;
+  onMessage?({}: BaseMessageInteractionHandlerArgs): MaybePromise<InteractionResult>;
+  onMessageReaction?({}: BaseMessageInteractionHandlerArgs & {
+    reaction: Reaction;
   }): MaybePromise<InteractionResult>;
 }
 
@@ -77,22 +59,28 @@ export interface Command extends Interaction {
 }
 
 export interface Interaction {
-  handler({}: {
-    message: Message;
+  handler({}: BaseMessageInteractionHandlerArgs & {
     rest: string;
-    sender: string;
-    chat: Chat;
 
     permissionLevel: PermissionLevel;
 
-    client: Client;
-    logger: ConsolaInstance;
-    config: Config;
-
-    database: Database | null;
-
     data: unknown;
   }): MaybePromise<InteractionResult>;
+}
+
+interface BaseInteractionHandlerArgs {
+  client: Client;
+  logger: ConsolaInstance;
+  config: Config;
+
+  database: Database | null;
+}
+
+interface BaseMessageInteractionHandlerArgs extends BaseInteractionHandlerArgs {
+  message: Message;
+  chat: Chat;
+  sender: string;
+  permissionLevel: PermissionLevel;
 }
 
 export type InteractionResult =

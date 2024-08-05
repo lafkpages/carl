@@ -1,5 +1,5 @@
 import type { ConsolaInstance } from "consola";
-import type { Message } from "whatsapp-web.js";
+import type { Chat, Message, MessageId } from "whatsapp-web.js";
 import type { Config } from "./config";
 import type {
   Command,
@@ -422,12 +422,65 @@ client.on("qr", (qr) => {
   // TODO: qrcode-terminal not working
 });
 
+const messagesById = new Map<string, Message>();
+
+async function getMessageById(id: string | MessageId) {
+  if (typeof id !== "string") {
+    id = id._serialized;
+  }
+
+  const cachedMessage = messagesById.get(id);
+  if (cachedMessage) {
+    return cachedMessage;
+  }
+
+  const messageById = await client.getMessageById(id).catch(() => null);
+  if (messageById) {
+    if (!messagesById.has(id)) {
+      messagesById.set(id, messageById);
+    }
+
+    return messageById;
+  }
+
+  return null;
+}
+
 const clientReadyPromise = Promise.withResolvers<void>();
 
-client.on("ready", () => {
+client.on("ready", async () => {
   consola.ready("Client ready");
 
   clientReadyPromise.resolve();
+
+  consola.debug("Fetching chats");
+  const chats = await client.getChats();
+  consola.debug("Fetched", chats.length, "chats");
+
+  for (const chat of chats) {
+    consola.debug("Fetching messages for chat:", {
+      chatId: chat.id._serialized,
+      chatName: chat.name,
+    });
+
+    const messages = await chat.fetchMessages({ limit: Infinity });
+
+    for (const message of messages) {
+      messagesById.set(message.id._serialized, message);
+    }
+
+    consola.debug("Fetched", messages.length, "messages for chat:", {
+      chatId: chat.id._serialized,
+      chatName: chat.name,
+    });
+  }
+});
+
+client.on("message_ack", (message) => {
+  if (!messagesById.has(message.id._serialized)) {
+    consola.debug("Message ack cached:", message.id._serialized);
+    messagesById.set(message.id._serialized, message);
+  }
 });
 
 client.on("auth_failure", (message) => {
@@ -467,6 +520,8 @@ const interactionContinuations = new Map<
 >();
 
 client.on("message", async (message) => {
+  messagesById.set(message.id._serialized, message);
+
   if (!message.body) {
     return;
   }
@@ -627,11 +682,72 @@ client.on("message", async (message) => {
         database: plugin._db,
 
         message,
-        sender,
         chat,
+        sender,
+        permissionLevel,
       });
 
       await handleInteractionResult(result, message, plugin);
+    }
+  }
+});
+
+client.on("message_reaction", async (reaction) => {
+  if (reaction.id.fromMe) {
+    return;
+  }
+
+  // Lazy load the message and chat objects
+  let message: Message | null = null;
+  let chat: Chat | null = null;
+
+  const permissionLevel = getPermissionLevel(reaction.senderId);
+
+  consola.debug("Message reaction received:", {
+    reaction,
+    permissionLevel,
+  });
+
+  for (const plugin of plugins) {
+    if (plugin.onMessageReaction) {
+      if (!message) {
+        message = await getMessageById(reaction.msgId);
+
+        if (!message) {
+          consola.error("Message not found for reaction:", reaction);
+          return;
+        }
+      }
+
+      if (!chat) {
+        chat = await message.getChat();
+      }
+
+      consola.debug("Running plugin onMessageReaction:", plugin.id);
+
+      const result = await plugin.onMessageReaction({
+        client,
+        logger: plugin._logger,
+        config,
+
+        database: plugin._db,
+
+        message,
+        chat,
+        sender: reaction.senderId,
+        permissionLevel,
+
+        reaction,
+      });
+
+      consola.debug("Handling interaction result:", {
+        pluginId: plugin.id,
+        result,
+      });
+
+      await handleInteractionResult(result, message, plugin);
+
+      consola.debug("Interaction result handled:", plugin.id);
     }
   }
 });
