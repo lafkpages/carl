@@ -1,7 +1,17 @@
+import type { Client, Message } from "whatsapp-web.js";
 import type { Plugin } from "../plugins";
 
 import { CommandError } from "../error";
 import { PermissionLevel } from "../perms";
+
+async function handleKeep(message: Message, client: Client, sender: string) {
+  const media = await message.downloadMedia();
+
+  await client.sendMessage(sender, "View-once media saved!", {
+    media,
+    quotedMessageId: message.id._serialized,
+  });
+}
 
 export default {
   id: "viewonce",
@@ -28,15 +38,33 @@ export default {
           throw new CommandError("the replied message doesn't have media");
         }
 
-        const media = await quotedMsg.downloadMedia();
-
-        await client.sendMessage(sender, "View-once media saved!", {
-          media,
-          quotedMessageId: quotedMsg.id._serialized,
-        });
+        await handleKeep(quotedMsg, client, sender);
 
         return true;
       },
     },
   ],
+
+  async onMessageReaction({
+    reaction,
+    message,
+    sender,
+    permissionLevel,
+    client,
+  }) {
+    if (reaction.reaction !== "\u267E\uFE0F") {
+      return;
+    }
+
+    // Only allow trusted users to save view-once media
+    if (permissionLevel < PermissionLevel.TRUSTED) {
+      return;
+    }
+
+    if (!message.hasMedia) {
+      return;
+    }
+
+    await handleKeep(message, client, sender);
+  },
 } satisfies Plugin;
