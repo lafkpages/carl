@@ -198,6 +198,14 @@ const corePlugin: Plugin = {
           return false;
         }
 
+        if (pluginsToReload) {
+          for (const pluginId of pluginsToReload) {
+            if (!plugins.some((plugin) => plugin.id === pluginId)) {
+              throw new CommandError(`plugin \`${pluginId}\` not found`);
+            }
+          }
+        }
+
         // Run plugin onUnload events
         for (const plugin of plugins) {
           if (pluginsToReload && !pluginsToReload.has(plugin.id)) {
