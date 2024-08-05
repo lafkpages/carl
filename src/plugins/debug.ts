@@ -1,6 +1,6 @@
 import type { Plugin } from "../plugins";
 
-import { CommandPermissionError } from "../error";
+import { CommandError, CommandPermissionError } from "../error";
 import { PermissionLevel } from "../perms";
 import { InteractionContinuation } from "../plugins";
 
@@ -8,7 +8,7 @@ export default {
   id: "debug",
   name: "Debug tools",
   description: "Helps debug WhatsApp PA core and plugins",
-  version: "0.0.1",
+  version: "0.0.2",
   hidden: true,
 
   commands: [
@@ -18,9 +18,29 @@ export default {
       minLevel: PermissionLevel.ADMIN,
 
       handler({ message }) {
+        const strippedMessage = { ...message, client: "[SNIP]" };
+
         return `\
 \`\`\`
-${Bun.inspect(message, { colors: false })}
+${Bun.inspect(strippedMessage, { colors: false })}
+\`\`\``;
+      },
+    },
+    {
+      name: "messageid",
+      description: "Get the quoted message ID",
+      minLevel: PermissionLevel.NONE,
+
+      async handler({ message }) {
+        if (!message.hasQuotedMsg) {
+          throw new CommandError("no quoted message");
+        }
+
+        const quotedMessage = await message.getQuotedMessage();
+
+        return `\
+\`\`\`
+${Bun.inspect(quotedMessage.id, { colors: false })}
 \`\`\``;
       },
     },
@@ -51,11 +71,13 @@ ${Bun.inspect(message, { colors: false })}
       description: "Evaluate JavaScript code",
       minLevel: PermissionLevel.ADMIN,
 
-      async handler({ rest, message, client, logger }) {
+      async handler(args) {
+        // Get all arguments as args so they can be used in the eval
+
         return `\`\`\`\n${Bun.inspect(
           await new Promise((resolve, reject) => {
             try {
-              resolve(eval(rest));
+              resolve(eval(args.rest));
             } catch (err) {
               reject(err);
             }
