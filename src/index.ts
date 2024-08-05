@@ -727,7 +727,7 @@ async function stopGracefully() {
   for (const plugin of plugins) {
     if (plugin.onUnload) {
       consola.info("Unloading plugin on graceful stop:", plugin.id);
-      plugin.onUnload({
+      await plugin.onUnload({
         client,
         logger: plugin._logger,
         config,
