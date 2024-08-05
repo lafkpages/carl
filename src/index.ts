@@ -211,7 +211,7 @@ const corePlugin: Plugin = {
               },
               "Unloading plugin",
             );
-            plugin.onUnload({
+            await plugin.onUnload({
               client,
               logger: plugin._logger,
               config,
