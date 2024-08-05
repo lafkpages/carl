@@ -415,7 +415,9 @@ const client = new Client({
 
 client.on("qr", (qr) => {
   consola.info("QR code received", qr);
-  generate(qr, { small: true }, consola.box);
+  generate(qr, { small: true }, (qrcode) => {
+    consola.info(qrcode);
+  });
 
   // TODO: qrcode-terminal not working
 });
@@ -423,7 +425,7 @@ client.on("qr", (qr) => {
 const clientReadyPromise = Promise.withResolvers<void>();
 
 client.on("ready", () => {
-  consola.success("Client ready");
+  consola.ready("Client ready");
 
   clientReadyPromise.resolve();
 });
@@ -438,14 +440,22 @@ await clientReadyPromise.promise;
 
 // Fire plugin onLoad events
 for (const plugin of plugins) {
-  await plugin.onLoad?.({
-    client,
-    logger: plugin._logger,
-    config,
+  if (plugin.onLoad) {
+    consola.debug("Running plugin onLoad:", plugin.id);
 
-    database: plugin._db,
-  });
+    await plugin.onLoad({
+      client,
+      logger: plugin._logger,
+      config,
+
+      database: plugin._db,
+    });
+
+    consola.debug("Plugin onLoad done:", plugin.id);
+  }
 }
+
+process.on("SIGINT", stopGracefully);
 
 const interactionContinuations = new Map<
   string,
@@ -734,7 +744,8 @@ async function stopGracefully() {
 
   for (const plugin of plugins) {
     if (plugin.onUnload) {
-      consola.info("Unloading plugin on graceful stop:", plugin.id);
+      consola.debug("Unloading plugin on graceful stop:", plugin.id);
+
       await plugin.onUnload({
         client,
         logger: plugin._logger,
@@ -742,6 +753,8 @@ async function stopGracefully() {
 
         database: plugin._db,
       });
+
+      consola.debug("Plugin onUnload done:", plugin.id);
     }
   }
 
@@ -757,12 +770,4 @@ async function stop() {
 
   consola.info("Destroying client on stop");
   await client.destroy();
-
-  // consola.info("Waiting a second before exiting process on stop");
-  // await Bun.sleep(1000);
-
-  // consola.info("Exiting process on stop");
-  // process.exit();
 }
-
-process.on("SIGINT", stopGracefully);
