@@ -476,13 +476,6 @@ client.on("ready", async () => {
   }
 });
 
-client.on("message_ack", (message) => {
-  if (!messagesById.has(message.id._serialized)) {
-    consola.debug("Message ack cached:", message.id._serialized);
-    messagesById.set(message.id._serialized, message);
-  }
-});
-
 client.on("auth_failure", (message) => {
   clientReadyPromise.reject(new Error(message));
 });
