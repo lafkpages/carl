@@ -243,7 +243,7 @@ ${Bun.inspect(quotedMessage.id, { colors: false })}
           }
 
           if (message.body) {
-            msg += `\n> ${message.body}`;
+            msg += `\n> ${message.body.length >= 50 ? message.body.slice(0, 50) + "..." : message.body}`;
           }
 
           msg += "\n\n";
