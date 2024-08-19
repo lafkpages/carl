@@ -801,7 +801,9 @@ async function handleInteractionResult(
     }
   } else {
     if (typeof result === "string") {
-      await message.reply(result);
+      await message.reply(result, undefined, {
+        linkPreview: false,
+      });
     } else if (result === true) {
       await message.react("\u{1F44D}");
     } else if (result === false) {
