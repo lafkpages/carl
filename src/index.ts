@@ -320,7 +320,7 @@ const corePlugin: Plugin = {
       description: "Remove an alias",
       minLevel: PermissionLevel.NONE,
 
-      handler({ message, rest, sender, database }) {
+      handler({ rest, sender, database }) {
         if (!rest) {
           throw new CommandError("Usage: `/unalias <alias>`");
         }
