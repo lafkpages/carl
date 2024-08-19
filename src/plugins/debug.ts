@@ -1,5 +1,7 @@
 import type { Plugin } from "../plugins";
 
+import { MessageTypes } from "whatsapp-web.js";
+
 import { CommandError, CommandPermissionError } from "../error";
 import { PermissionLevel } from "../perms";
 import { InteractionContinuation } from "../plugins";
@@ -194,6 +196,60 @@ ${Bun.inspect(quotedMessage.id, { colors: false })}
             );
           }
         }
+      },
+    },
+    {
+      name: "messages",
+      description: "List all messages in a chat",
+      minLevel: PermissionLevel.TRUSTED,
+      rateLimit: 10000,
+
+      async handler({ client, message, rest, sender, permissionLevel }) {
+        const chatId = rest;
+
+        const commonGroups = await client.getCommonGroups(sender);
+        let found = false;
+        for (const id of commonGroups) {
+          if (id._serialized === chatId) {
+            found = true;
+            break;
+          }
+        }
+
+        if (!found) {
+          if (permissionLevel < PermissionLevel.ADMIN) {
+            throw new CommandPermissionError(
+              "messages",
+              PermissionLevel.ADMIN,
+              "with a chat specifier",
+            );
+          } else {
+            await message.react("\u{1F440}");
+          }
+        }
+
+        const chat = await client.getChatById(chatId);
+
+        const messages = await chat.fetchMessages({
+          limit: permissionLevel >= PermissionLevel.ADMIN ? 100 : 10,
+        });
+
+        let msg = "";
+        for (const message of messages) {
+          msg += `* \`${message.author || message.from}\` at ${new Date(message.timestamp)} (\`${message.id._serialized}\`)`;
+
+          if (message.hasMedia) {
+            msg += `\nMedia: \`${message.type}\``;
+          }
+
+          if (message.body) {
+            msg += `\n> ${message.body}`;
+          }
+
+          msg += "\n\n";
+        }
+
+        return msg;
       },
     },
     {
