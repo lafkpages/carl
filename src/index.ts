@@ -17,6 +17,7 @@ import { LocalAuth } from "whatsapp-web.js";
 
 import _config from "../config.json";
 import { CommandError, CommandPermissionError } from "./error";
+import { generateHelp, generateHelpPage } from "./help";
 import { getPermissionLevel, PermissionLevel } from "./perms";
 import { InteractionContinuation } from "./plugins";
 import { isCommandRateLimited, isUserRateLimited } from "./ratelimits";
@@ -134,31 +135,17 @@ const corePlugin: Plugin = {
       minLevel: PermissionLevel.NONE,
 
       handler({ rest }) {
-        const showHidden = rest === "all";
+        const [, pageArg, showHiddenArg] =
+          rest.match(/^(\d+)(\s+all)?$|^$/) || [];
 
-        let msg = "Plugins:";
+        const page = parseInt(pageArg || "1");
+        const showHidden = !!showHiddenArg;
 
-        for (const plugin of plugins) {
-          if (plugin.hidden && !showHidden) {
-            continue;
-          }
-
-          msg += `\n\n*${plugin.name}* (${plugin.version})`;
-          msg += `\n> ${plugin.description}`;
-          msg += `\nCommands:`;
-
-          if (plugin.commands) {
-            for (const command of plugin.commands) {
-              if (command.hidden && !showHidden) {
-                continue;
-              }
-
-              msg += `\n* \`/${command.name}\`: ${command.description}`;
-            }
-          }
+        if (page < 1) {
+          return false;
         }
 
-        return msg;
+        return generateHelpPage(generateHelp(plugins, showHidden), page);
       },
     },
     {
