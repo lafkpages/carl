@@ -279,7 +279,7 @@ const corePlugin: Plugin = {
       description: "Set an alias for a command",
       minLevel: PermissionLevel.NONE,
 
-      handler({ message, rest, sender, database }) {
+      handler({ rest, sender, database }) {
         if (!rest) {
           // List user's aliases
           if (!userCommandAliases.has(sender)) {
