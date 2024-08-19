@@ -25,14 +25,24 @@ export default {
       description: "Save a view-once media",
       minLevel: PermissionLevel.TRUSTED,
 
-      async handler({ message, sender, client }) {
-        if (!message.hasQuotedMsg) {
+      async handler({ message, rest, sender, client }) {
+        let quotedMsg: Message | undefined;
+
+        if (rest) {
+          quotedMsg = await client.getMessageById(rest);
+
+          if (!quotedMsg) {
+            return false;
+          }
+        } else if (!message.hasQuotedMsg) {
           throw new CommandError(
             "you need to reply to a view-once message to save it",
           );
         }
 
-        const quotedMsg = await message.getQuotedMessage();
+        if (!quotedMsg) {
+          quotedMsg = await message.getQuotedMessage();
+        }
 
         if (!quotedMsg.hasMedia) {
           throw new CommandError("the replied message doesn't have media");
