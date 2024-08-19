@@ -167,7 +167,7 @@ const corePlugin: Plugin = {
       minLevel: PermissionLevel.ADMIN,
       hidden: true,
 
-      async handler() {
+      handler() {
         stopGracefully();
         return true;
       },
@@ -178,7 +178,7 @@ const corePlugin: Plugin = {
       minLevel: PermissionLevel.ADMIN,
       hidden: true,
 
-      async handler() {
+      handler() {
         stop();
         return true;
       },
