@@ -159,7 +159,7 @@ ${Bun.inspect(quotedMessage.id, { colors: false })}
             for (const id of chatIds) {
               const chat = await client.getChatById(id._serialized);
 
-              msg += `\n* ${chat.name}`;
+              msg += `\n* \`${id._serialized}\`: ${chat.name}`;
             }
 
             return msg;
@@ -182,7 +182,7 @@ ${Bun.inspect(quotedMessage.id, { colors: false })}
 
             let msg = "Chats:\n";
             for (const chat of chats) {
-              msg += `\n* ${chat.name}`;
+              msg += `\n* \`${chat.id._serialized}\`: ${chat.name}`;
             }
 
             return msg;
