@@ -144,25 +144,56 @@ ${Bun.inspect(quotedMessage.id, { colors: false })}
       description: "List all chats you and the bot are in",
       minLevel: PermissionLevel.NONE,
 
-      async handler({ client, sender }) {
-        const chatIds = await client.getCommonGroups(sender);
+      async handler({ client, sender, rest, permissionLevel }) {
+        const canListAllChats = permissionLevel >= PermissionLevel.ADMIN;
 
-        if (!chatIds.length) {
-          // There should always be at least one chat in common
-          // with the sender and the bot, otherwise how would
-          // the bot receive this message?
-          throw new CommandError("no common chats \u{1F914}");
+        switch (rest) {
+          case "": {
+            const chatIds = await client.getCommonGroups(sender);
+
+            if (!chatIds.length) {
+              throw new CommandError("no common chats \u{1F914}");
+            }
+
+            let msg = "Chats:\n";
+            for (const id of chatIds) {
+              const chat = await client.getChatById(id._serialized);
+
+              msg += `\n* ${chat.name}`;
+            }
+
+            return msg;
+          }
+
+          case "all": {
+            if (!canListAllChats) {
+              throw new CommandPermissionError(
+                "chats",
+                PermissionLevel.ADMIN,
+                "list all",
+              );
+            }
+
+            const chats = await client.getChats();
+
+            if (!chats.length) {
+              throw new CommandError("no chats \u{1F914}");
+            }
+
+            let msg = "Chats:\n";
+            for (const chat of chats) {
+              msg += `\n* ${chat.name}`;
+            }
+
+            return msg;
+          }
+
+          default: {
+            throw new CommandError(
+              `invalid argument. Usage: \`/chats${canListAllChats ? " [all]" : ""}\``,
+            );
+          }
         }
-
-        let msg = "Chats:\n";
-
-        for (const id of chatIds) {
-          const chat = await client.getChatById(id._serialized);
-
-          msg += `\n* ${chat.name}`;
-        }
-
-        return msg;
       },
     },
     {
