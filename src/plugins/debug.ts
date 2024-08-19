@@ -140,6 +140,32 @@ ${Bun.inspect(quotedMessage.id, { colors: false })}
       },
     },
     {
+      name: "chats",
+      description: "List all chats you and the bot are in",
+      minLevel: PermissionLevel.NONE,
+
+      async handler({ client, sender }) {
+        const chatIds = await client.getCommonGroups(sender);
+
+        if (!chatIds.length) {
+          // There should always be at least one chat in common
+          // with the sender and the bot, otherwise how would
+          // the bot receive this message?
+          throw new CommandError("no common chats \u{1F914}");
+        }
+
+        let msg = "Chats:\n";
+
+        for (const id of chatIds) {
+          const chat = await client.getChatById(id._serialized);
+
+          msg += `\n* ${chat.name}`;
+        }
+
+        return msg;
+      },
+    },
+    {
       name: "testinteractioncontinuation",
       description: "Test interaction continuations",
       minLevel: PermissionLevel.NONE,
