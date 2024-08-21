@@ -1,7 +1,5 @@
 import type { Plugin } from "../plugins";
 
-import { MessageTypes } from "whatsapp-web.js";
-
 import { CommandError, CommandPermissionError } from "../error";
 import { PermissionLevel } from "../perms";
 import { InteractionContinuation } from "../plugins";
