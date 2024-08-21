@@ -17,6 +17,7 @@ import { LocalAuth } from "whatsapp-web.js";
 
 import _config from "../config.json";
 import { CommandError, CommandPermissionError } from "./error";
+import { getClient } from "./google";
 import { generateHelp, generateHelpPage } from "./help";
 import { getPermissionLevel, PermissionLevel } from "./perms";
 import { InteractionContinuation } from "./plugins";
@@ -540,6 +541,14 @@ client.on("message", async (message) => {
   let [, command, rest] = message.body.match(/^\/(\w+)\s*(.*)?$/is) || [];
   rest ||= "";
 
+  async function getGoogleClient(scope: string | string[]) {
+    return (await getClient(sender, scope, (url) => {
+      throw new CommandError(
+        `please login with Google using the link below:\n${url}`,
+      );
+    }))!;
+  }
+
   const quotedMsg = message.hasQuotedMsg
     ? await message.getQuotedMessage()
     : null;
@@ -580,6 +589,8 @@ client.on("message", async (message) => {
         database: _plugin._db,
 
         data: _data,
+
+        getGoogleClient,
       });
 
       await handleInteractionResult(result, message, _plugin);
@@ -629,6 +640,8 @@ client.on("message", async (message) => {
               database: cmd.plugin._db,
 
               data: null,
+
+              getGoogleClient,
             });
 
             await handleInteractionResult(result, message, cmd.plugin);
@@ -832,12 +845,18 @@ async function handleError(error: unknown, message: Message) {
   // check name as well because instanceof doesn't work across module boundaries
 
   if (isCommandError) {
-    await message.reply(`Error: ${(error as CommandError).message}`);
+    await message.reply(
+      `Error: ${(error as CommandError).message}`,
+      undefined,
+      { linkPreview: false },
+    );
   } else {
     consola.error("Error while handling command:", error);
 
     await message.reply(
       `Error:\n\`\`\`\n${Bun.inspect(error, { colors: false })}\`\`\``,
+      undefined,
+      { linkPreview: false },
     );
   }
 }
@@ -867,6 +886,9 @@ async function stopGracefully() {
 async function stop() {
   consola.debug("Removing SIGINT listener");
   process.off("SIGINT", stopGracefully);
+
+  consola.debug("Stopping server");
+  await server.stop();
 
   consola.info("Waiting a second before closing client on stop");
   await Bun.sleep(1000);

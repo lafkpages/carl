@@ -1,5 +1,7 @@
 import type { Plugin } from "../plugins";
 
+import { google } from "googleapis";
+
 import { CommandError, CommandPermissionError } from "../error";
 import { PermissionLevel } from "../perms";
 import { InteractionContinuation } from "../plugins";
@@ -51,6 +53,15 @@ ${Bun.inspect(quotedMessage.id, { colors: false })}
 
       handler({ message }) {
         return `\`${message.to}\``;
+      },
+    },
+    {
+      name: "whoami",
+      description: "Get your user ID",
+      minLevel: PermissionLevel.NONE,
+
+      handler({ sender }) {
+        return `\`${sender}\``;
       },
     },
     {
@@ -248,6 +259,25 @@ ${Bun.inspect(quotedMessage.id, { colors: false })}
         }
 
         return msg;
+      },
+    },
+    {
+      name: "googletest",
+      description: "Test Google OAuth",
+      minLevel: PermissionLevel.NONE,
+      rateLimit: 10000,
+      hidden: true,
+
+      async handler({ getGoogleClient }) {
+        const client = await getGoogleClient("profile");
+        const oauth = google.oauth2({
+          version: "v2",
+          auth: client,
+        });
+
+        const { data } = await oauth.userinfo.get();
+
+        return `\`\`\`\n${Bun.inspect(data, { colors: false })}\n\`\`\``;
       },
     },
     {

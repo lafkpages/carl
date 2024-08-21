@@ -1,5 +1,6 @@
 import type { Database } from "bun:sqlite";
 import type { ConsolaInstance } from "consola";
+import type { OAuth2Client } from "google-auth-library";
 import type { Chat, Client, Message, Reaction } from "whatsapp-web.js";
 import type { Config } from "./config";
 import type { PermissionLevel } from "./perms";
@@ -68,6 +69,8 @@ export interface Interaction {
     permissionLevel: PermissionLevel;
 
     data: unknown;
+
+    getGoogleClient: (scope: string | string[]) => Promise<OAuth2Client>;
   }): MaybePromise<InteractionResult>;
 }
 
