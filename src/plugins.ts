@@ -3,6 +3,7 @@ import type { ConsolaInstance } from "consola";
 import type { Chat, Client, Message, Reaction } from "whatsapp-web.js";
 import type { Config } from "./config";
 import type { PermissionLevel } from "./perms";
+import type { server } from "./server";
 
 export interface Plugin {
   id: string;
@@ -24,7 +25,9 @@ export interface Plugin {
   commands?: Command[];
   interactions?: Record<string, Interaction>;
 
-  onLoad?({}: BaseInteractionHandlerArgs): MaybePromise<void>;
+  onLoad?({}: BaseInteractionHandlerArgs & {
+    server: typeof server;
+  }): MaybePromise<void>;
   onUnload?({}: BaseInteractionHandlerArgs): MaybePromise<void>;
 
   onMessage?({}: BaseMessageInteractionHandlerArgs): MaybePromise<InteractionResult>;

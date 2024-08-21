@@ -17,6 +17,7 @@
     "@based/pretty-date": "^1.0.4",
     "@metadelta/core": "^1.1.2",
     "consola": "^3.2.3",
+    "elysia": "^1.1.7",
     "libretranslate-ts": "^0.5.11",
     "openai": "^4.52.4",
     "qrcode-terminal": "^0.12.0",

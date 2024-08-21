@@ -21,6 +21,7 @@ import { generateHelp, generateHelpPage } from "./help";
 import { getPermissionLevel, PermissionLevel } from "./perms";
 import { InteractionContinuation } from "./plugins";
 import { isCommandRateLimited, isUserRateLimited } from "./ratelimits";
+import { server } from "./server";
 
 const { Client } =
   require("whatsapp-web.js") as typeof import("whatsapp-web.js");
@@ -255,6 +256,7 @@ const corePlugin: Plugin = {
             config,
 
             database: plugin._db,
+            server,
           });
         }
 
@@ -359,6 +361,7 @@ const corePlugin: Plugin = {
   ],
 
   onLoad({ database }) {
+    // Configure database
     database!.run(`\
 CREATE TABLE IF NOT EXISTS aliases (
   user TEXT NOT NULL,
@@ -368,6 +371,7 @@ CREATE TABLE IF NOT EXISTS aliases (
 );
 `);
 
+    // Load user command aliases
     const aliasEntries = database!
       .query<
         {
@@ -482,6 +486,7 @@ for (const plugin of plugins) {
       config,
 
       database: plugin._db,
+      server,
     });
 
     consola.debug("Plugin onLoad done:", plugin.id);
