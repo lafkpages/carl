@@ -532,6 +532,7 @@ client.on("message", async (message) => {
       client.sendMessage(
         sender,
         `Please login with Google using the link below:\n${url}`,
+        { linkPreview: false },
       );
 
       throw new CommandError(
