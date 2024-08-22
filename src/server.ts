@@ -1,6 +1,9 @@
 import Elysia, { t } from "elysia";
 
+import { config } from "./config";
 import { handleOAuthCallback } from "./google";
+
+export const publicUrl = config.publicUrl || "http://localhost:3000";
 
 export const server = new Elysia()
   .get("/", () => "Hello from WhatsApp PA!")

@@ -8,6 +8,8 @@ import consola from "consola";
 import { google } from "googleapis";
 import { decrypt, encrypt, generateKeys } from "paseto-ts/v4";
 
+import { publicUrl } from "./server";
+
 await mkdir("db", { recursive: true });
 
 const db = new Database("db/core.sqlite", { strict: true });
@@ -28,7 +30,7 @@ function createClient(user?: string) {
   const client = new google.auth.OAuth2({
     clientId: process.env.GOOGLE_CLIENT_ID,
     clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-    redirectUri: "http://localhost:3000/auth/google",
+    redirectUri: new URL("auth/google", publicUrl).href,
   });
 
   if (user) {

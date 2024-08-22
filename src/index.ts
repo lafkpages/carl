@@ -1,6 +1,5 @@
 import type { ConsolaInstance } from "consola";
 import type { Chat, Message, MessageId } from "whatsapp-web.js";
-import type { Config } from "./config";
 import type {
   Command,
   Interaction,
@@ -15,7 +14,7 @@ import { consola } from "consola";
 import { generate } from "qrcode-terminal";
 import { LocalAuth } from "whatsapp-web.js";
 
-import _config from "../config.json";
+import { config } from "./config";
 import { CommandError, CommandPermissionError } from "./error";
 import { getClient } from "./google";
 import { generateHelp, generateHelpPage } from "./help";
@@ -31,8 +30,6 @@ if (!process.isBun) {
   consola.fatal("WhatsApp PA must be run with Bun");
   process.exit(1);
 }
-
-const config = _config as Config;
 
 await mkdir("db", { recursive: true });
 

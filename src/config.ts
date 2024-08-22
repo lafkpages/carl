@@ -1,3 +1,7 @@
+import _config from "../config.json";
+
+export const config = _config as Config;
+
 export interface Config {
   $schema?: string;
 
@@ -50,4 +54,11 @@ export interface Config {
    * If true, disables Puppeteer's headless mode.
    */
   visible?: boolean;
+
+  /**
+   * The base URL at which this instance is hosted.
+   *
+   * @default "http://localhost:3000"
+   */
+  publicUrl?: string;
 }
