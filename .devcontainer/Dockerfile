@@ -23,6 +23,8 @@ RUN apt-get update \
 #     browser.launch({executablePath: 'google-chrome-stable'})
 # ENV PUPPETEER_SKIP_DOWNLOAD true
 
+ENV BUN_INSTALL /usr/local
+
 # Install puppeteer so it's available in the container.
 RUN curl -fsSL https://bun.sh/install | bash \
     && bun i --frozen-lockfile \
