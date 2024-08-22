@@ -3,11 +3,8 @@
 {
   "name": "WhatsApp PA",
 
-  // Or use a Dockerfile or Docker Compose file. More info: https://containers.dev/guide/dockerfile
-  "image": "mcr.microsoft.com/devcontainers/base:debian",
-  "features": {
-    "ghcr.io/shyim/devcontainers-features/bun:0": {}
-  },
+  "dockerFile": "Dockerfile",
+
   "customizations": {
     "vscode": {
       "extensions": ["esbenp.prettier-vscode"]
