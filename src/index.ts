@@ -881,12 +881,12 @@ async function stop() {
   consola.debug("Removing SIGINT listener");
   process.off("SIGINT", stopGracefully);
 
-  consola.debug("Stopping server");
-  await server.stop();
-
   consola.info("Waiting a second before closing client on stop");
   await Bun.sleep(1000);
 
   consola.info("Destroying client on stop");
   await client.destroy();
+
+  consola.debug("Stopping server");
+  await server.stop();
 }
