@@ -20,9 +20,10 @@ await mkdir("db", { recursive: true });
 const db = new Database("db/core.sqlite", { strict: true });
 db.run(`
 CREATE TABLE IF NOT EXISTS google_tokens (
-    user TEXT PRIMARY KEY,
-    refresh_token TEXT NOT NULL,
-    access_token TEXT
+  user TEXT PRIMARY KEY,
+  refresh_token TEXT NOT NULL,
+  access_token TEXT,
+  scope TEXT
 );
 `);
 
@@ -57,8 +58,26 @@ function saveUserToken(user: string, tokens: Credentials) {
   }
 }
 
+function parseScope(scope?: string | string[] | null): Set<string> {
+  if (!scope) {
+    return new Set();
+  }
+
+  const parsed = new Set<string>();
+
+  for (const s of typeof scope === "string" ? scope.split(" ") : scope) {
+    if (s.startsWith("https://www.googleapis.com/auth/")) {
+      parsed.add(s);
+    } else {
+      parsed.add(`https://www.googleapis.com/auth/${s}`);
+    }
+  }
+
+  return parsed;
+}
+
 const client = createClient();
-const clients = new Map<string, OAuth2Client>();
+const clients = new Map<string, { scope: Set<string>; client: OAuth2Client }>();
 
 export async function handleOAuthCallback(
   code: string,
@@ -72,19 +91,31 @@ export async function handleOAuthCallback(
     return;
   }
 
-  const stateInfo = decrypt<{ user: string; linkId: string }>(pasetoKey, state);
+  const stateInfo = decrypt<{
+    user: string;
+    linkId: string;
+    scope: string | string[];
+  }>(pasetoKey, state);
+  const scope = parseScope(stateInfo.payload.scope);
 
   let userClient = clients.get(stateInfo.payload.user);
 
-  if (!userClient) {
-    userClient = createClient(stateInfo.payload.user);
+  if (userClient) {
+    userClient.scope = scope;
+  } else {
+    userClient = { scope, client: createClient(stateInfo.payload.user) };
     clients.set(stateInfo.payload.user, userClient);
   }
 
-  userClient.setCredentials(tokens);
+  userClient.client.setCredentials(tokens);
   saveUserToken(stateInfo.payload.user, tokens);
 
-  consola.debug(`Google authenticated user ${stateInfo.payload.user}`);
+  consola.debug(
+    "Google authenticated user",
+    stateInfo.payload.user,
+    "with scope:",
+    scope,
+  );
   removeTemporaryShortLink(stateInfo.payload.linkId);
 
   return "Authenticated!";
@@ -97,7 +128,25 @@ export async function getClient(
 ) {
   const cachedClient = clients.get(user);
   if (cachedClient) {
-    return cachedClient;
+    let needsScope = false;
+    for (const s of parseScope(scope)) {
+      if (!cachedClient.scope.has(s)) {
+        consola.debug(
+          "User",
+          user,
+          "needs scope",
+          s,
+          "but only has:",
+          cachedClient.scope,
+        );
+        needsScope = true;
+        break;
+      }
+    }
+
+    if (!needsScope) {
+      return cachedClient.client;
+    }
   }
 
   const storedToken = db
@@ -105,16 +154,25 @@ export async function getClient(
       {
         refresh_token: string;
         access_token: string | null;
+        scope: string | null;
       },
       [string]
-    >("SELECT refresh_token, access_token FROM google_tokens WHERE user = ?")
+    >(
+      "SELECT refresh_token, access_token, scope FROM google_tokens WHERE user = ?",
+    )
     .get(user);
 
   if (storedToken) {
     const newClient = createClient(user);
-    clients.set(user, newClient);
+    clients.set(user, {
+      scope: parseScope(storedToken.scope),
+      client: newClient,
+    });
 
-    newClient.setCredentials(storedToken);
+    newClient.setCredentials({
+      refresh_token: storedToken.refresh_token,
+      access_token: storedToken.access_token,
+    });
     saveUserToken(user, (await newClient.refreshAccessToken()).credentials);
 
     consola.debug(`Google authenticated user ${user} from database`);
@@ -122,13 +180,21 @@ export async function getClient(
     return newClient;
   }
 
+  const scopesToRequest = parseScope(scope);
+
+  if (cachedClient) {
+    for (const s of cachedClient.scope) {
+      scopesToRequest.add(s);
+    }
+  }
+
   const linkId = nanoid();
   onAuthRequired(
     generateTemporaryShortLink(
       client.generateAuthUrl({
         access_type: "offline",
-        scope,
-        state: encrypt(pasetoKey, { user, linkId, exp: "5m" }),
+        scope: Array.from(scopesToRequest),
+        state: encrypt(pasetoKey, { user, linkId, scope, exp: "5m" }),
       }),
       linkId,
     ).url,

@@ -269,7 +269,9 @@ ${Bun.inspect(quotedMessage.id, { colors: false })}
       hidden: true,
 
       async handler({ getGoogleClient }) {
-        const client = await getGoogleClient("profile");
+        const client = await getGoogleClient(
+          "https://www.googleapis.com/auth/userinfo.profile",
+        );
         const oauth = google.oauth2({
           version: "v2",
           auth: client,
