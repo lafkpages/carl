@@ -22,7 +22,7 @@ db.run(`
 CREATE TABLE IF NOT EXISTS google_tokens (
     user TEXT PRIMARY KEY,
     refresh_token TEXT NOT NULL,
-    access_token TEXT,
+    access_token TEXT
 );
 `);
 
