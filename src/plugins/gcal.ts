@@ -58,7 +58,10 @@ export default {
           );
         }
 
-        const events = await calendar.events.list({ calendarId: rest });
+        const events = await calendar.events.list({
+          calendarId: rest,
+          maxResults: 5,
+        });
 
         if (!events.data.items) {
           return "No events found.";
@@ -66,7 +69,12 @@ export default {
 
         let msg = "Events:";
         for (const event of events.data.items) {
-          msg += `\n* ${event.summary}`;
+          msg += `\n\n* ${event.summary}`;
+          if (event.description) {
+            msg += `\n> ${event.description}`;
+          }
+          msg += `\nStart: ${event.start?.dateTime || event.start?.date}`;
+          msg += `\nEnd: ${event.end?.dateTime || event.end?.date}`;
         }
 
         return msg;
