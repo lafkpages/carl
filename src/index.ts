@@ -7,9 +7,9 @@ import type {
   Plugin,
 } from "./plugins";
 
+import { Database } from "bun:sqlite";
 import { mkdir } from "node:fs/promises";
 
-import { Database } from "bun:sqlite";
 import { consola } from "consola";
 import { generate } from "qrcode-terminal";
 import { LocalAuth } from "whatsapp-web.js";
