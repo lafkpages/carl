@@ -4,7 +4,7 @@ import type { Credentials, OAuth2Client } from "google-auth-library";
 import { mkdir } from "node:fs/promises";
 
 import { Database } from "bun:sqlite";
-import consola from "consola";
+import { consola } from "consola";
 import { google } from "googleapis";
 import { nanoid } from "nanoid";
 import { decrypt, encrypt, generateKeys } from "paseto-ts/v4";

@@ -1,4 +1,5 @@
-import Elysia, { t } from "elysia";
+import { consola } from "consola";
+import { Elysia, t } from "elysia";
 import { nanoid } from "nanoid";
 
 import { config } from "./config";
@@ -19,17 +20,22 @@ export function generateTemporaryShortLink(url: string, id?: string) {
 
   id ||= nanoid();
 
+  consola.debug("Generated temporary short link:", { id, url });
+
   tempShortLinks.set(id, url);
   return { id, url: new URL(`s/${id}`, publicUrl).href };
 }
 
 export function removeTemporaryShortLink(id: string) {
+  consola.debug("Removed temporary short link:", id);
   tempShortLinks.delete(id);
 }
 
 export const server = new Elysia()
   .get("/", () => "Hello from WhatsApp PA!")
   .get("/s/:id", ({ params: { id }, redirect, error }) => {
+    consola.debug("Redirecting temporary short link:", id);
+
     const url = tempShortLinks.get(id);
 
     if (url) {
