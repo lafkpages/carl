@@ -540,8 +540,13 @@ client.on("message", async (message) => {
 
   async function getGoogleClient(scope: string | string[]) {
     return (await getClient(sender, scope, (url) => {
+      client.sendMessage(
+        sender,
+        `Please login with Google using the link below:\n${url}`,
+      );
+
       throw new CommandError(
-        `please login with Google using the link below:\n${url}`,
+        `please login with Google using the link sent to you privately`,
       );
     }))!;
   }
