@@ -1,10 +1,14 @@
 import type { error as ElysiaError } from "elysia/error";
 import type { Credentials, OAuth2Client } from "google-auth-library";
 
+import { mkdir } from "node:fs/promises";
+
 import { Database } from "bun:sqlite";
 import consola from "consola";
 import { google } from "googleapis";
 import { decrypt, encrypt, generateKeys } from "paseto-ts/v4";
+
+await mkdir("db", { recursive: true });
 
 const db = new Database("db/core.sqlite", { strict: true });
 db.run(`
