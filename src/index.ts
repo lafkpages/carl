@@ -445,28 +445,6 @@ client.on("ready", async () => {
   consola.ready("Client ready");
 
   clientReadyPromise.resolve();
-
-  consola.debug("Fetching chats");
-  const chats = await client.getChats();
-  consola.debug("Fetched", chats.length, "chats");
-
-  for (const chat of chats) {
-    consola.debug("Fetching messages for chat:", {
-      chatId: chat.id._serialized,
-      chatName: chat.name,
-    });
-
-    const messages = await chat.fetchMessages({ limit: Infinity });
-
-    for (const message of messages) {
-      messagesById.set(message.id._serialized, message);
-    }
-
-    consola.debug("Fetched", messages.length, "messages for chat:", {
-      chatId: chat.id._serialized,
-      chatName: chat.name,
-    });
-  }
 });
 
 client.on("auth_failure", (message) => {
