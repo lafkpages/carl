@@ -24,8 +24,8 @@ RUN apt-get update \
 # ENV PUPPETEER_SKIP_DOWNLOAD true
 
 # Install puppeteer so it's available in the container.
-RUN curl -fsSL https://bun.sh/install | bash && \
-    bun i --frozen-lockfile &&  \
+RUN curl -fsSL https://bun.sh/install | bash \
+    && bun i --frozen-lockfile \
     # Add user so we don't need --no-sandbox.
     # same layer as npm install to keep re-chowned files from using up several hundred MBs more space
     && groupadd -r pptruser && useradd -r -g pptruser -G audio,video pptruser \
