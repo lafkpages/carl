@@ -21,7 +21,7 @@ import { generateHelp, generateHelpPage } from "./help";
 import { getPermissionLevel, PermissionLevel } from "./perms";
 import { InteractionContinuation } from "./plugins";
 import { isCommandRateLimited, isUserRateLimited } from "./ratelimits";
-import { server } from "./server";
+import { generateTemporaryShortLink, server } from "./server";
 
 const { Client } =
   require("whatsapp-web.js") as typeof import("whatsapp-web.js");
@@ -211,6 +211,8 @@ const corePlugin: Plugin = {
               config,
 
               database: plugin._db,
+
+              generateTemporaryShortLink,
             });
           }
         }
@@ -255,6 +257,8 @@ const corePlugin: Plugin = {
 
             database: plugin._db,
             server,
+
+            generateTemporaryShortLink,
           });
         }
 
@@ -485,6 +489,8 @@ for (const plugin of plugins) {
 
       database: plugin._db,
       server,
+
+      generateTemporaryShortLink,
     });
 
     consola.debug("Plugin onLoad done:", plugin.id);
@@ -592,6 +598,7 @@ client.on("message", async (message) => {
 
         data: _data,
 
+        generateTemporaryShortLink,
         getGoogleClient,
       });
 
@@ -643,6 +650,7 @@ client.on("message", async (message) => {
 
               data: null,
 
+              generateTemporaryShortLink,
               getGoogleClient,
             });
 
@@ -685,6 +693,8 @@ client.on("message", async (message) => {
         chat,
         sender,
         permissionLevel,
+
+        generateTemporaryShortLink,
       });
 
       await handleInteractionResult(result, message, plugin);
@@ -738,6 +748,8 @@ client.on("message_reaction", async (reaction) => {
         permissionLevel,
 
         reaction,
+
+        generateTemporaryShortLink,
       });
 
       consola.debug("Handling interaction result:", {
@@ -876,6 +888,8 @@ async function stopGracefully() {
         config,
 
         database: plugin._db,
+
+        generateTemporaryShortLink,
       });
 
       consola.debug("Plugin onUnload done:", plugin.id);

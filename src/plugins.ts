@@ -4,7 +4,7 @@ import type { OAuth2Client } from "google-auth-library";
 import type { Chat, Client, Message, Reaction } from "whatsapp-web.js";
 import type { Config } from "./config";
 import type { PermissionLevel } from "./perms";
-import type { server } from "./server";
+import type { generateTemporaryShortLink, server } from "./server";
 
 export interface Plugin {
   id: string;
@@ -80,6 +80,8 @@ interface BaseInteractionHandlerArgs {
   config: Config;
 
   database: Database | null;
+
+  generateTemporaryShortLink: typeof generateTemporaryShortLink;
 }
 
 interface BaseMessageInteractionHandlerArgs extends BaseInteractionHandlerArgs {

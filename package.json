@@ -20,6 +20,7 @@
     "elysia": "^1.1.7",
     "googleapis": "^142.0.0",
     "libretranslate-ts": "^0.5.11",
+    "nanoid": "^5.0.7",
     "openai": "^4.52.4",
     "paseto-ts": "^1.5.7",
     "qrcode-terminal": "^0.12.0",

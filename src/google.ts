@@ -6,9 +6,14 @@ import { mkdir } from "node:fs/promises";
 import { Database } from "bun:sqlite";
 import consola from "consola";
 import { google } from "googleapis";
+import { nanoid } from "nanoid";
 import { decrypt, encrypt, generateKeys } from "paseto-ts/v4";
 
-import { publicUrl } from "./server";
+import {
+  generateTemporaryShortLink,
+  publicUrl,
+  removeTemporaryShortLink,
+} from "./server";
 
 await mkdir("db", { recursive: true });
 
@@ -54,14 +59,6 @@ function saveUserToken(user: string, tokens: Credentials) {
 const client = createClient();
 const clients = new Map<string, OAuth2Client>();
 
-function getOAuthUrl(scope: string | string[], state: string) {
-  return client.generateAuthUrl({
-    access_type: "offline",
-    scope,
-    state,
-  });
-}
-
 export async function handleOAuthCallback(
   code: string,
   state: string,
@@ -74,7 +71,7 @@ export async function handleOAuthCallback(
     return;
   }
 
-  const stateInfo = decrypt<{ user: string }>(pasetoKey, state);
+  const stateInfo = decrypt<{ user: string; linkId: string }>(pasetoKey, state);
 
   let userClient = clients.get(stateInfo.payload.user);
 
@@ -87,6 +84,7 @@ export async function handleOAuthCallback(
   saveUserToken(stateInfo.payload.user, tokens);
 
   consola.debug(`Google authenticated user ${stateInfo.payload.user}`);
+  removeTemporaryShortLink(stateInfo.payload.linkId);
 
   return "Authenticated!";
 }
@@ -121,6 +119,16 @@ export async function getClient(
     return newClient;
   }
 
-  onAuthRequired(getOAuthUrl(scope, encrypt(pasetoKey, { user, exp: "5m" })));
+  const linkId = nanoid();
+  onAuthRequired(
+    generateTemporaryShortLink(
+      client.generateAuthUrl({
+        access_type: "offline",
+        scope,
+        state: encrypt(pasetoKey, { user, linkId, exp: "5m" }),
+      }),
+      linkId,
+    ).url,
+  );
   return null;
 }
