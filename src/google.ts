@@ -115,6 +115,7 @@ export async function getClient(
     clients.set(user, newClient);
 
     newClient.setCredentials(storedToken);
+    saveUserToken(user, (await newClient.refreshAccessToken()).credentials);
 
     consola.debug(`Google authenticated user ${user} from database`);
 
