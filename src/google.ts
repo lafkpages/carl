@@ -21,7 +21,8 @@ const db = new Database("db/core.sqlite", { strict: true });
 db.run(`
 CREATE TABLE IF NOT EXISTS google_tokens (
     user TEXT PRIMARY KEY,
-    refresh_token TEXT NOT NULL
+    refresh_token TEXT NOT NULL,
+    access_token TEXT,
 );
 `);
 
@@ -49,9 +50,9 @@ function createClient(user?: string) {
 
 function saveUserToken(user: string, tokens: Credentials) {
   if (tokens.refresh_token) {
-    db.run<[string, string]>(
-      "INSERT OR REPLACE INTO google_tokens (user, refresh_token) VALUES (?, ?)",
-      [user, tokens.refresh_token],
+    db.run<[string, string, string | null]>(
+      "INSERT OR REPLACE INTO google_tokens (user, refresh_token, access_token) VALUES (?, ?, ?)",
+      [user, tokens.refresh_token, tokens.access_token || null],
     );
   }
 }
@@ -103,9 +104,10 @@ export async function getClient(
     .query<
       {
         refresh_token: string;
+        access_token: string | null;
       },
       [string]
-    >("SELECT refresh_token FROM google_tokens WHERE user = ?")
+    >("SELECT refresh_token, access_token FROM google_tokens WHERE user = ?")
     .get(user);
 
   if (storedToken) {
