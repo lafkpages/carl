@@ -493,6 +493,11 @@ client.on("message", async (message) => {
     return;
   }
 
+  // Ignore messages that are older than 30 seconds
+  if (Date.now() - message.timestamp * 1000 > 30 * 1000) {
+    return;
+  }
+
   const sender = message.author || message.from;
   const chat = await message.getChat();
 
