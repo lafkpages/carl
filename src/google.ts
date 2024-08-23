@@ -83,6 +83,10 @@ function parseScope(scope?: string | string[] | null): Set<string> {
   return parsed;
 }
 
+function serialiseScope(scope: Set<string>): string {
+  return Array.from(scope).join(" ");
+}
+
 const client = createClient();
 const clients = new Map<string, { scope: Set<string>; client: OAuth2Client }>();
 
@@ -115,7 +119,7 @@ export async function handleOAuthCallback(
   }
 
   userClient.client.setCredentials(tokens);
-  saveUserToken(stateInfo.payload.user, tokens);
+  saveUserToken(stateInfo.payload.user, tokens, serialiseScope(scope));
 
   consola.debug(
     "Google authenticated user",
@@ -202,7 +206,7 @@ export async function getClient(
         state: encrypt(pasetoKey, {
           user,
           linkId,
-          scope: Array.from(scopesToRequest).join(" "),
+          scope: serialiseScope(scopesToRequest),
           exp: "5m",
         }),
       }),
