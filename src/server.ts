@@ -31,8 +31,35 @@ export function removeTemporaryShortLink(id: string) {
   tempShortLinks.delete(id);
 }
 
+const publicUrlPingCheckFrequency =
+  config.publicUrlPingCheckFrequency ?? 300000;
+let pingCheckTimeout: Timer;
+
+export async function pingCheck() {
+  clearTimeout(pingCheckTimeout);
+
+  const pingCode = nanoid(6);
+
+  const resp = await fetch(new URL(`ping?code=${pingCode}`, publicUrl));
+
+  if (!resp.ok) {
+    throw new Error("Failed to ping server via public URL");
+  }
+
+  const body = (await resp.text()).trim();
+
+  if (body !== pingCode) {
+    throw new Error("Invalid ping response");
+  }
+
+  pingCheckTimeout = setTimeout(pingCheck, publicUrlPingCheckFrequency);
+}
+
 export const server = new Elysia()
   .get("/", () => "Hello from WhatsApp PA!")
+  .get("/ping", ({ query: { code } }) => code, {
+    query: t.Object({ code: t.String({ maxLength: 6 }) }),
+  })
   .get("/s/:id", ({ params: { id }, redirect, error }) => {
     consola.debug("Redirecting temporary short link:", id);
 
@@ -51,4 +78,6 @@ export const server = new Elysia()
     },
     { query: t.Object({ code: t.String(), state: t.String() }) },
   )
-  .listen(3000);
+  .listen(3000, () => {
+    setTimeout(pingCheck, publicUrlPingCheckFrequency);
+  });

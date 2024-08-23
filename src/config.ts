@@ -61,4 +61,12 @@ export interface Config {
    * @default "http://localhost:3000"
    */
   publicUrl?: string;
+
+  /**
+   * The frequency at which to check the public URL for availability,
+   * in milliseconds. Set to 0 to disable.
+   *
+   * @default 300000
+   */
+  publicUrlPingCheckFrequency?: number;
 }

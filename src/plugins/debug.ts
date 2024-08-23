@@ -5,6 +5,7 @@ import { google } from "googleapis";
 import { CommandError, CommandPermissionError } from "../error";
 import { PermissionLevel } from "../perms";
 import { InteractionContinuation } from "../plugins";
+import { pingCheck } from "../server";
 
 export default {
   id: "debug",
@@ -259,6 +260,17 @@ ${Bun.inspect(quotedMessage.id, { colors: false })}
         }
 
         return msg;
+      },
+    },
+    {
+      name: "publicping",
+      description: "Ping the instance's public URL",
+      minLevel: PermissionLevel.ADMIN,
+      hidden: true,
+
+      async handler() {
+        await pingCheck();
+        return true;
       },
     },
     {
