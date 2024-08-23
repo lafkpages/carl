@@ -1,9 +1,9 @@
 import type { error as ElysiaError } from "elysia/error";
 import type { Credentials, OAuth2Client } from "google-auth-library";
 
-import { Database } from "bun:sqlite";
 import { mkdir } from "node:fs/promises";
 
+import { Database } from "bun:sqlite";
 import { consola } from "consola";
 import { google } from "googleapis";
 import { nanoid } from "nanoid";
@@ -49,12 +49,19 @@ function createClient(user?: string) {
   return client;
 }
 
-function saveUserToken(user: string, tokens: Credentials) {
+function saveUserToken(user: string, tokens: Credentials, scope?: string) {
   if (tokens.refresh_token) {
     db.run<[string, string, string | null]>(
       "INSERT OR REPLACE INTO google_tokens (user, refresh_token, access_token) VALUES (?, ?, ?)",
       [user, tokens.refresh_token, tokens.access_token || null],
     );
+
+    if (scope) {
+      db.run<[string, string]>(
+        "UPDATE google_tokens SET scope = ? WHERE user = ?",
+        [scope, user],
+      );
+    }
   }
 }
 
@@ -121,30 +128,26 @@ export async function handleOAuthCallback(
   return "Authenticated!";
 }
 
+function hasScopes(currentScopes: Set<string>, requiredScopes: Set<string>) {
+  for (const s of requiredScopes) {
+    if (!currentScopes.has(s)) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
 export async function getClient(
   user: string,
-  scope: string | string[],
+  _scope: string | string[],
   onAuthRequired: (url: string) => void,
 ) {
+  const scope = parseScope(_scope);
+
   const cachedClient = clients.get(user);
   if (cachedClient) {
-    let needsScope = false;
-    for (const s of parseScope(scope)) {
-      if (!cachedClient.scope.has(s)) {
-        consola.debug(
-          "User",
-          user,
-          "needs scope",
-          s,
-          "but only has:",
-          cachedClient.scope,
-        );
-        needsScope = true;
-        break;
-      }
-    }
-
-    if (!needsScope) {
+    if (hasScopes(cachedClient.scope, scope)) {
       return cachedClient.client;
     }
   }
@@ -175,12 +178,14 @@ export async function getClient(
     });
     saveUserToken(user, (await newClient.refreshAccessToken()).credentials);
 
-    consola.debug(`Google authenticated user ${user} from database`);
+    if (hasScopes(parseScope(storedToken.scope), scope)) {
+      consola.debug("Google authenticated user", user, "from database");
 
-    return newClient;
+      return newClient;
+    }
   }
 
-  const scopesToRequest = parseScope(scope);
+  const scopesToRequest = scope;
 
   if (cachedClient) {
     for (const s of cachedClient.scope) {
@@ -194,7 +199,12 @@ export async function getClient(
       client.generateAuthUrl({
         access_type: "offline",
         scope: Array.from(scopesToRequest),
-        state: encrypt(pasetoKey, { user, linkId, scope, exp: "5m" }),
+        state: encrypt(pasetoKey, {
+          user,
+          linkId,
+          scope: Array.from(scopesToRequest).join(" "),
+          exp: "5m",
+        }),
       }),
       linkId,
     ).url,
