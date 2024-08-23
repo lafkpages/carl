@@ -7,9 +7,9 @@ import type {
   Plugin,
 } from "./plugins";
 
-import { Database } from "bun:sqlite";
 import { mkdir } from "node:fs/promises";
 
+import { Database } from "bun:sqlite";
 import { consola } from "consola";
 import { generate } from "qrcode-terminal";
 import { LocalAuth } from "whatsapp-web.js";
@@ -31,7 +31,7 @@ if (!process.isBun) {
   process.exit(1);
 }
 
-await mkdir("db", { recursive: true });
+await mkdir("db/plugins", { recursive: true });
 
 type InternalPlugin = Plugin & {
   _logger: ConsolaInstance;
@@ -54,7 +54,7 @@ function loadPlugin(plugin: Plugin) {
   });
 
   const _db = plugin.database
-    ? new Database(`db/${plugin.id}.sqlite`, { strict: true })
+    ? new Database(`db/plugins/${plugin.id}.sqlite`, { strict: true })
     : null;
   _db?.exec("PRAGMA journal_mode = WAL;");
 

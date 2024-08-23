@@ -17,7 +17,7 @@ import {
 
 await mkdir("db", { recursive: true });
 
-const db = new Database("db/core.sqlite", { strict: true });
+const db = new Database("db/google.sqlite", { strict: true });
 db.run(`
 CREATE TABLE IF NOT EXISTS google_tokens (
   user TEXT PRIMARY KEY,
