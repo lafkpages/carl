@@ -53,6 +53,7 @@ export async function pingCheck() {
   }
 
   pingCheckTimeout = setTimeout(pingCheck, publicUrlPingCheckFrequency);
+  pingCheckTimeout.unref();
 }
 
 export const server = new Elysia()
