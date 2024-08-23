@@ -25,11 +25,13 @@ RUN apt-get update \
 
 ENV BUN_INSTALL /usr/local
 
+WORKDIR /workspaces/whatsapp-pa
+
 # Install puppeteer so it's available in the container.
 RUN curl -fsSL https://bun.sh/install | bash \
     && bun i --frozen-lockfile \
     # Add user so we don't need --no-sandbox.
-    # same layer as npm install to keep re-chowned files from using up several hundred MBs more space
+    # same layer as bun install to keep re-chowned files from using up several hundred MBs more space
     && groupadd -r pptruser && useradd -r -g pptruser -G audio,video pptruser \
     && mkdir -p /home/pptruser/Downloads \
     && chown -R pptruser:pptruser /home/pptruser \
