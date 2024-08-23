@@ -901,4 +901,9 @@ async function stop() {
 
   consola.debug("Stopping server");
   await server.stop();
+
+  consola.info("Closing plugins' databases");
+  for (const plugin of plugins) {
+    plugin._db?.close();
+  }
 }
