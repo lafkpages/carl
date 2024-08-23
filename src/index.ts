@@ -405,7 +405,10 @@ const client = new Client({
   authStrategy: new LocalAuth(),
   puppeteer: {
     headless: config.visible ? false : undefined,
-    args: process.env.CODESPACES === 'true' ? ['--no-sandbox', '--disable-setuid-sandbox'] : undefined
+    args:
+      process.env.CODESPACES === "true"
+        ? ["--no-sandbox", "--disable-setuid-sandbox"]
+        : undefined,
   },
 });
 
