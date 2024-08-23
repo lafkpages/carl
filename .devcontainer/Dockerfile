@@ -26,6 +26,8 @@ RUN apt-get update \
 ENV BUN_INSTALL /usr/local
 
 WORKDIR /workspaces/whatsapp-pa
+COPY package.json .
+COPY bun.lockb .
 
 # Install puppeteer so it's available in the container.
 RUN curl -fsSL https://bun.sh/install | bash \
