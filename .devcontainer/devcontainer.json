@@ -5,6 +5,12 @@
 
   "dockerFile": "Dockerfile",
 
+  "portsAttributes": {
+    "3000": {
+      "label": "WhatsApp PA"
+    }
+  },
+
   "customizations": {
     "vscode": {
       "extensions": ["esbenp.prettier-vscode"]
