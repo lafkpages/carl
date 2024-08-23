@@ -3,6 +3,7 @@ import type { Plugin } from "../plugins";
 import { google } from "googleapis";
 
 import { CommandError, CommandPermissionError } from "../error";
+import { getScopes } from "../google";
 import { PermissionLevel } from "../perms";
 import { InteractionContinuation } from "../plugins";
 import { pingCheck } from "../server";
@@ -271,6 +272,26 @@ ${Bun.inspect(quotedMessage.id, { colors: false })}
       async handler() {
         await pingCheck();
         return true;
+      },
+    },
+    {
+      name: "googleauth",
+      description: "View your Google OAuth2 authentication status",
+      minLevel: PermissionLevel.NONE,
+
+      async handler({ sender }) {
+        const scopes = getScopes(sender);
+
+        if (!scopes.size) {
+          return false;
+        }
+
+        let msg = "Authenticated with Google with scopes:";
+        for (const scope of scopes) {
+          msg += `\n* \`${scope}\``;
+        }
+
+        return msg;
       },
     },
     {

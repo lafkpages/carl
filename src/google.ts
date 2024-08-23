@@ -211,3 +211,18 @@ export async function getClient(
   );
   return null;
 }
+
+export function getScopes(user: string) {
+  const cachedClient = clients.get(user);
+  if (cachedClient) {
+    return cachedClient.scope;
+  }
+
+  const storedToken = db
+    .query<
+      { scope: string | null },
+      [string]
+    >("SELECT scope FROM google_tokens WHERE user = ?")
+    .get(user);
+  return parseScope(storedToken?.scope);
+}
