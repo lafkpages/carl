@@ -893,16 +893,16 @@ async function stop() {
   consola.debug("Removing SIGINT listener");
   process.off("SIGINT", stopGracefully);
 
-  consola.info("Waiting a second before closing client on stop");
+  consola.debug("Waiting a second before closing client on stop");
   await Bun.sleep(1000);
 
-  consola.info("Destroying client on stop");
+  consola.debug("Destroying client on stop");
   await client.destroy();
 
   consola.debug("Stopping server");
   await server.stop();
 
-  consola.info("Closing plugins' databases");
+  consola.debug("Closing plugins' databases");
   for (const plugin of plugins) {
     plugin._db?.close();
   }

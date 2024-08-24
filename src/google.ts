@@ -51,6 +51,8 @@ function createClient(user?: string) {
 
 function saveUserToken(user: string, tokens: Credentials, scope?: string) {
   if (tokens.refresh_token) {
+    consola.debug("Saving Google token for user", user);
+
     db.run<[string, string, string | null]>(
       "INSERT OR REPLACE INTO google_tokens (user, refresh_token, access_token) VALUES (?, ?, ?)",
       [user, tokens.refresh_token, tokens.access_token || null],
