@@ -54,8 +54,6 @@ function saveUserToken(
   tokens: Credentials,
   scope?: string | null,
 ) {
-  consola.debug("saveUserToken()", arguments);
-
   consola.debug("Saving Google token for user", user);
 
   db.run<[string]>(
@@ -166,12 +164,9 @@ export async function getClient(
 ) {
   const scope = parseScope(_scope);
 
-  consola.debug("getClient()", arguments);
-
   const cachedClient = clients.get(user);
   if (cachedClient) {
     if (hasScopes(cachedClient.scope, scope)) {
-      consola.debug("Using cached client");
       return cachedClient.client;
     }
   }
@@ -197,8 +192,9 @@ export async function getClient(
       `,
     )
     .get(user);
+  const storedScope = parseScope(storedToken?.scope);
 
-  if (storedToken) {
+  if (storedToken?.refresh_token) {
     const newClient = createClient(user);
     clients.set(user, {
       scope: parseScope(storedToken.scope),
@@ -215,7 +211,7 @@ export async function getClient(
       storedToken.scope,
     );
 
-    if (hasScopes(parseScope(storedToken.scope), scope)) {
+    if (hasScopes(storedScope, scope)) {
       consola.debug("Google authenticated user", user, "from database");
 
       return newClient;
@@ -228,6 +224,10 @@ export async function getClient(
     for (const s of cachedClient.scope) {
       scopesToRequest.add(s);
     }
+  }
+
+  for (const s of storedScope) {
+    scopesToRequest.add(s);
   }
 
   const linkId = nanoid();
