@@ -18,13 +18,13 @@ import {
 await mkdir("db", { recursive: true });
 
 const db = new Database("db/google.sqlite", { strict: true });
-db.run(`
-CREATE TABLE IF NOT EXISTS google_tokens (
-  user TEXT PRIMARY KEY,
-  refresh_token TEXT NOT NULL,
-  access_token TEXT,
-  scope TEXT
-);
+db.run(`--sql
+  CREATE TABLE IF NOT EXISTS google_tokens (
+    user TEXT PRIMARY KEY,
+    refresh_token TEXT,
+    access_token TEXT,
+    scope TEXT
+  );
 `);
 
 const pasetoKey = generateKeys("local");
@@ -49,22 +49,37 @@ function createClient(user?: string) {
   return client;
 }
 
-function saveUserToken(user: string, tokens: Credentials, scope?: string) {
-  if (tokens.refresh_token) {
-    consola.debug("Saving Google token for user", user);
+function saveUserToken(
+  user: string,
+  tokens: Credentials,
+  scope?: string | null,
+) {
+  consola.debug("saveUserToken()", arguments);
 
-    db.run<[string, string, string | null]>(
-      "INSERT OR REPLACE INTO google_tokens (user, refresh_token, access_token) VALUES (?, ?, ?)",
-      [user, tokens.refresh_token, tokens.access_token || null],
-    );
+  consola.debug("Saving Google token for user", user);
 
-    if (scope) {
-      db.run<[string, string]>(
-        "UPDATE google_tokens SET scope = ? WHERE user = ?",
-        [scope, user],
-      );
-    }
-  }
+  db.run<[string]>(
+    `--sql
+      INSERT OR IGNORE INTO google_tokens (user) VALUES (?)
+    `,
+    [user],
+  );
+
+  db.run<[string | null, string | null, string | null, string]>(
+    `--sql
+      UPDATE google_tokens SET
+        refresh_token = coalesce(?, refresh_token),
+        access_token = coalesce(?, access_token),
+        scope = coalesce(?, scope)
+      WHERE user = ?
+    `,
+    [
+      tokens.refresh_token || null,
+      tokens.access_token || null,
+      scope || null,
+      user,
+    ],
+  );
 }
 
 function parseScope(scope?: string | string[] | null): Set<string> {
@@ -151,9 +166,12 @@ export async function getClient(
 ) {
   const scope = parseScope(_scope);
 
+  consola.debug("getClient()", arguments);
+
   const cachedClient = clients.get(user);
   if (cachedClient) {
     if (hasScopes(cachedClient.scope, scope)) {
+      consola.debug("Using cached client");
       return cachedClient.client;
     }
   }
@@ -167,7 +185,16 @@ export async function getClient(
       },
       [string]
     >(
-      "SELECT refresh_token, access_token, scope FROM google_tokens WHERE user = ?",
+      `--sql
+        SELECT
+          refresh_token,
+          access_token,
+          scope
+        FROM
+          google_tokens
+        WHERE
+          user = ?
+      `,
     )
     .get(user);
 
@@ -182,7 +209,11 @@ export async function getClient(
       refresh_token: storedToken.refresh_token,
       access_token: storedToken.access_token,
     });
-    saveUserToken(user, (await newClient.refreshAccessToken()).credentials);
+    saveUserToken(
+      user,
+      (await newClient.refreshAccessToken()).credentials,
+      storedToken.scope,
+    );
 
     if (hasScopes(parseScope(storedToken.scope), scope)) {
       consola.debug("Google authenticated user", user, "from database");
@@ -225,10 +256,13 @@ export function getScopes(user: string) {
   }
 
   const storedToken = db
-    .query<
-      { scope: string | null },
-      [string]
-    >("SELECT scope FROM google_tokens WHERE user = ?")
+    .query<{ scope: string | null }, [string]>(
+      `--sql
+        SELECT scope
+        FROM google_tokens
+        WHERE user = ?
+      `,
+    )
     .get(user);
   return parseScope(storedToken?.scope);
 }
