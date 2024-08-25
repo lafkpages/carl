@@ -584,7 +584,7 @@ client.on("message", async (message) => {
 
       const result = await interactionContinuationHandler({
         message,
-        rest,
+        rest: message.body,
         sender,
         chat,
 
