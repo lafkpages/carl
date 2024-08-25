@@ -395,6 +395,18 @@ CREATE TABLE IF NOT EXISTS aliases (
         .set(aliasEntry.alias, aliasEntry.command);
     }
   },
+
+  async onMessageReaction({ reaction, message, permissionLevel }) {
+    if (
+      reaction.reaction === "\u{1F5D1}\u{FE0F}" &&
+      // Only allow deleting messages from the bot
+      message.fromMe &&
+      // Only trusted users can delete messages
+      permissionLevel >= PermissionLevel.TRUSTED
+    ) {
+      await message.delete(true);
+    }
+  },
 };
 
 // Load plugins
