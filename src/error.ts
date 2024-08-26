@@ -1,10 +1,28 @@
 import { plugins } from "../config.json";
 import { PermissionLevel } from "./perms";
 
+export interface CommandErrorOptions extends ErrorOptions {
+  /**
+   * If thrown inside an interaction continuation,
+   * whether to preserve the continuation or not.
+   *
+   * @default true
+   */
+  preserveInteractionContinuation?: boolean;
+}
+
 export class CommandError extends Error {
-  constructor(message: string) {
-    super(message);
+  /**
+   * @internal
+   */
+  _preserveInteractionContinuation;
+
+  constructor(message: string, options?: CommandErrorOptions) {
+    super(message, options);
     this.name = "CommandError";
+
+    this._preserveInteractionContinuation =
+      options?.preserveInteractionContinuation ?? true;
   }
 }
 

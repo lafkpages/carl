@@ -573,17 +573,7 @@ client.on("message", async (message) => {
         handler: interactionContinuationHandler,
         _data,
         _plugin,
-        _timeout,
       } = interactionContinuations.get(quotedMsg.id._serialized)!;
-
-      // prevent the expiration timeout from running
-      clearTimeout(_timeout);
-
-      // delete the interaction continuation to prevent it from being used again
-      interactionContinuations.delete(quotedMsg.id._serialized);
-
-      // remove the indicator reaction
-      await quotedMsg.react("");
 
       const result = await interactionContinuationHandler({
         message,
@@ -608,8 +598,9 @@ client.on("message", async (message) => {
       });
 
       await handleInteractionResult(result, message, _plugin);
+      await cleanupInteractionContinuation(quotedMsg);
     } catch (err) {
-      await handleError(err, message);
+      await handleError(err, message, quotedMsg);
     }
   } else if (command) {
     consola.info("Command received:", { command, rest });
@@ -845,11 +836,16 @@ async function handleInteractionResult(
   }
 }
 
-async function handleError(error: unknown, message: Message) {
+async function handleError(
+  error: unknown,
+  message: Message,
+  interactionContinuationMessage?: Message,
+) {
   await message.react("\u274C");
 
   let isCommandError = error instanceof CommandError;
   if (
+    // check name as well because instanceof doesn't work across module boundaries
     !isCommandError &&
     error instanceof Error &&
     error.name === "CommandError"
@@ -857,14 +853,19 @@ async function handleError(error: unknown, message: Message) {
     isCommandError = true;
   }
 
-  // check name as well because instanceof doesn't work across module boundaries
-
   if (isCommandError) {
-    await message.reply(
-      `Error: ${(error as CommandError).message}`,
-      undefined,
-      { linkPreview: false },
-    );
+    const commandError = error as CommandError;
+
+    await message.reply(`Error: ${commandError.message}`, undefined, {
+      linkPreview: false,
+    });
+
+    if (
+      !commandError._preserveInteractionContinuation &&
+      interactionContinuationMessage
+    ) {
+      await cleanupInteractionContinuation(interactionContinuationMessage);
+    }
   } else {
     consola.error("Error while handling command:", error);
 
@@ -873,7 +874,30 @@ async function handleError(error: unknown, message: Message) {
       undefined,
       { linkPreview: false },
     );
+
+    if (interactionContinuationMessage) {
+      await cleanupInteractionContinuation(interactionContinuationMessage);
+    }
   }
+}
+
+async function cleanupInteractionContinuation(message: Message) {
+  const interactionContinuation = interactionContinuations.get(
+    message.id._serialized,
+  );
+
+  if (!interactionContinuation) {
+    throw new Error("Interaction continuation not found");
+  }
+
+  // prevent the expiration timeout from running
+  clearTimeout(interactionContinuation._timeout);
+
+  // delete the interaction continuation to prevent it from being used again
+  interactionContinuations.delete(message.id._serialized);
+
+  // remove the indicator reaction
+  await message.react("");
 }
 
 async function stopGracefully() {
