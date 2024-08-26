@@ -801,37 +801,31 @@ async function handleInteractionResult(
 
   if (isInteractionContinuation) {
     const reply = await message.reply(result.message);
-    const replyId = reply.id._serialized;
 
-    if (typeof replyId === "string") {
-      const interactionContinuationHandler =
-        plugin.interactions?.[result.handler];
+    const interactionContinuationHandler =
+      plugin.interactions?.[result.handler];
 
-      if (interactionContinuationHandler) {
-        // expire continuations after 5 minutes
-        const _timeout = setTimeout(
-          async () => {
-            await message.react("\u231B");
+    if (interactionContinuationHandler) {
+      // expire continuations after 5 minutes
+      const _timeout = setTimeout(
+        async () => {
+          await message.react("\u231B");
 
-            interactionContinuations.delete(replyId);
-          },
-          5 * 60 * 1000,
-        );
+          interactionContinuations.delete(reply.id._serialized);
+        },
+        5 * 60 * 1000,
+      );
 
-        interactionContinuations.set(replyId, {
-          ...interactionContinuationHandler,
-          _data: result.data,
-          _plugin: plugin,
-          _timeout,
-        });
-      } else {
-        throw new Error(
-          `Interaction continuation \`${result.handler}\` handler not found for plugin \`${plugin.id}\``,
-        );
-      }
+      interactionContinuations.set(reply.id._serialized, {
+        ...interactionContinuationHandler,
+        _data: result.data,
+        _plugin: plugin,
+        _timeout,
+      });
     } else {
-      consola.debug("Reply:", reply);
-      throw new Error("Failed to get reply ID for interaction continuation");
+      throw new Error(
+        `Interaction continuation \`${result.handler}\` handler not found for plugin \`${plugin.id}\``,
+      );
     }
   } else {
     if (typeof result === "string") {
