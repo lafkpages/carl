@@ -582,6 +582,9 @@ client.on("message", async (message) => {
       // delete the interaction continuation to prevent it from being used again
       interactionContinuations.delete(quotedMsg.id._serialized);
 
+      // remove the indicator reaction
+      await quotedMsg.react("");
+
       const result = await interactionContinuationHandler({
         message,
         rest: message.body,
@@ -801,6 +804,7 @@ async function handleInteractionResult(
 
   if (isInteractionContinuation) {
     const reply = await message.reply(result.message);
+    reply.react("\u{1F4AC}");
 
     const interactionContinuationHandler =
       plugin.interactions?.[result.handler];
@@ -809,6 +813,7 @@ async function handleInteractionResult(
       // expire continuations after 5 minutes
       const _timeout = setTimeout(
         async () => {
+          await message.react("");
           await message.react("\u231B");
 
           interactionContinuations.delete(reply.id._serialized);
