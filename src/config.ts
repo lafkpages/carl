@@ -64,11 +64,5 @@ export interface Config {
 }
 
 export interface PluginsConfig {
-  translate?: {
-    /**
-     * The URL to a LibreTranslate server. D
-     */
-    url?: string;
-  };
   [pluginId: string]: any;
 }

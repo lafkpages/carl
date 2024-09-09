@@ -196,3 +196,14 @@ CREATE TABLE IF NOT EXISTS "translate" (
 );`);
   },
 } satisfies Plugin;
+
+declare module "../config" {
+  interface PluginsConfig {
+    translate?: {
+      /**
+       * The URL to a LibreTranslate server.
+       */
+      url?: string;
+    };
+  }
+}
