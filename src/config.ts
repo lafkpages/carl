@@ -40,15 +40,7 @@ export interface Config {
   /**
    * Configuration for specific plugins.
    */
-  pluginsConfig?: {
-    translate?: {
-      /**
-       * The URL to a LibreTranslate server. D
-       */
-      url?: string;
-    };
-    [pluginId: string]: any;
-  };
+  pluginsConfig?: PluginsConfig;
 
   /**
    * If true, disables Puppeteer's headless mode.
@@ -69,4 +61,14 @@ export interface Config {
    * @default 300000
    */
   publicUrlPingCheckFrequency?: number;
+}
+
+export interface PluginsConfig {
+  translate?: {
+    /**
+     * The URL to a LibreTranslate server. D
+     */
+    url?: string;
+  };
+  [pluginId: string]: any;
 }
