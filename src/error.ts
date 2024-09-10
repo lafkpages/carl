@@ -1,4 +1,3 @@
-import { plugins } from "../config.json";
 import { PermissionLevel } from "./perms";
 
 export interface CommandErrorOptions extends ErrorOptions {
@@ -38,7 +37,11 @@ export class CommandPermissionError extends CommandError {
       message += `. Requires at least permission level \`${PermissionLevel[minLevel]}\``;
     }
 
-    if (plugins.includes("admin-utils")) {
+    // TODO: global plugins registry?
+    if (
+      // plugins.includes("admin-utils")
+      true
+    ) {
       message +=
         ". If you believe this is an error, you can request permission using the `/requestpermission";
       if (minLevel !== undefined) {

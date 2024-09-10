@@ -1,10 +1,9 @@
-import _config from "../config.json";
+import { readFile } from "node:fs/promises";
 
-export const config = _config as Config;
+import consola from "consola";
+import { read, update } from "rc9";
 
 export interface Config {
-  $schema?: string;
-
   /**
    * A list of plugins to load.
    *
@@ -65,4 +64,39 @@ export interface Config {
 
 export interface PluginsConfig {
   [pluginId: string]: any;
+}
+
+const configName = ".conf";
+
+export const initialConfig = getConfig();
+
+consola.debug("Loaded initial config:", initialConfig);
+
+export async function getRawConfig() {
+  return await readFile(configName, "utf-8");
+}
+
+export function getConfig() {
+  return read<Config>(configName);
+}
+
+export function getConfigLazy(): {
+  _config: Config | null;
+  config: Config;
+} {
+  return {
+    _config: null,
+    get config() {
+      if (!this._config) {
+        this._config = getConfig();
+      }
+      return this._config;
+    },
+  };
+}
+
+export function updateConfig(
+  newConfig: Partial<Config> & Record<string, unknown>,
+) {
+  update(newConfig, configName);
 }

@@ -1,8 +1,6 @@
 import type { error as ElysiaError } from "elysia/error";
 import type { Credentials, OAuth2Client } from "google-auth-library";
 
-import { mkdir } from "node:fs/promises";
-
 import { Database } from "bun:sqlite";
 import { consola } from "consola";
 import { google } from "googleapis";
@@ -14,8 +12,6 @@ import {
   publicUrl,
   removeTemporaryShortLink,
 } from "./server";
-
-await mkdir("db", { recursive: true });
 
 const db = new Database("db/google.sqlite", { strict: true });
 db.run(`--sql

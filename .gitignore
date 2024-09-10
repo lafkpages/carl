@@ -1,6 +1,6 @@
 /.wwebjs_*
 /db
-/config.json
+/.conf
 
 # Based on https://raw.githubusercontent.com/github/gitignore/main/Node.gitignore
 

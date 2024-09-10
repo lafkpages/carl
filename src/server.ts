@@ -2,10 +2,10 @@ import { consola } from "consola";
 import { Elysia, t } from "elysia";
 import { nanoid } from "nanoid";
 
-import { config } from "./config";
+import { initialConfig } from "./config";
 import { handleOAuthCallback } from "./google";
 
-export const publicUrl = config.publicUrl || "http://localhost:3000";
+export const publicUrl = initialConfig.publicUrl || "http://localhost:3000";
 
 const tempShortLinks = new Map<string, string>();
 
@@ -32,7 +32,7 @@ export function removeTemporaryShortLink(id: string) {
 }
 
 const publicUrlPingCheckFrequency =
-  config.publicUrlPingCheckFrequency ?? 300000;
+  initialConfig.publicUrlPingCheckFrequency ?? 300000;
 let pingCheckTimeout: Timer;
 
 export async function pingCheck() {

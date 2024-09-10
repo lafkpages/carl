@@ -1,2 +1,4 @@
+preload = "./src/preload.ts"
+
 [loader]
 ".sql" = "text"

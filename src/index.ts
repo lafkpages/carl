@@ -1,5 +1,6 @@
 import type { ConsolaInstance } from "consola";
 import type { Chat, Message, MessageId } from "whatsapp-web.js";
+import type { Config } from "./config";
 import type {
   Command,
   Interaction,
@@ -7,14 +8,12 @@ import type {
   Plugin,
 } from "./plugins";
 
-import { mkdir } from "node:fs/promises";
-
 import { Database } from "bun:sqlite";
 import { consola } from "consola";
 import { generate } from "qrcode-terminal";
 import { LocalAuth } from "whatsapp-web.js";
 
-import { config } from "./config";
+import { getConfig, getConfigLazy, initialConfig } from "./config";
 import { CommandError, CommandPermissionError } from "./error";
 import { getClient } from "./google";
 import { generateHelp, generateHelpPage } from "./help";
@@ -30,8 +29,6 @@ if (!process.isBun) {
   consola.fatal("WhatsApp PA must be run with Bun");
   process.exit(1);
 }
-
-await mkdir("db/plugins", { recursive: true });
 
 type InternalPlugin = Plugin & {
   _logger: ConsolaInstance;
@@ -87,6 +84,8 @@ function loadPlugin(plugin: Plugin) {
 
 async function loadPluginsFromConfig(idsToLoad?: Set<string> | null) {
   const now = Date.now();
+
+  const config = getConfig();
 
   for (const pluginIdentifier of config.plugins) {
     consola.info("Importing plugin:", pluginIdentifier);
@@ -192,6 +191,8 @@ const corePlugin: Plugin = {
           }
         }
 
+        const lazyConfig = getConfigLazy();
+
         // Run plugin onUnload events
         for (const plugin of plugins) {
           if (pluginsToReload && !pluginsToReload.has(plugin.id)) {
@@ -208,7 +209,7 @@ const corePlugin: Plugin = {
             await plugin.onUnload({
               client,
               logger: plugin._logger,
-              config,
+              config: lazyConfig.config,
 
               database: plugin._db,
 
@@ -253,7 +254,7 @@ const corePlugin: Plugin = {
           await plugin.onLoad?.({
             client,
             logger: plugin._logger,
-            config,
+            config: lazyConfig.config,
 
             database: plugin._db,
             server,
@@ -346,12 +347,12 @@ const corePlugin: Plugin = {
       minLevel: PermissionLevel.NONE,
       hidden: true,
 
-      handler({ rest }) {
+      handler({ rest, config }) {
         if (!rest) {
           throw new CommandError("Usage: `/resolvecommand <command>`");
         }
 
-        const cmd = resolveCommand(rest);
+        const cmd = resolveCommand(config, rest);
 
         if (cmd) {
           return `Command \`${rest}\` resolves to \`${cmd.plugin.id}/${cmd.name}\``;
@@ -416,7 +417,7 @@ await loadPluginsFromConfig();
 const client = new Client({
   authStrategy: new LocalAuth(),
   puppeteer: {
-    headless: config.visible ? false : undefined,
+    headless: initialConfig.visible ? false : undefined,
     args:
       process.env.CODESPACES === "true"
         ? ["--no-sandbox", "--disable-setuid-sandbox"]
@@ -481,7 +482,7 @@ for (const plugin of plugins) {
     await plugin.onLoad({
       client,
       logger: plugin._logger,
-      config,
+      config: initialConfig,
 
       database: plugin._db,
       server,
@@ -519,9 +520,11 @@ client.on("message", async (message) => {
   const sender = message.author || message.from;
   const chat = await message.getChat();
 
+  const config = getConfig();
+
   const permissionLevel = Math.max(
-    getPermissionLevel(sender),
-    getPermissionLevel(chat.id._serialized),
+    getPermissionLevel(config, sender),
+    getPermissionLevel(config, chat.id._serialized),
   );
 
   // TODO: rework PermissionLevel; enum is painful
@@ -611,7 +614,7 @@ client.on("message", async (message) => {
     }
     hasCheckedUserRateLimit = true;
 
-    const cmd = resolveCommand(command, sender);
+    const cmd = resolveCommand(config, command, sender);
 
     if (cmd) {
       chat.sendSeen();
@@ -707,7 +710,9 @@ client.on("message_reaction", async (reaction) => {
   let message: Message | null = null;
   let chat: Chat | null = null;
 
-  const permissionLevel = getPermissionLevel(reaction.senderId);
+  const config = getConfig();
+
+  const permissionLevel = getPermissionLevel(config, reaction.senderId);
 
   consola.debug("Message reaction received:", {
     reaction,
@@ -760,7 +765,7 @@ client.on("message_reaction", async (reaction) => {
   }
 });
 
-function resolveCommand(command: string, user?: string) {
+function resolveCommand(config: Config, command: string, user?: string) {
   if (command in commands) {
     return commands[command];
   }
@@ -769,12 +774,13 @@ function resolveCommand(command: string, user?: string) {
     const userAliases = userCommandAliases.get(user)!;
 
     if (userAliases.has(command)) {
-      return resolveCommand(userAliases.get(command)!, user);
+      return resolveCommand(config, userAliases.get(command)!, user);
     }
   }
 
   if (config.aliases && command in config.aliases) {
     return resolveCommand(
+      config,
       config.aliases[command as keyof typeof config.aliases],
     );
   }
@@ -903,6 +909,8 @@ async function cleanupInteractionContinuation(message: Message) {
 async function stopGracefully() {
   consola.info("Graceful stop triggered");
 
+  const lazyConfig = getConfigLazy();
+
   for (const plugin of plugins) {
     if (plugin.onUnload) {
       consola.debug("Unloading plugin on graceful stop:", plugin.id);
@@ -910,7 +918,7 @@ async function stopGracefully() {
       await plugin.onUnload({
         client,
         logger: plugin._logger,
-        config,
+        config: lazyConfig.config,
 
         database: plugin._db,
 

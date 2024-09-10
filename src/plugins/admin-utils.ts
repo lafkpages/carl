@@ -1,6 +1,5 @@
 import type { Plugin } from "../plugins";
 
-import { whitelist } from "../../config.json";
 import { CommandError } from "../error";
 import { PermissionLevel } from "../perms";
 
@@ -21,7 +20,7 @@ export default {
       minLevel: PermissionLevel.NONE,
       rateLimit: /* 1 hour */ 1000 * 60 * 60,
 
-      async handler({ message, rest, sender, client }) {
+      async handler({ message, rest, sender, config, client }) {
         if (sender in pendingPermissionRequests) {
           throw new CommandError(
             `you already have a pending permission request for permission level \`${PermissionLevel[pendingPermissionRequests[sender]]}\``,
@@ -49,7 +48,7 @@ export default {
 
         pendingPermissionRequests[sender] = requestedPermissionLevel;
 
-        for (const admin of whitelist.admin) {
+        for (const admin of config.whitelist.admin) {
           await client.sendMessage(
             admin,
             `User \`${sender}\` (\`${contact.pushname}\`) has requested permission level \`${PermissionLevel[requestedPermissionLevel]}\` (\`${requestedPermissionLevel}\`). To grant this permission, edit the config file and restart the bot.`,
