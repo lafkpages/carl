@@ -16,7 +16,7 @@ export default {
   commands: [
     {
       name: "config",
-      description: "",
+      description: "View or update the bot configuration.",
       minLevel: PermissionLevel.ADMIN,
 
       async handler({ config, rest }) {
