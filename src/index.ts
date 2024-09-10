@@ -13,7 +13,7 @@ import { consola } from "consola";
 import { generate } from "qrcode-terminal";
 import { LocalAuth } from "whatsapp-web.js";
 
-import { getConfig, getConfigLazy, initialConfig } from "./config";
+import { getConfig, initialConfig } from "./config";
 import { CommandError, CommandPermissionError } from "./error";
 import { getClient } from "./google";
 import { generateHelp, generateHelpPage } from "./help";
@@ -178,7 +178,7 @@ const corePlugin: Plugin = {
       minLevel: PermissionLevel.ADMIN,
       hidden: true,
 
-      async handler({ rest, logger }) {
+      async handler({ rest, logger, config }) {
         rest = rest.trim().toLowerCase();
 
         const pluginsToReload = rest ? new Set(rest.split(/[,\s]+/)) : null;
@@ -194,8 +194,6 @@ const corePlugin: Plugin = {
             }
           }
         }
-
-        const lazyConfig = getConfigLazy();
 
         // Run plugin onUnload events
         for (const plugin of plugins) {
@@ -213,7 +211,7 @@ const corePlugin: Plugin = {
             await plugin.onUnload({
               client,
               logger: plugin._logger,
-              config: lazyConfig.config,
+              config,
 
               database: plugin._db,
 
@@ -258,7 +256,7 @@ const corePlugin: Plugin = {
           await plugin.onLoad?.({
             client,
             logger: plugin._logger,
-            config: lazyConfig.config,
+            config,
 
             database: plugin._db,
             server,
@@ -913,7 +911,7 @@ async function cleanupInteractionContinuation(message: Message) {
 async function stopGracefully() {
   consola.info("Graceful stop triggered");
 
-  const lazyConfig = getConfigLazy();
+  const config = getConfig();
 
   for (const plugin of plugins) {
     if (plugin.onUnload) {
@@ -922,7 +920,7 @@ async function stopGracefully() {
       await plugin.onUnload({
         client,
         logger: plugin._logger,
-        config: lazyConfig.config,
+        config,
 
         database: plugin._db,
 

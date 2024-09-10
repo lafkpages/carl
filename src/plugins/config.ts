@@ -1,9 +1,9 @@
 import type { Config } from "../config";
 import type { Plugin } from "../plugins";
 
-import { flatten } from "flat";
+import { flatten, unflatten } from "flat";
 
-import { getRawConfig, updateConfig } from "../config";
+import { updateConfig } from "../config";
 import { CommandError } from "../error";
 import { PermissionLevel } from "../perms";
 
@@ -23,10 +23,11 @@ export default {
         const [, key, value] = rest.match(/^(\S+)(?:\s+(\S+))?$/i) || [];
 
         if (!key) {
-          return `\
-\`\`\`
-${await getRawConfig()}
-\`\`\``;
+          //           return `\
+          // \`\`\`
+          // ${await getRawConfig()}
+          // \`\`\``;
+          throw new CommandError("config dump not implemented");
         }
 
         if (!value) {
@@ -39,9 +40,18 @@ ${await getRawConfig()}
           throw new CommandError(`config key \`${key}\` not found`);
         }
 
-        updateConfig({
-          [key]: value,
-        });
+        let parsedValue: unknown;
+        try {
+          parsedValue = JSON.parse(value);
+        } catch (err) {
+          throw new CommandError(`failed to parse value: ${err}`);
+        }
+
+        updateConfig(
+          unflatten({
+            [key]: parsedValue,
+          }),
+        );
 
         return true;
       },

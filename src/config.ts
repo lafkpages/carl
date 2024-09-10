@@ -1,104 +1,97 @@
-import { readFile } from "node:fs/promises";
+import type { InferOutput } from "valibot";
 
 import consola from "consola";
-import { read, update } from "rc9";
+import { defu } from "defu";
+import {
+  array,
+  boolean,
+  looseObject,
+  number,
+  object,
+  optional,
+  parse,
+  record,
+  string,
+} from "valibot";
 
-export interface Config {
+const configSchema = object({
   /**
    * A list of plugins to load.
    *
    * Each plugin can either be a path to a plugin file,
    * or the name of a built-in plugin.
    */
-  plugins: string[];
+  plugins: array(string()),
 
   /**
    * User IDs that should be given certain permissions.
    */
-  whitelist: {
-    admin: string[];
-    trusted: string[];
-  };
+  whitelist: object({
+    admin: array(string()),
+    trusted: array(string()),
+  }),
 
   /**
    * Per-user rate limits for different permission levels,
    * in milliseconds.
    */
-  ratelimit: {
-    admin: number;
-    trusted: number;
-    default: number;
-  };
+  ratelimit: object({
+    admin: number(),
+    trusted: number(),
+    default: number(),
+  }),
 
   /**
    * Global command aliases. The key is the command name for the alias,
    * and the value is the command name to alias.
    */
-  aliases?: Record<string, string>;
+  aliases: optional(record(string(), string()), {}),
 
   /**
    * Configuration for specific plugins.
    */
-  pluginsConfig?: PluginsConfig;
+  pluginsConfig: optional(record(string(), looseObject({})), {}),
 
   /**
    * If true, disables Puppeteer's headless mode.
    */
-  visible?: boolean;
+  visible: optional(boolean(), false),
 
   /**
    * The base URL at which this instance is hosted.
-   *
-   * @default "http://localhost:3000"
    */
-  publicUrl?: string;
+  publicUrl: optional(string(), "http://localhost:3000"),
 
   /**
    * The frequency at which to check the public URL for availability,
    * in milliseconds. Set to 0 to disable.
-   *
-   * @default 300000
    */
-  publicUrlPingCheckFrequency?: number;
+  publicUrlPingCheckFrequency: optional(number(), 300000),
 
-  helpPageSize?: number;
-}
+  helpPageSize: optional(number(), 300),
+});
+
+export type Config = InferOutput<typeof configSchema>;
 
 export interface PluginsConfig {
   [pluginId: string]: any;
 }
 
-const configName = ".conf";
+const configFile = Bun.file(require.resolve("../config.json"));
 
-export const initialConfig = getConfig();
+let config = parse(configSchema, await configFile.json());
+export const initialConfig = config;
 
 consola.debug("Loaded initial config:", initialConfig);
 
-export async function getRawConfig() {
-  return await readFile(configName, "utf-8");
-}
-
 export function getConfig() {
-  return read<Config>(configName);
+  return config;
 }
 
-export function getConfigLazy(): {
-  _config: Config | null;
-  config: Config;
-} {
-  return {
-    _config: null,
-    get config() {
-      if (!this._config) {
-        this._config = getConfig();
-      }
-      return this._config;
-    },
-  };
-}
+export async function updateConfig(newConfig: Partial<Config>) {
+  const mergedConfig = defu(newConfig, config);
 
-export function updateConfig(
-  newConfig: Partial<Config> & Record<string, unknown>,
-) {
-  update(newConfig, configName);
+  await Bun.write(configFile, JSON.stringify(mergedConfig, null, 2));
+
+  config = mergedConfig;
 }

@@ -1,0 +1,32 @@
+{
+  "$schema": "./dist/config.schema.json",
+
+  "plugins": [
+    "debug",
+    "config",
+    "admin-utils",
+    "random",
+    "openai",
+    "numberfacts",
+    "math",
+    "dictionary",
+    "games"
+  ],
+
+  "whitelist": {
+    "admin": [],
+    "trusted": []
+  },
+  "ratelimit": {
+    "admin": 0,
+    "trusted": 2000,
+    "default": 5000
+  },
+
+  "aliases": {
+    "dw": "defineword",
+    "r": "random",
+    "t": "translate",
+    "soccer": "football"
+  }
+}
