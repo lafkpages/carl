@@ -53,6 +53,7 @@ Then, run `/stop` to gracefully stop the bot, and then restart it. You should no
 The bot is designed to be easily extendable with plugins. You can enable or disable plugins in the `config.json` file. WhatsApp PA comes with a few built-in plugins, such as:
 
 - `admin-utils`: A collection of utilities to ease administration of the bot.
+- `config`: An admin-only plugin to view and update the bot's configuration.
 - `debug`: A plugin to help debug the bot.
 - `dictionary`: A plugin to look up words in the dictionary, using the [Free Dictionary API][dictapi].
 - `football`: A plugin to get information about football matches, from [football-data.org][fbapi].
