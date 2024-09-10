@@ -60,6 +60,8 @@ export interface Config {
    * @default 300000
    */
   publicUrlPingCheckFrequency?: number;
+
+  helpPageSize?: number;
 }
 
 export interface PluginsConfig {

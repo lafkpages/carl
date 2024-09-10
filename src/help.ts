@@ -1,6 +1,5 @@
+import type { Config } from "./config";
 import type { Plugin } from "./plugins";
-
-const pageSize = 300;
 
 export function generateHelp(plugins: Plugin[], showHidden = false) {
   let msg = "Plugins:";
@@ -33,7 +32,9 @@ export function generateHelp(plugins: Plugin[], showHidden = false) {
  * about {@link pageSize} characters. The pages are
  * split every line.
  */
-export function generateHelpPage(help: string, page: number) {
+export function generateHelpPage(config: Config, help: string, page: number) {
+  const pageSize = config.helpPageSize || 300;
+
   let start = (page - 1) * pageSize;
   let end = start + pageSize;
 
