@@ -25,9 +25,7 @@ export default class extends Plugin {
 
         if (!key) {
           return `\
-\`\`\`
-${await getRawConfig()}
-\`\`\``;
+\`\`\`${(await getRawConfig()).trim()}\`\`\``;
         }
 
         if (!value) {
