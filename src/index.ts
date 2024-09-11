@@ -708,6 +708,11 @@ client.on("message_reaction", async (reaction) => {
     return;
   }
 
+  // Ignore reactions that are older than 30 seconds
+  if (Date.now() - reaction.timestamp * 1000 > 30 * 1000) {
+    return;
+  }
+
   // Lazy load the message and chat objects
   let message: Message | null = null;
   let chat: Chat | null = null;
