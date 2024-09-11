@@ -1,14 +1,15 @@
-import type { Plugin } from "../plugins";
+import type { Command } from "../plugins";
 
 import { PermissionLevel } from "../perms";
+import { Plugin } from "../plugins";
 
-export default {
-  id: "",
-  name: "",
-  description: "",
-  version: "0.0.1",
+export default class extends Plugin {
+  id = "";
+  name = "";
+  description = "";
+  version = "0.0.1";
 
-  commands: [
+  commands: Command[] = [
     {
       name: "",
       description: "",
@@ -16,5 +17,5 @@ export default {
 
       handler({ message, rest }) {},
     },
-  ],
-} satisfies Plugin;
+  ];
+}

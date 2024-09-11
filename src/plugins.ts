@@ -6,25 +6,25 @@ import type { Config } from "./config";
 import type { PermissionLevel } from "./perms";
 import type { generateTemporaryShortLink, server } from "./server";
 
-export interface Plugin {
-  id: string;
-  name: string;
-  description: string;
-  version: string;
+export abstract class Plugin {
+  abstract readonly id: string;
+  abstract readonly name: string;
+  abstract readonly description: string;
+  abstract readonly version: string;
 
   /**
    * Whether this plugin should be hidden from the help command
    */
-  hidden?: boolean;
+  readonly hidden?: boolean;
 
   /**
    * Whether this plugin requires an isolated SQLite database for
    * persistent storage of plugin-specific data
    */
-  database?: boolean;
+  readonly database?: boolean;
 
-  commands?: Command[];
-  interactions?: Record<string, Interaction>;
+  readonly commands?: Command[];
+  readonly interactions?: Record<string, Interaction>;
 
   onLoad?({}: BaseInteractionHandlerArgs & {
     server: typeof server;

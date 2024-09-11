@@ -1,19 +1,20 @@
 import type { Config } from "../config";
-import type { Plugin } from "../plugins";
+import type { Command } from "../plugins";
 
 import { flatten, unflatten } from "flat";
 
 import { updateConfig } from "../config";
 import { CommandError } from "../error";
 import { PermissionLevel } from "../perms";
+import { Plugin } from "../plugins";
 
-export default {
-  id: "config",
-  name: "Config",
-  description: "Bot configuration commands.",
-  version: "0.0.1",
+export default class extends Plugin {
+  id = "config";
+  name = "Config";
+  description = "Bot configuration commands.";
+  version = "0.0.1";
 
-  commands: [
+  commands: Command[] = [
     {
       name: "config",
       description: "View or update the bot configuration.",
@@ -56,5 +57,5 @@ export default {
         return true;
       },
     },
-  ],
-} satisfies Plugin;
+  ];
+}
