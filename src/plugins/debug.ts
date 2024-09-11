@@ -1,6 +1,8 @@
+import type { ElementHandle, Page } from "puppeteer";
 import type { Command, Interactions } from "../plugins";
 
 import { google } from "googleapis";
+import { MessageMedia } from "whatsapp-web.js";
 
 import { CommandError, CommandPermissionError } from "../error";
 import { getScopes } from "../google";
@@ -313,6 +315,51 @@ ${Bun.inspect(quotedMessage.id, { colors: false })}
         const { data } = await oauth.userinfo.get();
 
         return `\`\`\`\n${Bun.inspect(data, { colors: false })}\n\`\`\``;
+      },
+    },
+    {
+      name: "screenshot",
+      description: "Take a screenshot of the WhatsApp Web page",
+      minLevel: PermissionLevel.ADMIN,
+
+      async handler({ message, rest, client }) {
+        let target: ElementHandle | Page | null | undefined;
+        switch (rest) {
+          case "":
+          case "page":
+          case "pupPage": {
+            target = client.pupPage;
+            break;
+          }
+
+          case "chats":
+          case "sidePane": {
+            target = await client.pupPage?.$("#pane-side div");
+            break;
+          }
+
+          default: {
+            throw new CommandError("invalid target");
+          }
+        }
+
+        if (!target) {
+          throw new CommandError("target not found");
+        }
+
+        let screenshot = await target.screenshot({
+          type: "jpeg",
+          // fullPage: true,
+          captureBeyondViewport: true,
+        });
+
+        if (typeof screenshot === "string") {
+          throw new CommandError("got unexpected string screenshot");
+        }
+
+        await message.reply(
+          new MessageMedia("image/jpeg", screenshot.toString("base64")),
+        );
       },
     },
     {
