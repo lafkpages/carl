@@ -1,12 +1,7 @@
 import type { ConsolaInstance } from "consola";
 import type { Chat, Message, MessageId } from "whatsapp-web.js";
 import type { Config } from "./config";
-import type {
-  Command,
-  Interaction,
-  InteractionResult,
-  Plugin,
-} from "./plugins";
+import type { Command, Interaction, InteractionResult } from "./plugins";
 
 import { Database } from "bun:sqlite";
 import { consola } from "consola";
@@ -18,7 +13,7 @@ import { CommandError, CommandPermissionError } from "./error";
 import { getClient } from "./google";
 import { generateHelp, generateHelpPage } from "./help";
 import { getPermissionLevel, PermissionLevel } from "./perms";
-import { InteractionContinuation } from "./plugins";
+import { InteractionContinuation, Plugin } from "./plugins";
 import { isCommandRateLimited, isUserRateLimited } from "./ratelimits";
 import { generateTemporaryShortLink, server } from "./server";
 
@@ -95,9 +90,11 @@ async function loadPluginsFromConfig(idsToLoad?: Set<string> | null) {
 
     let plugin: Plugin;
     if (pluginIdentifier.includes("/")) {
-      plugin = (await import(`../${pluginIdentifier}?${now}`)).default;
+      plugin = new (await import(`../${pluginIdentifier}?${now}`)).default();
     } else {
-      plugin = (await import(`./plugins/${pluginIdentifier}?${now}`)).default;
+      plugin = new (
+        await import(`./plugins/${pluginIdentifier}?${now}`)
+      ).default();
 
       if (plugin.id !== pluginIdentifier) {
         consola.error(

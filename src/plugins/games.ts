@@ -1,19 +1,19 @@
-import type { Plugin } from "../plugins";
+import type { Command, Interactions } from "../plugins";
 
 import Hangman from "hangman-game-engine";
 import randomWord from "random-word";
 
 import { CommandError } from "../error";
 import { PermissionLevel } from "../perms";
-import { InteractionContinuation } from "../plugins";
+import { InteractionContinuation, Plugin } from "../plugins";
 
-export default {
-  id: "games",
-  name: "Games",
-  description: "A collection of fun games to play with friends",
-  version: "0.0.1",
+export default class extends Plugin {
+  id = "games";
+  name = "Games";
+  description = "A collection of fun games to play with friends";
+  version = "0.0.1";
 
-  commands: [
+  commands: Command[] = [
     {
       name: "hangman",
       description: "Play a game of hangman",
@@ -30,9 +30,9 @@ export default {
         );
       },
     },
-  ],
+  ];
 
-  interactions: {
+  interactions: Interactions = {
     hangman: {
       handler({ rest, data }) {
         if (rest.length !== 1) {
@@ -63,5 +63,5 @@ Failed guesses: ${game.failedGuesses}/${game.totalGuesses}
         }
       },
     },
-  },
-} satisfies Plugin;
+  };
+}

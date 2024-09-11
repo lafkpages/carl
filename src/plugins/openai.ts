@@ -1,18 +1,19 @@
-import type { Plugin } from "../plugins";
+import type { Command } from "../plugins";
 
 import OpenAI from "openai";
 
 import { PermissionLevel } from "../perms";
+import { Plugin } from "../plugins";
 
 const openai = new OpenAI();
 
-export default {
-  id: "openai",
-  name: "OpenAI",
-  description: "Talk to ChatGPT on WhatsApp!",
-  version: "0.0.1",
+export default class extends Plugin {
+  id = "openai";
+  name = "OpenAI";
+  description = "Talk to ChatGPT on WhatsApp!";
+  version = "0.0.1";
 
-  commands: [
+  commands: Command[] = [
     {
       name: "ai",
       description: "Ask a question to AI",
@@ -42,5 +43,5 @@ export default {
         }
       },
     },
-  ],
-} satisfies Plugin;
+  ];
+}

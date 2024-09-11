@@ -1,20 +1,21 @@
-import type { Plugin } from "../plugins";
+import type { Command, OnLoadArgs } from "../plugins";
 
 import { nullable, object, parse, string } from "valibot";
 import { MessageMedia } from "whatsapp-web.js";
 
 import { CommandError } from "../error";
 import { PermissionLevel } from "../perms";
+import { Plugin } from "../plugins";
 
 let latex2imageEndpoint: string;
 
-export default {
-  id: "latex",
-  name: "LaTeX",
-  description: "Plugin for rendering LaTeX equations",
-  version: "0.0.1",
+export default class extends Plugin {
+  id = "latex";
+  name = "LaTeX";
+  description = "Plugin for rendering LaTeX equations";
+  version = "0.0.1";
 
-  commands: [
+  commands: Command[] = [
     {
       name: "latex",
       description: "Render a LaTeX equation",
@@ -71,9 +72,9 @@ export default {
         return true;
       },
     },
-  ],
+  ];
 
-  async onLoad({ logger }) {
+  async onLoad({ logger }: OnLoadArgs) {
     logger.debug("Fetching latex2image endpoint");
 
     [, , latex2imageEndpoint] =
@@ -88,5 +89,5 @@ export default {
     }
 
     logger.debug("Fetched latex2image endpoint:", latex2imageEndpoint);
-  },
-} satisfies Plugin;
+  }
+}

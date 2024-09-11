@@ -1,9 +1,10 @@
-import type { Plugin } from "../plugins";
+import type { Command } from "../plugins";
 
 import { array, nullish, object, parse, string, union } from "valibot";
 
 import { CommandError } from "../error";
 import { PermissionLevel } from "../perms";
+import { Plugin } from "../plugins";
 
 const schema = union([
   array(
@@ -40,14 +41,14 @@ const schema = union([
   }),
 ]);
 
-export default {
-  id: "dictionary",
-  name: "Dictionary",
-  description:
-    "A dictionary plugin for looking up words and their definitions.",
-  version: "0.0.1",
+export default class extends Plugin {
+  id = "dictionary";
+  name = "Dictionary";
+  description =
+    "A dictionary plugin for looking up words and their definitions.";
+  version = "0.0.1";
 
-  commands: [
+  commands: Command[] = [
     {
       name: "defineword",
       description: "Define a word.",
@@ -93,5 +94,5 @@ export default {
         return msg.slice(0, -2);
       },
     },
-  ],
-} satisfies Plugin;
+  ];
+}

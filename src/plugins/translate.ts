@@ -1,9 +1,10 @@
-import type { Plugin } from "../plugins";
+import type { Command, OnLoadArgs } from "../plugins";
 
 import { libreTranslate } from "libretranslate-ts";
 
 import { CommandError } from "../error";
 import { PermissionLevel } from "../perms";
+import { Plugin } from "../plugins";
 
 const apiKey = process.env.TRANSLATE_API_KEY;
 
@@ -11,15 +12,15 @@ if (apiKey) {
   libreTranslate.setApiKey(apiKey);
 }
 
-export default {
-  id: "translate",
-  name: "Translate",
-  description: "Text language translation and detection",
-  version: "0.0.1",
+export default class extends Plugin {
+  id = "translate";
+  name = "Translate";
+  description = "Text language translation and detection";
+  version = "0.0.1";
 
-  database: true,
+  database = true;
 
-  commands: [
+  commands: Command[] = [
     {
       name: "detect",
       description: "Detect the language of a text",
@@ -181,9 +182,9 @@ export default {
         return msg;
       },
     },
-  ],
+  ];
 
-  onLoad({ config, database }) {
+  onLoad({ config, database }: OnLoadArgs) {
     if (config.pluginsConfig?.translate?.url) {
       libreTranslate.setApiEndpoint(config.pluginsConfig.translate.url);
     }
@@ -194,8 +195,8 @@ CREATE TABLE IF NOT EXISTS "translate" (
   "to" TEXT NOT NULL,
   PRIMARY KEY ("user")
 );`);
-  },
-} satisfies Plugin;
+  }
+}
 
 declare module "../config" {
   interface PluginsConfig {

@@ -24,17 +24,13 @@ export abstract class Plugin {
   readonly database?: boolean;
 
   readonly commands?: Command[];
-  readonly interactions?: Record<string, Interaction>;
+  readonly interactions?: Interactions;
 
-  onLoad?({}: BaseInteractionHandlerArgs & {
-    server: typeof server;
-  }): MaybePromise<void>;
-  onUnload?({}: BaseInteractionHandlerArgs): MaybePromise<void>;
+  onLoad?({}: OnLoadArgs): MaybePromise<void>;
+  onUnload?({}: OnUnloadArgs): MaybePromise<void>;
 
-  onMessage?({}: BaseMessageInteractionHandlerArgs): MaybePromise<InteractionResult>;
-  onMessageReaction?({}: BaseMessageInteractionHandlerArgs & {
-    reaction: Reaction;
-  }): MaybePromise<InteractionResult>;
+  onMessage?({}: OnMessageArgs): MaybePromise<InteractionResult>;
+  onMessageReaction?({}: OnMessageReactionArgs): MaybePromise<InteractionResult>;
 }
 
 export interface Command extends Interaction {
@@ -84,11 +80,26 @@ interface BaseInteractionHandlerArgs {
   generateTemporaryShortLink: typeof generateTemporaryShortLink;
 }
 
+export type Interactions = Record<string, Interaction>;
+
 interface BaseMessageInteractionHandlerArgs extends BaseInteractionHandlerArgs {
   message: Message;
   chat: Chat;
   sender: string;
   permissionLevel: PermissionLevel;
+}
+
+export interface OnLoadArgs extends BaseInteractionHandlerArgs {
+  server: typeof server;
+}
+
+export interface OnUnloadArgs extends BaseInteractionHandlerArgs {}
+
+export interface OnMessageArgs extends BaseMessageInteractionHandlerArgs {}
+
+export interface OnMessageReactionArgs
+  extends BaseMessageInteractionHandlerArgs {
+  reaction: Reaction;
 }
 
 export type InteractionResult =

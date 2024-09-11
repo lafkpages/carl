@@ -1,9 +1,10 @@
-import type { Plugin } from "../plugins";
+import type { Command } from "../plugins";
 
 import { boolean, object, parse, picklist, string } from "valibot";
 
 import { CommandError } from "../error";
 import { PermissionLevel } from "../perms";
+import { Plugin } from "../plugins";
 
 const apiKey = process.env.VERIPHONE_API_KEY;
 
@@ -35,13 +36,13 @@ const schema = object({
   carrier: string(),
 });
 
-export default {
-  id: "veriphone",
-  name: "Veriphone",
-  description: "Verifies and looks up phone numbers using the Veriphone API",
-  version: "0.0.1",
+export default class extends Plugin {
+  id = "veriphone";
+  name = "Veriphone";
+  description = "Verifies and looks up phone numbers using the Veriphone API";
+  version = "0.0.1";
 
-  commands: [
+  commands: Command[] = [
     {
       name: "veriphone",
       description: "Looks up a phone number",
@@ -61,7 +62,7 @@ export default {
         const data = parse(
           schema,
           await fetch(
-            `https://api.veriphone.io/v2/verify?phone=${encodeURIComponent(phoneNumber)}&key=${encodeURIComponent(apiKey)}`,
+            `https://api.veriphone.io/v2/verify?phone=${encodeURIComponent(phoneNumber)}&key=${encodeURIComponent(apiKey!)}`,
           ).then((r) => r.json()),
         );
 
@@ -84,5 +85,5 @@ export default {
 * Carrier: ${data.carrier}`;
       },
     },
-  ],
-} satisfies Plugin;
+  ];
+}

@@ -1,21 +1,21 @@
-import type { Plugin } from "../plugins";
+import type { Command, Interactions } from "../plugins";
 
 import { google } from "googleapis";
 
 import { CommandError, CommandPermissionError } from "../error";
 import { getScopes } from "../google";
 import { PermissionLevel } from "../perms";
-import { InteractionContinuation } from "../plugins";
+import { InteractionContinuation, Plugin } from "../plugins";
 import { pingCheck } from "../server";
 
-export default {
-  id: "debug",
-  name: "Debug tools",
-  description: "Helps debug WhatsApp PA core and plugins",
-  version: "0.0.2",
-  hidden: true,
+export default class extends Plugin {
+  id = "debug";
+  name = "Debug tools";
+  description = "Helps debug WhatsApp PA core and plugins";
+  version = "0.0.2";
+  hidden = true;
 
-  commands: [
+  commands: Command[] = [
     {
       name: "debuginfo",
       description: "Get handy debug information",
@@ -327,9 +327,9 @@ ${Bun.inspect(quotedMessage.id, { colors: false })}
         );
       },
     },
-  ],
+  ];
 
-  interactions: {
+  interactions: Interactions = {
     testinteractioncontinuation: {
       handler({ message, data }) {
         if (data) {
@@ -343,5 +343,5 @@ ${Bun.inspect(quotedMessage.id, { colors: false })}
         );
       },
     },
-  },
-} satisfies Plugin;
+  };
+}

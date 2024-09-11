@@ -1,10 +1,11 @@
-import type { Plugin } from "../plugins";
+import type { Command } from "../plugins";
 
 import { randomUUID } from "node:crypto";
 
 import { CommandError } from "../error";
 import geekJokes from "../geek-jokes/data.json";
 import { PermissionLevel } from "../perms";
+import { Plugin } from "../plugins";
 
 // Remove Chuck Norris jokes because they're overdone
 // and not very funny anymore
@@ -19,13 +20,13 @@ const geekJokesFiltered = geekJokes.filter(
   (joke) => !/chuck\s*norris/i.test(joke),
 );
 
-export default {
-  id: "random",
-  name: "Random",
-  description: "Utilities for generating random data",
-  version: "1.0.0",
+export default class extends Plugin {
+  id = "random";
+  name = "Random";
+  description = "Utilities for generating random data";
+  version = "1.0.0";
 
-  commands: [
+  commands: Command[] = [
     {
       name: "random",
       description: "Generates random data",
@@ -172,5 +173,5 @@ Valid data types:
         }
       },
     },
-  ],
-} satisfies Plugin;
+  ];
+}

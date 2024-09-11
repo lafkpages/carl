@@ -1,9 +1,10 @@
-import type { Interaction, Plugin } from "../plugins";
+import type { Command, Interaction } from "../plugins";
 
 import { google } from "googleapis";
 
 import { CommandError } from "../error";
 import { PermissionLevel } from "../perms";
+import { Plugin } from "../plugins";
 
 async function cal(
   getGoogleClient: Parameters<Interaction["handler"]>[0]["getGoogleClient"],
@@ -14,13 +15,13 @@ async function cal(
   return google.calendar({ version: "v3", auth: client });
 }
 
-export default {
-  id: "gcal",
-  name: "Google Calendar",
-  description: "Google Calendar integration",
-  version: "0.0.1",
+export default class extends Plugin {
+  id = "gcal";
+  name = "Google Calendar";
+  description = "Google Calendar integration";
+  version = "0.0.1";
 
-  commands: [
+  commands: Command[] = [
     {
       name: "gcalendars",
       description: "List Google Calendars",
@@ -80,5 +81,5 @@ export default {
         return msg;
       },
     },
-  ],
-} satisfies Plugin;
+  ];
+}
