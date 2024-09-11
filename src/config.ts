@@ -84,6 +84,10 @@ export const initialConfig = config;
 
 consola.debug("Loaded initial config:", initialConfig);
 
+export async function getRawConfig() {
+  return await configFile.text();
+}
+
 export function getConfig() {
   return config;
 }

@@ -3,7 +3,7 @@ import type { Command } from "../plugins";
 
 import { flatten, unflatten } from "flat";
 
-import { updateConfig } from "../config";
+import { getRawConfig, updateConfig } from "../config";
 import { CommandError } from "../error";
 import { PermissionLevel } from "../perms";
 import { Plugin } from "../plugins";
@@ -24,11 +24,10 @@ export default class extends Plugin {
         const [, key, value] = rest.match(/^(\S+)(?:\s+(\S+))?$/i) || [];
 
         if (!key) {
-          //           return `\
-          // \`\`\`
-          // ${await getRawConfig()}
-          // \`\`\``;
-          throw new CommandError("config dump not implemented");
+          return `\
+\`\`\`
+${await getRawConfig()}
+\`\`\``;
         }
 
         if (!value) {
