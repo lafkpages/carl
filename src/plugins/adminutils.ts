@@ -9,7 +9,7 @@ import { Plugin } from "../plugins";
 const pendingPermissionRequests: Record<string, PermissionLevel> = {};
 
 export default class extends Plugin {
-  id = "admin-utils";
+  id = "adminutils";
   name = "Admin utilities";
   description = "Commands for administration.";
   version = "0.0.1";

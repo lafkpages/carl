@@ -10,7 +10,9 @@ import {
   object,
   optional,
   parse,
+  pipe,
   record,
+  regex,
   string,
 } from "valibot";
 
@@ -21,7 +23,7 @@ const configSchema = object({
    * Each plugin can either be a path to a plugin file,
    * or the name of a built-in plugin.
    */
-  plugins: array(string()),
+  plugins: array(pipe(string(), regex(/^[a-z]+$/))),
 
   /**
    * User IDs that should be given certain permissions.

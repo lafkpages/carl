@@ -13,7 +13,7 @@ import { CommandError, CommandPermissionError } from "./error";
 import { getClient } from "./google";
 import { generateHelp, generateHelpPage } from "./help";
 import { getPermissionLevel, PermissionLevel } from "./perms";
-import { InteractionContinuation, Plugin } from "./plugins";
+import { InteractionContinuation, Plugin, scanPlugins } from "./plugins";
 import { isCommandRateLimited, isUserRateLimited } from "./ratelimits";
 import { generateTemporaryShortLink, server } from "./server";
 
@@ -35,11 +35,13 @@ type InternalCommand = Command & {
 };
 const commands: Record<string, InternalCommand> = {};
 const plugins: InternalPlugin[] = [];
+let pluginsDir = await scanPlugins();
 
 const userCommandAliases = new Map<string, Map<string, string>>();
 
 function loadPlugin(plugin: Plugin) {
-  consola.info("Loading plugin:", plugin);
+  consola.info("Loading plugin:", plugin.id);
+  consola.debug("Loading plugin:", plugin);
 
   const _logger = consola.withDefaults({
     tag: plugin.id,
@@ -82,32 +84,25 @@ async function loadPluginsFromConfig(idsToLoad?: Set<string> | null) {
 
   const config = getConfig();
 
-  for (const pluginIdentifier of config.plugins) {
+  for (const pluginIdentifier of idsToLoad || config.plugins) {
+    const pluginPath = pluginsDir.get(pluginIdentifier);
+
+    if (!pluginPath) {
+      consola.error("Plugin not found:", pluginIdentifier);
+      continue;
+    }
+
     consola.info("Importing plugin:", pluginIdentifier);
 
     // add a cache buster to the import path
     // so that plugins can be reloaded
+    const plugin: Plugin = new (await import(`${pluginPath}?${now}`)).default();
 
-    let plugin: Plugin;
-    if (pluginIdentifier.includes("/")) {
-      plugin = new (await import(`../${pluginIdentifier}?${now}`)).default();
-    } else {
-      plugin = new (
-        await import(`./plugins/${pluginIdentifier}?${now}`)
-      ).default();
-
-      if (plugin.id !== pluginIdentifier) {
-        consola.error(
-          "Built-in plugin ID does not match plugin file name. This is a WhatsApp PA bug. Please report this issue.",
-          {
-            pluginId: plugin.id,
-            pluginIdentifier,
-          },
-        );
-      }
-    }
-
-    if (idsToLoad && !idsToLoad.has(plugin.id)) {
+    if (plugin.id !== pluginIdentifier) {
+      consola.error("Plugin ID does not match plugin file name.", {
+        pluginId: plugin.id,
+        pluginIdentifier,
+      });
       continue;
     }
 
@@ -184,10 +179,20 @@ const corePlugin: Plugin = {
           return false;
         }
 
+        if (pluginsToReload?.has("core")) {
+          throw new CommandError("cannot reload core plugin");
+        }
+
+        pluginsDir = await scanPlugins();
+
         if (pluginsToReload) {
           for (const pluginId of pluginsToReload) {
-            if (!plugins.some((plugin) => plugin.id === pluginId)) {
+            if (!pluginsDir.has(pluginId)) {
               throw new CommandError(`plugin \`${pluginId}\` not found`);
+            }
+
+            if (!plugins.some((plugin) => plugin.id === pluginId)) {
+              throw new CommandError(`plugin \`${pluginId}\` not loaded`);
             }
           }
         }
@@ -199,12 +204,8 @@ const corePlugin: Plugin = {
           }
 
           if (plugin.onUnload) {
-            logger.info(
-              {
-                unloadPluginId: plugin.id,
-              },
-              "Unloading plugin",
-            );
+            logger.info("Unloading plugin:", plugin.id);
+
             await plugin.onUnload({
               plugin,
               client,

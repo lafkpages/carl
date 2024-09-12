@@ -6,6 +6,11 @@ import type { Config } from "./config";
 import type { PermissionLevel } from "./perms";
 import type { generateTemporaryShortLink, server } from "./server";
 
+import { readdir } from "node:fs/promises";
+import { join } from "node:path";
+
+import { consola } from "consola";
+
 export abstract class Plugin {
   abstract readonly id: string;
   abstract readonly name: string;
@@ -122,3 +127,33 @@ export class InteractionContinuation {
 }
 
 type MaybePromise<T> = T | Promise<T>;
+
+const pluginsDir = join(__dirname, "plugins");
+
+export async function scanPlugins() {
+  const plugins = new Map<string, string>();
+
+  for (const entry of await readdir(pluginsDir, {
+    recursive: true,
+    withFileTypes: true,
+  })) {
+    if (!entry.isFile()) {
+      continue;
+    }
+
+    const [, pluginId] = entry.name.match(/^(\w+)\.m?[jt]s$/) ?? [];
+
+    if (!pluginId) {
+      consola.debug(`Ignoring non-plugin file in plugins scan: ${entry.name}`);
+      continue;
+    }
+
+    if (plugins.has(pluginId)) {
+      throw new Error(`Duplicate plugin found: ${pluginId}`);
+    }
+
+    plugins.set(pluginId, join(pluginsDir, entry.name));
+  }
+
+  return plugins;
+}

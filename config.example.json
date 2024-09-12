@@ -4,7 +4,7 @@
   "plugins": [
     "debug",
     "config",
-    "admin-utils",
+    "adminutils",
     "random",
     "openai",
     "numberfacts",
