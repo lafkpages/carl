@@ -4,15 +4,15 @@
   "types": "./dist/pluginUtilsExports.d.ts",
   "exports": "./dist/pluginUtilsExports.js",
   "devDependencies": {
-    "@ianvs/prettier-plugin-sort-imports": "^4.3.0",
-    "@types/bun": "^1.1.6",
+    "@ianvs/prettier-plugin-sort-imports": "^4.3.1",
+    "@types/bun": "^1.1.9",
     "@types/qrcode-terminal": "^0.12.2",
     "@types/random-word": "^2.0.2",
-    "prettier": "^3.3.2",
+    "prettier": "^3.3.3",
     "ts-json-schema-generator": "^2.3.0"
   },
   "peerDependencies": {
-    "typescript": "^5.0.0"
+    "typescript": "^5.6.2"
   },
   "dependencies": {
     "@based/pretty-date": "^1.0.4",
@@ -20,17 +20,17 @@
     "brave-search": "^0.6.5",
     "consola": "^3.2.3",
     "defu": "^6.1.4",
-    "elysia": "^1.1.7",
+    "elysia": "^1.1.12",
     "flat": "^6.0.1",
-    "googleapis": "^142.0.0",
+    "googleapis": "^144.0.0",
     "hangman-game-engine": "^1.1.3",
     "libretranslate-ts": "^0.5.11",
     "nanoid": "^5.0.7",
-    "openai": "^4.52.4",
+    "openai": "^4.60.0",
     "paseto-ts": "^1.5.7",
     "qrcode-terminal": "^0.12.0",
     "random-word": "^3.0.0",
-    "valibot": "^0.36.0",
+    "valibot": "^0.41.0",
     "whatsapp-web.js": "^1.25.0"
   },
   "scripts": {
