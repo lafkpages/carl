@@ -805,13 +805,7 @@ async function handleInteractionResult(
   message: Message,
   plugin: InternalPlugin,
 ) {
-  const isInteractionContinuation =
-    result instanceof InteractionContinuation ||
-    // Also check for interaction continuations objects without using instanceof
-    // because instanceof doesn't work across module boundaries
-    (typeof result === "object" && "handler" in result);
-
-  if (isInteractionContinuation) {
+  if (result instanceof InteractionContinuation) {
     const reply = await message.reply(result.message);
     reply.react("\u{1F4AC}");
 
@@ -861,17 +855,7 @@ async function handleError(
 ) {
   await message.react("\u274C");
 
-  let isCommandError = error instanceof CommandError;
-  if (
-    // check name as well because instanceof doesn't work across module boundaries
-    !isCommandError &&
-    error instanceof Error &&
-    error.name === "CommandError"
-  ) {
-    isCommandError = true;
-  }
-
-  if (isCommandError) {
+  if (error instanceof CommandError) {
     const commandError = error as CommandError;
 
     await message.reply(`Error: ${commandError.message}`, undefined, {
