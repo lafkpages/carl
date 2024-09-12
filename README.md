@@ -69,6 +69,10 @@ The bot is designed to be easily extendable with plugins. You can enable or disa
 
 These can be enabled or disabled in the `config.json` file.
 
+### Custom plugins
+
+You can place your own custom plugins in the `src/plugins/custom` directory. Each plugin should be a separate file, and should export a class that extends the `Plugin` class from `src/plugins.ts`. An example can be found in `src/plugins/TEMPLATE.ts`.
+
 [bun]: https://bun.sh
 [buni]: https://bun.sh/docs/installation
 [dictapi]: https://dictionaryapi.dev
