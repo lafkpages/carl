@@ -73,7 +73,9 @@ const configSchema = object({
   helpPageSize: optional(number(), 300),
 });
 
-export type Config = InferOutput<typeof configSchema>;
+export type Config = InferOutput<typeof configSchema> & {
+  pluginsConfig?: PluginsConfig;
+};
 
 export interface PluginsConfig {
   [pluginId: string]: any;
