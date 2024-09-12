@@ -206,6 +206,7 @@ const corePlugin: Plugin = {
               "Unloading plugin",
             );
             await plugin.onUnload({
+              plugin,
               client,
               logger: plugin._logger,
               config,
@@ -251,6 +252,7 @@ const corePlugin: Plugin = {
         // Fire plugin onLoad events
         for (const plugin of plugins) {
           await plugin.onLoad?.({
+            plugin,
             client,
             logger: plugin._logger,
             config,
@@ -479,6 +481,7 @@ for (const plugin of plugins) {
     consola.debug("Running plugin onLoad:", plugin.id);
 
     await plugin.onLoad({
+      plugin,
       client,
       logger: plugin._logger,
       config: initialConfig,
@@ -585,6 +588,7 @@ client.on("message", async (message) => {
 
         permissionLevel,
 
+        plugin: _plugin,
         client,
         logger: _plugin._logger.withDefaults({
           tag: `${_plugin.id}:${interactionContinuationHandler.name}`,
@@ -640,6 +644,7 @@ client.on("message", async (message) => {
 
               permissionLevel,
 
+              plugin: cmd.plugin,
               client,
               logger: cmd._logger,
               config,
@@ -681,6 +686,7 @@ client.on("message", async (message) => {
       consola.debug("Running plugin onMessage:", plugin.id);
 
       const result = await plugin.onMessage({
+        plugin,
         client,
         logger: plugin._logger,
         config,
@@ -741,6 +747,7 @@ client.on("message_reaction", async (reaction) => {
       consola.debug("Running plugin onMessageReaction:", plugin.id);
 
       const result = await plugin.onMessageReaction({
+        plugin,
         client,
         logger: plugin._logger,
         config,
@@ -920,6 +927,7 @@ async function stopGracefully() {
       consola.debug("Unloading plugin on graceful stop:", plugin.id);
 
       await plugin.onUnload({
+        plugin,
         client,
         logger: plugin._logger,
         config,

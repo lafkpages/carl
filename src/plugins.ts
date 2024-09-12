@@ -71,6 +71,7 @@ export interface Interaction {
 }
 
 interface BaseInteractionHandlerArgs {
+  plugin: Plugin;
   client: Client;
   logger: ConsolaInstance;
   config: Config;
