@@ -25,6 +25,7 @@ export default class extends Plugin {
       name: "bravesearch",
       description: "Search the web with Brave Search",
       minLevel: PermissionLevel.TRUSTED,
+      rateLimit: 5000,
 
       async handler({ rest, logger }) {
         if (!rest) {
