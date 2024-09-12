@@ -1,8 +1,6 @@
 {
   "name": "@luisafk/whatsapp-pa",
   "module": "src/index.ts",
-  "types": "./dist/pluginUtilsExports.d.ts",
-  "exports": "./dist/pluginUtilsExports.js",
   "devDependencies": {
     "@ianvs/prettier-plugin-sort-imports": "^4.3.1",
     "@types/bun": "^1.1.9",
@@ -34,7 +32,6 @@
     "whatsapp-web.js": "^1.25.0"
   },
   "scripts": {
-    "build": "tsc --emitDeclarationOnly --declaration --resolveJsonModule --skipLibCheck --rootDir src --outDir dist src/pluginUtilsExports.ts && bun build --minify --outdir dist src/pluginUtilsExports.ts",
     "format": "prettier --write .",
     "gen-config-schema": "ts-json-schema-generator -f tsconfig.json -p src/config.ts -t Config -o dist/config.schema.json"
   }
