@@ -2,6 +2,11 @@
 
 A customisable, extendable and powerful multi-purpose WhatsApp bot, built using [Bun][bun] and [whatsapp-web.js](https://wwebjs.dev).
 
+## Screenshots
+
+![screenshot of help command][img-help]
+![screenshot of games plugin][img-hangman]
+
 ## Usage
 
 > [!NOTE]
@@ -73,6 +78,8 @@ These can be enabled or disabled in the `config.json` file.
 
 You can place your own custom plugins in the `src/plugins/custom` directory. Each plugin should be a separate file, and should export a class that extends the `Plugin` class from `src/plugins.ts`. An example can be found in `src/plugins/TEMPLATE.ts`.
 
+[img-help]: https://cloud-bjfqs2qm5-hack-club-bot.vercel.app/0whatsapp-pa-help.jpg
+[img-hangman]: https://scrapbook-into-the-redwoods.s3.amazonaws.com/5a0c323c-ef7c-49ab-93b5-c01408e3ecb1-whatsapp-pa-hangman.jpeg
 [bun]: https://bun.sh
 [buni]: https://bun.sh/docs/installation
 [dictapi]: https://dictionaryapi.dev
