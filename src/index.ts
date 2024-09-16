@@ -3,6 +3,7 @@ import type { Chat, Message, MessageId } from "whatsapp-web.js";
 import type { Config } from "./config";
 import type { Command, Interaction, InteractionResult } from "./plugins";
 
+import { captureException } from "@sentry/bun";
 import { Database } from "bun:sqlite";
 import { consola } from "consola";
 import { generate } from "qrcode-terminal";
@@ -855,6 +856,13 @@ async function handleError(
   interactionContinuationMessage?: Message | null,
   command?: InternalCommand | null,
 ) {
+  captureException(error, {
+    user: {
+      whatsappFrom: message.from,
+      whatsappAuthor: message.author,
+    },
+  });
+
   await message.react("\u274C");
 
   if (error instanceof CommandError) {
