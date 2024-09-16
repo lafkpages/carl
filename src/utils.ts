@@ -1,4 +1,4 @@
-import type { Client } from "whatsapp-web.js";
+import type { Client, Message } from "whatsapp-web.js";
 
 import { getConfig } from "./config";
 
@@ -9,13 +9,25 @@ export type ParametersButFirst<T extends (...args: any) => any> = T extends (
   ? P
   : never;
 
+export async function sendMessageToUsers(
+  client: Client,
+  chatIds: string[],
+  ...args: ParametersButFirst<typeof client.sendMessage>
+) {
+  const promises: Promise<Message>[] = [];
+
+  for (const chatId of chatIds) {
+    promises.push(client.sendMessage(chatId, ...args));
+  }
+
+  return await Promise.all(promises);
+}
+
 export async function sendMessageToAdmins(
   client: Client,
   ...args: ParametersButFirst<typeof client.sendMessage>
 ) {
   const { whitelist } = getConfig();
 
-  for (const admin of whitelist.admin) {
-    await client.sendMessage(admin, ...args);
-  }
+  return await sendMessageToUsers(client, whitelist.admin, ...args);
 }
