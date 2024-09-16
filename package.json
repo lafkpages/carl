@@ -34,5 +34,8 @@
   "scripts": {
     "format": "prettier --write .",
     "gen-config-schema": "ts-json-schema-generator -f tsconfig.json -p src/config.ts -t Config -o dist/config.schema.json"
+  },
+  "optionalDependencies": {
+    "@sentry/bun": "^8.30.0"
   }
 }

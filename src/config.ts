@@ -1,5 +1,7 @@
 import type { InferOutput } from "valibot";
 
+import { EventEmitter } from "node:events";
+
 import consola from "consola";
 import { defu } from "defu";
 import {
@@ -14,6 +16,7 @@ import {
   record,
   regex,
   string,
+  union,
 } from "valibot";
 
 const configSchema = object({
@@ -71,6 +74,8 @@ const configSchema = object({
   publicUrlPingCheckFrequency: optional(number(), 300000),
 
   helpPageSize: optional(number(), 300),
+
+  sentry: optional(union([string(), boolean()]), true),
 });
 
 export type Config = InferOutput<typeof configSchema> & {
@@ -102,4 +107,10 @@ export async function updateConfig(newConfig: Partial<Config>) {
   await Bun.write(configFile, JSON.stringify(mergedConfig, null, 2));
 
   config = mergedConfig;
+
+  configEvents.emit("update", config, Object.keys(newConfig));
 }
+
+export const configEvents = new EventEmitter<{
+  update: [newConfig: Config, modifiedProperties: string[]];
+}>();
