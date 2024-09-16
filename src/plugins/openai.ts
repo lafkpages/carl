@@ -20,7 +20,7 @@ export default class extends Plugin {
       minLevel: PermissionLevel.NONE,
       rateLimit: 5000,
 
-      async handler({ rest }) {
+      async handler({ rest, logger }) {
         // todo: handle thread of replies as chat history
         // for future self: this is really hard, good luck
 
@@ -33,6 +33,8 @@ export default class extends Plugin {
           ],
           model: "gpt-3.5-turbo",
         });
+
+        logger.debug("AI response:", completion);
 
         const response = completion.choices[0].message.content;
 
