@@ -16,6 +16,7 @@ import { getPermissionLevel, PermissionLevel } from "./perms";
 import { InteractionContinuation, Plugin, scanPlugins } from "./plugins";
 import { isCommandRateLimited, isUserRateLimited } from "./ratelimits";
 import { generateTemporaryShortLink, server } from "./server";
+import { sendMessageToAdmins } from "./utils";
 
 const { Client } =
   require("whatsapp-web.js") as typeof import("whatsapp-web.js");
@@ -660,7 +661,7 @@ client.on("message", async (message) => {
 
             await handleInteractionResult(result, message, cmd.plugin);
           } catch (err) {
-            await handleError(err, message);
+            await handleError(err, message, null, cmd);
           }
         } else {
           await handleError(
@@ -851,7 +852,8 @@ async function handleInteractionResult(
 async function handleError(
   error: unknown,
   message: Message,
-  interactionContinuationMessage?: Message,
+  interactionContinuationMessage?: Message | null,
+  command?: InternalCommand | null,
 ) {
   await message.react("\u274C");
 
@@ -879,6 +881,16 @@ async function handleError(
 
     if (interactionContinuationMessage) {
       await cleanupInteractionContinuation(interactionContinuationMessage);
+    }
+
+    if (command) {
+      await sendMessageToAdmins(
+        client,
+        `\
+Error while handling command \`${command.plugin.id}\`/\`${command.name}\`:
+\`\`\`
+${Bun.inspect(error, { colors: false })}\`\`\``,
+      );
     }
   }
 }
