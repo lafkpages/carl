@@ -3,6 +3,7 @@ import type { Command } from "../plugins";
 import { CommandError } from "../error";
 import { PermissionLevel } from "../perms";
 import { Plugin } from "../plugins";
+import { sendMessageToAdmins } from "../utils";
 
 // TODO: pass config in interaction handlers
 
@@ -49,12 +50,10 @@ export default class extends Plugin {
 
         pendingPermissionRequests[sender] = requestedPermissionLevel;
 
-        for (const admin of config.whitelist.admin) {
-          await client.sendMessage(
-            admin,
-            `User \`${sender}\` (\`${contact.pushname}\`) has requested permission level \`${PermissionLevel[requestedPermissionLevel]}\` (\`${requestedPermissionLevel}\`). To grant this permission, edit the config file and restart the bot.`,
-          );
-        }
+        await sendMessageToAdmins(
+          client,
+          `User \`${sender}\` (\`${contact.pushname}\`) has requested permission level \`${PermissionLevel[requestedPermissionLevel]}\` (\`${requestedPermissionLevel}\`). To grant this permission, edit the config file and restart the bot.`,
+        );
 
         return true;
       },
