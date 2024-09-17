@@ -151,8 +151,18 @@ export default class extends Plugin {
 
         conversation.push({
           role: "system",
-          content:
-            "Summarise the following WhatsApp conversation. Provide bullet points for each topic that was discussed.",
+          content: `\
+Briefly summarise the following WhatsApp conversation. Provide bullet points for each topic that was discussed.
+Follow the format below, and do not include a title.
+
+* *Topic 1*: short sentence summary
+* *Topic 2*: short sentence summary
+* *Topic 3*: short sentence summary
+
+...
+
+Brief overall summary
+`,
         });
 
         conversation.reverse();
@@ -166,7 +176,8 @@ export default class extends Plugin {
 
         logger.debug("AI response:", completion);
 
-        return returnResponse(completion.choices[0].message.content);
+        const response = returnResponse(completion.choices[0].message.content);
+        return response.replace(/^( *[*-] +)\*(\*.+?\*)\*/gm, "$1$2");
       },
     },
   ];
