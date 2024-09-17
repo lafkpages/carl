@@ -42,7 +42,7 @@ export default class extends Plugin {
         if (response) {
           return response;
         } else {
-          return false;
+          throw new CommandError("no response from AI");
         }
       },
     },
