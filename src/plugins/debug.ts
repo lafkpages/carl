@@ -1,4 +1,5 @@
 import type { ElementHandle, Page } from "puppeteer";
+import type { Message } from "whatsapp-web.js";
 import type { Command, Interactions } from "../plugins";
 
 import { google } from "googleapis";
@@ -360,6 +361,38 @@ ${Bun.inspect(quotedMessage.id, { colors: false })}
         await message.reply(
           new MessageMedia("image/jpeg", screenshot.toString("base64")),
         );
+      },
+    },
+    {
+      name: "firstmessage",
+      description: "Get the first message in a chat",
+      minLevel: PermissionLevel.NONE,
+      rateLimit: 10000,
+
+      async handler({ message, logger }) {
+        const chat = await message.getChat();
+        const messages = await chat.fetchMessages({ limit: Infinity });
+
+        let firstMessage: Message | null = null;
+        for (const message of messages) {
+          if (message.body) {
+            firstMessage = message;
+            break;
+          }
+        }
+
+        if (!firstMessage) {
+          throw new CommandError("no messages found");
+        }
+
+        logger.debug(
+          "First message:",
+          firstMessage,
+          firstMessage.body,
+          firstMessage.type,
+        );
+
+        await firstMessage.reply("^");
       },
     },
     {
