@@ -18,7 +18,7 @@ export default class extends Plugin {
     {
       name: "ai",
       description: "Ask a question to AI",
-      minLevel: PermissionLevel.NONE,
+      minLevel: PermissionLevel.TRUSTED,
       rateLimit: 5000,
 
       async handler({ rest, logger }) {
