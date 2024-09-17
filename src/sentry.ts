@@ -28,3 +28,6 @@ configEvents.on("update", async (newConfig, modifiedProperties) => {
   await sentry?.close();
   sentry = initSentry(newConfig);
 });
+
+// Ideally, Sentry is initialised in preload, however:
+// https://github.com/getsentry/sentry-javascript/issues/12891
