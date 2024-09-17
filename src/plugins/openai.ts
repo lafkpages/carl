@@ -119,7 +119,8 @@ export default class extends Plugin {
         const conversation: ChatCompletionMessageParam[] = [
           {
             role: "system",
-            content: "Summarise the following WhatsApp conversation.",
+            content:
+              "Summarise the following WhatsApp conversation. Provide bullet points for each topic that was discussed.",
           },
         ];
 
@@ -136,9 +137,11 @@ export default class extends Plugin {
           const message = messages[i];
           const user = await message.getContact();
 
+          const name = user.pushname.replace(/[^a-zA-Z0-9_-]/g, "");
+
           conversation.push({
             role: "user",
-            name: user.pushname,
+            name,
             content: message.body,
           });
 
