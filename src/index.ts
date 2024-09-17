@@ -19,7 +19,7 @@ import { getPermissionLevel, PermissionLevel } from "./perms";
 import { InteractionContinuation, Plugin, scanPlugins } from "./plugins";
 import { isCommandRateLimited, isUserRateLimited } from "./ratelimits";
 import { generateTemporaryShortLink, server } from "./server";
-import { sendMessageToAdmins } from "./utils";
+import { isInGithubCodespace, sendMessageToAdmins } from "./utils";
 
 const { Client } =
   require("whatsapp-web.js") as typeof import("whatsapp-web.js");
@@ -424,10 +424,9 @@ const client = new Client({
   authStrategy: new LocalAuth(),
   puppeteer: {
     headless: initialConfig.visible ? false : undefined,
-    args:
-      process.env.CODESPACES === "true"
-        ? ["--no-sandbox", "--disable-setuid-sandbox"]
-        : undefined,
+    args: isInGithubCodespace
+      ? ["--no-sandbox", "--disable-setuid-sandbox"]
+      : undefined,
   },
 });
 

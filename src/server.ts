@@ -4,8 +4,13 @@ import { nanoid } from "nanoid";
 
 import { initialConfig } from "./config";
 import { handleOAuthCallback } from "./google";
+import { isInGithubCodespace } from "./utils";
 
-export const publicUrl = initialConfig.publicUrl || "http://localhost:3000";
+export const publicUrl =
+  initialConfig.publicUrl ||
+  (isInGithubCodespace
+    ? `https://${process.env.CODESPACE_NAME}-3000.${process.env.GITHUB_CODESPACES_PORT_FORWARDING_DOMAIN}`
+    : "http://localhost:3000");
 
 const tempShortLinks = new Map<string, string>();
 
