@@ -3,6 +3,8 @@ import type { Chat, Message, MessageId } from "whatsapp-web.js";
 import type { Config } from "./config";
 import type { Command, Interaction, InteractionResult } from "./plugins";
 
+import "./sentry";
+
 import { captureException } from "@sentry/bun";
 import { Database } from "bun:sqlite";
 import { consola } from "consola";
