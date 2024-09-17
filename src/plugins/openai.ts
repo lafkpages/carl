@@ -3,7 +3,7 @@ import type {
   ChatCompletionMessageParam,
   ChatModel,
 } from "openai/resources/index";
-import type { Message } from "whatsapp-web.js";
+import type { Contact, Message } from "whatsapp-web.js";
 import type { Command } from "../plugins";
 
 import OpenAI from "openai";
@@ -40,9 +40,13 @@ function returnResponse(response: string | null) {
 
 async function whatsappMessageToChatCompletionMessage(
   message: Message,
-  body?: string,
+  body?: string | null,
+  includeNames = true,
 ): Promise<ChatCompletionMessageParam | null> {
-  const contact = await message.getContact();
+  let contact: Contact;
+  if (includeNames) {
+    contact = await message.getContact();
+  }
 
   let content: string | ChatCompletionContentPart[];
 
@@ -70,7 +74,9 @@ async function whatsappMessageToChatCompletionMessage(
   return {
     role: "user",
     content,
-    name: contact.pushname?.replace(/[^a-zA-Z0-9_-]/g, ""),
+    name: includeNames
+      ? contact!.pushname?.replace(/[^a-zA-Z0-9_-]/g, "")
+      : undefined,
   };
 }
 
@@ -122,8 +128,11 @@ export default class extends Plugin {
 
         if (message.hasQuotedMsg) {
           const quotedMsg = await message.getQuotedMessage();
-          const completion =
-            await whatsappMessageToChatCompletionMessage(quotedMsg);
+          const completion = await whatsappMessageToChatCompletionMessage(
+            quotedMsg,
+            null,
+            false,
+          );
 
           if (completion) {
             messages.push(completion);
@@ -134,6 +143,7 @@ export default class extends Plugin {
           const completion = await whatsappMessageToChatCompletionMessage(
             message,
             rest,
+            false,
           );
 
           if (completion) {
