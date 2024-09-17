@@ -858,13 +858,6 @@ async function handleError(
   interactionContinuationMessage?: Message | null,
   command?: InternalCommand | null,
 ) {
-  captureException(error, {
-    user: {
-      whatsappFrom: message.from,
-      whatsappAuthor: message.author,
-    },
-  });
-
   await message.react("\u274C");
 
   if (error instanceof CommandError) {
@@ -882,6 +875,13 @@ async function handleError(
     }
   } else {
     consola.error("Error while handling command:", error);
+
+    captureException(error, {
+      user: {
+        whatsappFrom: message.from,
+        whatsappAuthor: message.author,
+      },
+    });
 
     await message.reply(
       `Error:\n\`\`\`\n${Bun.inspect(error, { colors: false })}\`\`\``,
