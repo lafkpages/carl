@@ -1,3 +1,4 @@
+import type { ChatModel } from "openai/resources/index";
 import type { Command } from "../plugins";
 
 import OpenAI from "openai";
@@ -7,6 +8,16 @@ import { PermissionLevel } from "../perms";
 import { Plugin } from "../plugins";
 
 const openai = new OpenAI();
+
+declare module "../config" {
+  interface PluginsConfig {
+    openai?: {
+      model?: ChatModel;
+    };
+  }
+}
+
+const defaultModel: ChatModel = "gpt-4o-mini";
 
 export default class extends Plugin {
   id = "openai";
@@ -21,7 +32,7 @@ export default class extends Plugin {
       minLevel: PermissionLevel.TRUSTED,
       rateLimit: 5000,
 
-      async handler({ rest, logger }) {
+      async handler({ rest, logger, config }) {
         // todo: handle thread of replies as chat history
         // for future self: this is really hard, good luck
 
@@ -32,7 +43,7 @@ export default class extends Plugin {
               content: rest,
             },
           ],
-          model: "gpt-3.5-turbo",
+          model: config.pluginsConfig.openai?.model || defaultModel,
         });
 
         logger.debug("AI response:", completion);
@@ -52,7 +63,7 @@ export default class extends Plugin {
       minLevel: PermissionLevel.TRUSTED,
       rateLimit: 5000,
 
-      async handler({ message, rest, logger }) {
+      async handler({ message, rest, logger, config }) {
         let text = rest;
         if (!text && message.hasQuotedMsg) {
           text = (await message.getQuotedMessage()).body;
@@ -70,7 +81,7 @@ export default class extends Plugin {
             },
             { role: "user", content: text },
           ],
-          model: "gpt-4o-mini",
+          model: config.pluginsConfig.openai?.model || defaultModel,
         });
 
         logger.debug("AI response:", completion);
