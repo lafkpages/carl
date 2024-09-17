@@ -104,7 +104,7 @@ export default class extends Plugin {
       name: "summariseconvo",
       description: "Summarise a conversation",
       minLevel: PermissionLevel.TRUSTED,
-      rateLimit: 5000,
+      rateLimit: 60000,
 
       async handler({ message, logger, config }) {
         if (!message.hasQuotedMsg) {
