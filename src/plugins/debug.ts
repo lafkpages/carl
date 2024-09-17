@@ -11,6 +11,14 @@ import { PermissionLevel } from "../perms";
 import { InteractionContinuation, Plugin } from "../plugins";
 import { pingCheck } from "../server";
 
+declare module "../config" {
+  interface PluginsConfig {
+    debug?: {
+      evalShellTrimOutput?: boolean;
+    };
+  }
+}
+
 export default class extends Plugin {
   id = "debug";
   name = "Debug tools";
@@ -100,6 +108,62 @@ ${Bun.inspect(quotedMessage.id, { colors: false })}
           }),
           { colors: false },
         )}\n\`\`\``;
+      },
+    },
+    {
+      name: "evalshell",
+      description: "Evaluate shell commands",
+      minLevel: PermissionLevel.ADMIN,
+
+      async handler({ message, rest, config }) {
+        const proc = Bun.spawnSync({
+          cmd: ["sh", "-c", rest],
+        });
+
+        await message.react(proc.success ? "\u2705" : "\u274C");
+
+        let msg = "";
+
+        if (proc.exitCode) {
+          msg += `\
+Exit code: ${proc.exitCode}`;
+        }
+
+        if (proc.signalCode) {
+          msg += `\
+Signal code: ${proc.signalCode}`;
+        }
+
+        const trimOutput =
+          config.pluginsConfig?.debug?.evalShellTrimOutput ?? true;
+
+        if (proc.stdout.length) {
+          let stdout = proc.stdout.toString("utf-8");
+
+          if (trimOutput) {
+            stdout = stdout.trim();
+          }
+
+          msg += `\
+
+Stdout:
+\`\`\`${stdout}\`\`\``;
+        }
+
+        if (proc.stderr.length) {
+          let stderr = proc.stderr.toString("utf-8");
+
+          if (trimOutput) {
+            stderr = stderr.trim();
+          }
+
+          msg += `\
+
+Stderr:
+\`\`\`${stderr}\`\`\``;
+        }
+
+        return msg.trimStart();
       },
     },
     {
