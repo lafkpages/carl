@@ -131,7 +131,7 @@ export default class extends Plugin {
           const message = messages[i];
           const user = await message.getContact();
 
-          const name = user.pushname.replace(/[^a-zA-Z0-9_-]/g, "");
+          const name = user.pushname?.replace(/[^a-zA-Z0-9_-]/g, "");
 
           conversation.push({
             role: "user",
