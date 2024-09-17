@@ -1,7 +1,9 @@
 import type {
+  ChatCompletionContentPart,
   ChatCompletionMessageParam,
   ChatModel,
 } from "openai/resources/index";
+import type { Message } from "whatsapp-web.js";
 import type { Command } from "../plugins";
 
 import OpenAI from "openai";
@@ -34,6 +36,42 @@ function returnResponse(response: string | null) {
   } else {
     throw new CommandError("no response from AI");
   }
+}
+
+async function whatsappMessageToChatCompletionMessage(
+  message: Message,
+  body?: string,
+): Promise<ChatCompletionMessageParam | null> {
+  const contact = await message.getContact();
+
+  let content: string | ChatCompletionContentPart[];
+
+  if (message.hasMedia) {
+    const media = await message.downloadMedia();
+
+    content = [
+      {
+        type: "text",
+        text: message.body,
+      },
+      {
+        type: "image_url",
+        image_url: { url: `data:${media.mimetype};base64,${media.data}` },
+      },
+    ];
+  } else {
+    content = body || message.body;
+  }
+
+  if (!content) {
+    return null;
+  }
+
+  return {
+    role: "user",
+    content,
+    name: contact.pushname?.replace(/[^a-zA-Z0-9_-]/g, ""),
+  };
 }
 
 export default class extends Plugin {
@@ -75,23 +113,40 @@ export default class extends Plugin {
       rateLimit: 5000,
 
       async handler({ message, rest, logger, config }) {
-        let text = rest;
-        if (!text && message.hasQuotedMsg) {
-          text = (await message.getQuotedMessage()).body;
+        let messages: ChatCompletionMessageParam[] = [
+          {
+            role: "system",
+            content: "Give a brief summary of the following WhatsApp messages.",
+          },
+        ];
+
+        if (message.hasQuotedMsg) {
+          const quotedMsg = await message.getQuotedMessage();
+          const completion =
+            await whatsappMessageToChatCompletionMessage(quotedMsg);
+
+          if (completion) {
+            messages.push(completion);
+          }
         }
 
-        if (!text) {
+        if (rest || message.hasMedia) {
+          const completion = await whatsappMessageToChatCompletionMessage(
+            message,
+            rest,
+          );
+
+          if (completion) {
+            messages.push(completion);
+          }
+        }
+
+        if (messages.length <= 1) {
           throw new CommandError("no text provided");
         }
 
         const completion = await openai.chat.completions.create({
-          messages: [
-            {
-              role: "system",
-              content: "Give a brief summary of the following text.",
-            },
-            { role: "user", content: text },
-          ],
+          messages,
           model: config.pluginsConfig.openai?.model || defaultModel,
         });
 
@@ -128,18 +183,16 @@ export default class extends Plugin {
 
         let found = false;
         for (let i = messages.length - 1; i >= 0; i--) {
-          const message = messages[i];
-          const user = await message.getContact();
+          const currentMessage = messages[i];
 
-          const name = user.pushname?.replace(/[^a-zA-Z0-9_-]/g, "");
+          const completionMessage =
+            await whatsappMessageToChatCompletionMessage(currentMessage);
 
-          conversation.push({
-            role: "user",
-            name,
-            content: message.body,
-          });
+          if (completionMessage) {
+            conversation.push(completionMessage);
+          }
 
-          if (message.id._serialized === quotedMsg.id._serialized) {
+          if (currentMessage.id._serialized === quotedMsg.id._serialized) {
             found = true;
             break;
           }
