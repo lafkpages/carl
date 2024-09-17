@@ -8,6 +8,7 @@ import {
   array,
   boolean,
   looseObject,
+  nullish,
   number,
   object,
   optional,
@@ -17,6 +18,7 @@ import {
   regex,
   string,
   union,
+  void_,
 } from "valibot";
 
 const configSchema = object({
@@ -62,16 +64,18 @@ const configSchema = object({
    */
   visible: optional(boolean(), false),
 
+  port: optional(number(), 3000),
+
   /**
    * The base URL at which this instance is hosted.
    */
-  publicUrl: optional(string(), "http://localhost:3000"),
+  publicUrl: union([nullish(string()), void_()]),
 
   /**
    * The frequency at which to check the public URL for availability,
    * in milliseconds. Set to 0 to disable.
    */
-  publicUrlPingCheckFrequency: optional(number(), 300000),
+  publicUrlPingCheckFrequency: optional(number(), 300_000),
 
   helpPageSize: optional(number(), 300),
 
