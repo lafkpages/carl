@@ -2,6 +2,7 @@ import type { Command } from "../plugins";
 
 import OpenAI from "openai";
 
+import { CommandError } from "../error";
 import { PermissionLevel } from "../perms";
 import { Plugin } from "../plugins";
 
@@ -42,6 +43,44 @@ export default class extends Plugin {
           return response;
         } else {
           return false;
+        }
+      },
+    },
+    {
+      name: "summarise",
+      description: "Summarise a given text or message",
+      minLevel: PermissionLevel.TRUSTED,
+      rateLimit: 5000,
+
+      async handler({ message, rest, logger }) {
+        let text = rest;
+        if (!text && message.hasQuotedMsg) {
+          text = (await message.getQuotedMessage()).body;
+        }
+
+        if (!text) {
+          throw new CommandError("no text provided");
+        }
+
+        const completion = await openai.chat.completions.create({
+          messages: [
+            {
+              role: "system",
+              content: "Give a brief summary of the following text.",
+            },
+            { role: "user", content: text },
+          ],
+          model: "gpt-4o-mini",
+        });
+
+        logger.debug("AI response:", completion);
+
+        const response = completion.choices[0].message.content;
+
+        if (response) {
+          return response;
+        } else {
+          throw new CommandError("no response from AI");
         }
       },
     },
