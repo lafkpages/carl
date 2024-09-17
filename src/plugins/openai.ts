@@ -1,4 +1,7 @@
-import type { ChatModel } from "openai/resources/index";
+import type {
+  ChatCompletionMessageParam,
+  ChatModel,
+} from "openai/resources/index";
 import type { Command } from "../plugins";
 
 import OpenAI from "openai";
@@ -13,11 +16,25 @@ declare module "../config" {
   interface PluginsConfig {
     openai?: {
       model?: ChatModel;
+
+      /**
+       * Maximum length of a conversation to summarise.
+       */
+      maxConversationLength?: number;
     };
   }
 }
 
 const defaultModel: ChatModel = "gpt-4o-mini";
+const defaultMaxConversationLength = 500;
+
+function returnResponse(response: string | null) {
+  if (response) {
+    return response;
+  } else {
+    throw new CommandError("no response from AI");
+  }
+}
 
 export default class extends Plugin {
   id = "openai";
@@ -48,13 +65,7 @@ export default class extends Plugin {
 
         logger.debug("AI response:", completion);
 
-        const response = completion.choices[0].message.content;
-
-        if (response) {
-          return response;
-        } else {
-          throw new CommandError("no response from AI");
-        }
+        return returnResponse(completion.choices[0].message.content);
       },
     },
     {
@@ -86,13 +97,71 @@ export default class extends Plugin {
 
         logger.debug("AI response:", completion);
 
-        const response = completion.choices[0].message.content;
+        return returnResponse(completion.choices[0].message.content);
+      },
+    },
+    {
+      name: "summariseconvo",
+      description: "Summarise a conversation",
+      minLevel: PermissionLevel.TRUSTED,
+      rateLimit: 5000,
 
-        if (response) {
-          return response;
-        } else {
-          throw new CommandError("no response from AI");
+      async handler({ message, logger, config }) {
+        if (!message.hasQuotedMsg) {
+          throw new CommandError(
+            "reply to a message you want to summarise from",
+          );
         }
+
+        const quotedMsg = await message.getQuotedMessage();
+        const chat = await quotedMsg.getChat();
+
+        const conversation: ChatCompletionMessageParam[] = [
+          {
+            role: "system",
+            content: "Summarise the following WhatsApp conversation.",
+          },
+        ];
+
+        const messages = await chat.fetchMessages({
+          limit:
+            config.pluginsConfig.openai?.maxConversationLength === -1
+              ? Infinity
+              : config.pluginsConfig.openai?.maxConversationLength ||
+                defaultMaxConversationLength,
+        });
+
+        let found = false;
+        for (let i = messages.length - 1; i >= 0; i--) {
+          const message = messages[i];
+          const user = await message.getContact();
+
+          conversation.push({
+            role: "user",
+            name: user.pushname,
+            content: message.body,
+          });
+
+          if (message.id._serialized === quotedMsg.id._serialized) {
+            found = true;
+            break;
+          }
+        }
+
+        if (!found) {
+          throw new CommandError("quoted message not found in conversation");
+        }
+
+        logger.debug("conversation:", conversation);
+
+        const completion = await openai.chat.completions.create({
+          messages: conversation,
+          model: config.pluginsConfig.openai?.model || defaultModel,
+        });
+
+        logger.debug("AI response:", completion);
+
+        return returnResponse(completion.choices[0].message.content);
       },
     },
   ];
