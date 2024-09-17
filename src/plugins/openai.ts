@@ -116,13 +116,7 @@ export default class extends Plugin {
         const quotedMsg = await message.getQuotedMessage();
         const chat = await quotedMsg.getChat();
 
-        const conversation: ChatCompletionMessageParam[] = [
-          {
-            role: "system",
-            content:
-              "Summarise the following WhatsApp conversation. Provide bullet points for each topic that was discussed.",
-          },
-        ];
+        const conversation: ChatCompletionMessageParam[] = [];
 
         const messages = await chat.fetchMessages({
           limit:
@@ -154,6 +148,14 @@ export default class extends Plugin {
         if (!found) {
           throw new CommandError("quoted message not found in conversation");
         }
+
+        conversation.push({
+          role: "system",
+          content:
+            "Summarise the following WhatsApp conversation. Provide bullet points for each topic that was discussed.",
+        });
+
+        conversation.reverse();
 
         logger.debug("conversation:", conversation);
 
