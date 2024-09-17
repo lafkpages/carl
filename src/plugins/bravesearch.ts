@@ -35,6 +35,7 @@ export default class extends Plugin {
         const results = await braveSearch.webSearch(rest, {
           count: 3,
           text_decorations: false,
+          result_filter: "web",
         });
 
         logger.debug("Got Brave results:", results);
