@@ -27,6 +27,8 @@
     "dw": "defineword",
     "r": "random",
     "t": "translate",
-    "soccer": "football"
+    "soccer": "football",
+    "search": "bravesearch",
+    "summarize": "summarise"
   }
 }
