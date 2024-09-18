@@ -117,7 +117,7 @@ export function getConfig() {
 }
 
 export async function updateConfig(newConfig: Partial<Config>) {
-  const mergedConfig = defu(newConfig, config);
+  const mergedConfig = parse(configSchema, defu(newConfig, config));
 
   await Bun.write(configFile, JSON.stringify(mergedConfig, null, 2));
 
