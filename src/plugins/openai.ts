@@ -219,6 +219,10 @@ export default {
         for (let i = messages.length - 1; i >= 0; i--) {
           const currentMessage = messages[i];
 
+          if (currentMessage.id._serialized === message.id._serialized) {
+            continue;
+          }
+
           const completionMessage =
             await whatsappMessageToChatCompletionMessage(currentMessage);
 
