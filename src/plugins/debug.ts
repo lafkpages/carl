@@ -70,6 +70,15 @@ ${Bun.inspect(quotedMessage.id, { colors: false })}
       },
     },
     {
+      name: "chatid",
+      description: "Get the chat ID",
+      minLevel: PermissionLevel.NONE,
+
+      handler({ chat }) {
+        return `\`${chat.id._serialized}\``;
+      },
+    },
+    {
       name: "whoami",
       description: "Get your user ID",
       minLevel: PermissionLevel.NONE,
