@@ -7,21 +7,21 @@ import { isValiError } from "valibot";
 import { getRawConfig, updateConfig, updateConfigRaw } from "../config";
 import { CommandError } from "../error";
 import { PermissionLevel } from "../perms";
-import { Plugin } from "../plugins";
+import { type Plugin } from "../plugins";
 
-export default class extends Plugin {
-  id = "config";
-  name = "Config";
-  description = "Bot configuration commands.";
-  version = "0.0.1";
+export default {
+  id: "config",
+  name: "Config",
+  description: "Bot configuration commands.",
+  version: "0.0.1",
 
-  commands: Command[] = [
+  commands: [
     {
       name: "config",
       description: "View or update the bot configuration.",
       minLevel: PermissionLevel.ADMIN,
 
-      async handler({ config, rest, logger }) {
+      async handler({ config, rest }) {
         const [, key, value] = rest.match(/^(\S+)(?:\s+(\S+))?$/i) || [];
 
         if (!key) {
@@ -87,5 +87,5 @@ export default class extends Plugin {
         return true;
       },
     },
-  ];
-}
+  ],
+} satisfies Plugin;

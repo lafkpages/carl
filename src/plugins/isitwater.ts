@@ -1,6 +1,6 @@
 import type { ConsolaInstance } from "consola";
 import type { Message } from "whatsapp-web.js";
-import type { Command, OnMessageArgs } from "../plugins";
+import type { Plugin } from "../plugins";
 
 import assert from "node:assert";
 
@@ -8,7 +8,6 @@ import { MessageTypes } from "whatsapp-web.js";
 
 import { CommandError } from "../error";
 import { PermissionLevel } from "../perms";
-import { Plugin } from "../plugins";
 
 const apiKey = process.env.ISITWATER_API_KEY;
 
@@ -57,13 +56,13 @@ async function handleMessage(
   await message.react(water ? "\u{1F30A}" : "\u26F0\uFE0F");
 }
 
-export default class extends Plugin {
-  id = "isitwater";
-  name = "Is It Water?";
-  description = "A plugin to check if a given location is on water or not.";
-  version = "0.0.1";
+export default {
+  id: "isitwater",
+  name: "Is It Water?",
+  description: "A plugin to check if a given location is on water or not.",
+  version: "0.0.1",
 
-  commands: Command[] = [
+  commands: [
     {
       name: "isitwater",
       description: "Check if a location is on water or land",
@@ -98,11 +97,11 @@ export default class extends Plugin {
         await handleMessage(locationMessage, logger, latitude, longitude);
       },
     },
-  ];
+  ],
 
-  async onMessage({ message, logger }: OnMessageArgs) {
+  async onMessage({ message, logger }) {
     if (message.type === MessageTypes.LOCATION) {
       await handleMessage(message, logger);
     }
-  }
-}
+  },
+} satisfies Plugin;

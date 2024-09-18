@@ -4,13 +4,12 @@ import type {
   ChatModel,
 } from "openai/resources/index";
 import type { Contact, Message } from "whatsapp-web.js";
-import type { Command } from "../plugins";
+import type { Plugin } from "../plugins";
 
 import OpenAI from "openai";
 
 import { CommandError } from "../error";
 import { PermissionLevel } from "../perms";
-import { Plugin } from "../plugins";
 
 const openai = new OpenAI();
 
@@ -80,13 +79,13 @@ async function whatsappMessageToChatCompletionMessage(
   };
 }
 
-export default class extends Plugin {
-  id = "openai";
-  name = "OpenAI";
-  description = "Talk to ChatGPT on WhatsApp!";
-  version = "0.0.1";
+export default {
+  id: "openai",
+  name: "OpenAI",
+  description: "Talk to ChatGPT on WhatsApp!",
+  version: "0.0.1",
 
-  commands: Command[] = [
+  commands: [
     {
       name: "ai",
       description: "Ask a question to AI",
@@ -243,5 +242,5 @@ Brief overall summary
         return response.replace(/^( *[*-] +)\*(\*.+?\*)\*/gm, "$1$2");
       },
     },
-  ];
-}
+  ],
+} satisfies Plugin;

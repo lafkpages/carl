@@ -11,11 +11,11 @@ import { join } from "node:path";
 
 import { consola } from "consola";
 
-export abstract class Plugin {
-  abstract readonly id: string;
-  abstract readonly name: string;
-  abstract readonly description: string;
-  abstract readonly version: string;
+export interface Plugin {
+  readonly id: string;
+  readonly name: string;
+  readonly description: string;
+  readonly version: string;
 
   /**
    * Whether this plugin should be hidden from the help command

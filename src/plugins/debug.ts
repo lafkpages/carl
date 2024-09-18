@@ -1,6 +1,6 @@
 import type { ElementHandle, Page } from "puppeteer";
 import type { Message } from "whatsapp-web.js";
-import type { Command, Interactions } from "../plugins";
+import type { Plugin } from "../plugins";
 
 import { google } from "googleapis";
 import { MessageMedia } from "whatsapp-web.js";
@@ -8,7 +8,7 @@ import { MessageMedia } from "whatsapp-web.js";
 import { CommandError, CommandPermissionError } from "../error";
 import { getScopes } from "../google";
 import { PermissionLevel } from "../perms";
-import { InteractionContinuation, Plugin } from "../plugins";
+import { InteractionContinuation } from "../plugins";
 import { pingCheck } from "../server";
 import { isInDevelopment } from "../utils";
 
@@ -20,14 +20,14 @@ declare module "../config" {
   }
 }
 
-export default class extends Plugin {
-  id = "debug";
-  name = "Debug tools";
-  description = "Helps debug WhatsApp PA core and plugins";
-  version = "0.0.2";
-  hidden = true;
+export default {
+  id: "debug",
+  name: "Debug tools",
+  description: "Helps debug WhatsApp PA core and plugins",
+  version: "0.0.2",
+  hidden: true,
 
-  commands: Command[] = [
+  commands: [
     {
       name: "debuginfo",
       description: "Get handy debug information",
@@ -486,9 +486,9 @@ Stderr:
         );
       },
     },
-  ];
+  ],
 
-  interactions: Interactions = {
+  interactions: {
     testinteractioncontinuation: {
       handler({ message, data }) {
         if (data) {
@@ -502,5 +502,5 @@ Stderr:
         );
       },
     },
-  };
-}
+  },
+} satisfies Plugin;

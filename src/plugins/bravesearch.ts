@@ -1,10 +1,8 @@
-import type { Command } from "../plugins";
-
 import { BraveSearch } from "brave-search";
 
 import { CommandError } from "../error";
 import { PermissionLevel } from "../perms";
-import { Plugin } from "../plugins";
+import { type Plugin } from "../plugins";
 
 const apiKey = process.env.BRAVE_SEARCH_API_KEY;
 
@@ -14,13 +12,13 @@ if (!apiKey) {
 
 const braveSearch = new BraveSearch(apiKey);
 
-export default class extends Plugin {
-  id = "bravesearch";
-  name = "Brave Search";
-  description = "Search the web with Brave Search";
-  version = "0.0.1";
+export default {
+  id: "bravesearch",
+  name: "Brave Search",
+  description: "Search the web with Brave Search",
+  version: "0.0.1",
 
-  commands: Command[] = [
+  commands: [
     {
       name: "bravesearch",
       description: "Search the web with Brave Search",
@@ -59,5 +57,5 @@ ${result.url}
         return msg;
       },
     },
-  ];
-}
+  ],
+} satisfies Plugin;

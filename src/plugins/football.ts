@@ -1,7 +1,7 @@
 import type { ConsolaInstance } from "consola";
 import type { InferOutput } from "valibot";
 import type { Client } from "whatsapp-web.js";
-import type { Command, OnLoadArgs, OnUnloadArgs } from "../plugins";
+import type { Plugin } from "../plugins";
 
 import { prettyDate } from "@based/pretty-date";
 import {
@@ -16,7 +16,6 @@ import {
 
 import { CommandError } from "../error";
 import { PermissionLevel } from "../perms";
-import { Plugin } from "../plugins";
 
 const footballDataDotOrgApiKey = process.env.FOOTBALL_DATA_DOT_ORG_API_KEY;
 
@@ -231,13 +230,13 @@ function stopMatchUpdateInterval(logger: ConsolaInstance) {
 let subscribedChatIds = new Map<string, string[] | null>();
 let checkInterval: Timer | null = null;
 
-export default class extends Plugin {
-  id = "football";
-  name = "Football";
-  description = "Commands related to football";
-  version = "0.0.1";
+export default {
+  id: "football",
+  name: "Football",
+  description: "Commands related to football",
+  version: "0.0.1",
 
-  commands: Command[] = [
+  commands: [
     {
       name: "football",
       description: "Shows today's football matches",
@@ -331,14 +330,14 @@ export default class extends Plugin {
         return true;
       },
     },
-  ];
+  ],
 
-  async onLoad({ logger }: OnLoadArgs) {
+  async onLoad({ logger }) {
     logger.debug("Fetching initial matches...");
     await fetchMatches(logger);
-  }
+  },
 
-  onUnload({ logger }: OnUnloadArgs) {
+  onUnload({ logger }) {
     stopMatchUpdateInterval(logger);
-  }
-}
+  },
+} satisfies Plugin;

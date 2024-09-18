@@ -1,9 +1,8 @@
 import type { Client, Message } from "whatsapp-web.js";
-import type { Command, OnMessageReactionArgs } from "../plugins";
+import type { Plugin } from "../plugins";
 
 import { CommandError } from "../error";
 import { PermissionLevel } from "../perms";
-import { Plugin } from "../plugins";
 
 async function handleKeep(message: Message, client: Client, sender: string) {
   const media = await message.downloadMedia();
@@ -14,13 +13,13 @@ async function handleKeep(message: Message, client: Client, sender: string) {
   });
 }
 
-export default class extends Plugin {
-  id = "viewonce";
-  name = "View Once";
-  description = "Allows saving view-once media";
-  version = "0.0.1";
+export default {
+  id: "viewonce",
+  name: "View Once",
+  description: "Allows saving view-once media",
+  version: "0.0.1",
 
-  commands: Command[] = [
+  commands: [
     {
       name: "keep",
       description: "Save a view-once media",
@@ -54,7 +53,7 @@ export default class extends Plugin {
         return true;
       },
     },
-  ];
+  ],
 
   async onMessageReaction({
     reaction,
@@ -62,7 +61,7 @@ export default class extends Plugin {
     sender,
     permissionLevel,
     client,
-  }: OnMessageReactionArgs) {
+  }) {
     if (reaction.reaction !== "\u267E\uFE0F") {
       return;
     }
@@ -77,5 +76,5 @@ export default class extends Plugin {
     }
 
     await handleKeep(message, client, sender);
-  }
-}
+  },
+} satisfies Plugin;

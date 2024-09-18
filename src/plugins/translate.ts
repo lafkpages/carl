@@ -1,11 +1,10 @@
 import type { Config } from "../config";
-import type { Command, OnLoadArgs } from "../plugins";
+import type { Plugin } from "../plugins";
 
 import { libreTranslate } from "libretranslate-ts";
 
 import { CommandError } from "../error";
 import { PermissionLevel } from "../perms";
-import { Plugin } from "../plugins";
 
 const apiKey = process.env.TRANSLATE_API_KEY;
 
@@ -19,15 +18,15 @@ function updateConfig(config: Config) {
   }
 }
 
-export default class extends Plugin {
-  id = "translate";
-  name = "Translate";
-  description = "Text language translation and detection";
-  version = "0.0.1";
+export default {
+  id: "translate",
+  name: "Translate",
+  description: "Text language translation and detection",
+  version: "0.0.1",
 
-  database = true;
+  database: true,
 
-  commands: Command[] = [
+  commands: [
     {
       name: "detect",
       description: "Detect the language of a text",
@@ -195,17 +194,17 @@ export default class extends Plugin {
         return msg;
       },
     },
-  ];
+  ],
 
-  onLoad({ database }: OnLoadArgs) {
+  onLoad({ database }) {
     database!.run(`\
 CREATE TABLE IF NOT EXISTS "translate" (
   "user" TEXT,
   "to" TEXT NOT NULL,
   PRIMARY KEY ("user")
 );`);
-  }
-}
+  },
+} satisfies Plugin;
 
 declare module "../config" {
   interface PluginsConfig {

@@ -1,7 +1,5 @@
 import type { PermissionLevel } from "../perms";
-import type { OnLoadArgs, OnMessageArgs } from "../plugins";
-
-import { Plugin } from "../plugins";
+import type { Plugin } from "../plugins";
 
 let regexes: {
   regex?: RegExp | null;
@@ -23,13 +21,13 @@ declare module "../config" {
   }
 }
 
-export default class extends Plugin {
-  id = "reactor";
-  name = "Reactor";
-  description = "React to messages with emojis.";
-  version = "0.0.1";
+export default {
+  id: "reactor",
+  name: "Reactor",
+  description: "React to messages with emojis.",
+  version: "0.0.1",
 
-  onLoad({ config }: OnLoadArgs) {
+  onLoad({ config }) {
     const reactions = config.pluginsConfig?.reactor?.reactions;
 
     if (!reactions) {
@@ -49,9 +47,9 @@ export default class extends Plugin {
         emoji,
       });
     }
-  }
+  },
 
-  async onMessage({ message, sender, permissionLevel }: OnMessageArgs) {
+  async onMessage({ message, sender, permissionLevel }) {
     for (const { regex, senders, minLevel, emoji } of regexes) {
       if (minLevel !== undefined && permissionLevel < minLevel) {
         continue;
@@ -67,5 +65,5 @@ export default class extends Plugin {
 
       await message.react(emoji);
     }
-  }
-}
+  },
+} satisfies Plugin;

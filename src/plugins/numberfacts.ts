@@ -1,8 +1,7 @@
-import type { Command } from "../plugins";
+import type { Plugin } from "../plugins";
 
 import { CommandError } from "../error";
 import { PermissionLevel } from "../perms";
-import { Plugin } from "../plugins";
 
 const validFactTypes = new Set(["trivia", "math", "date", "year"] as const);
 type ValidFactType = typeof validFactTypes extends Set<infer T> ? T : never;
@@ -31,13 +30,13 @@ async function apiCall(numbers: number[], type: ValidFactType) {
   return fact;
 }
 
-export default class extends Plugin {
-  id = "numberfacts";
-  name = "Number facts";
-  description = "Fun facts about numbers!";
-  version = "0.0.1";
+export default {
+  id: "numberfacts",
+  name: "Number facts",
+  description: "Fun facts about numbers!",
+  version: "0.0.1",
 
-  commands: Command[] = [
+  commands: [
     {
       name: "numberfact",
       description: "Get a random fact about a number",
@@ -103,5 +102,5 @@ export default class extends Plugin {
         return await apiCall([now.getMonth() + 1, now.getDate()], "date");
       },
     },
-  ];
-}
+  ],
+} satisfies Plugin;

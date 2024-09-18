@@ -1,21 +1,19 @@
-import type { Command } from "../plugins";
-
 import { CommandError } from "../error";
 import { PermissionLevel } from "../perms";
-import { Plugin } from "../plugins";
+import { type Plugin } from "../plugins";
 import { sendMessageToAdmins } from "../utils";
 
 // TODO: pass config in interaction handlers
 
 const pendingPermissionRequests: Record<string, PermissionLevel> = {};
 
-export default class extends Plugin {
-  id = "adminutils";
-  name = "Admin utilities";
-  description = "Commands for administration.";
-  version = "0.0.1";
+export default {
+  id: "adminutils",
+  name: "Admin utilities",
+  description: "Commands for administration.",
+  version: "0.0.1",
 
-  commands: Command[] = [
+  commands: [
     {
       name: "requestpermission",
       description: "Request an admin a certain permission level",
@@ -58,5 +56,5 @@ export default class extends Plugin {
         return true;
       },
     },
-  ];
-}
+  ],
+} satisfies Plugin;

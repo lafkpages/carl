@@ -1,4 +1,4 @@
-import type { Command } from "../plugins";
+import type { Plugin } from "../plugins";
 
 import {
   areaUnder,
@@ -13,15 +13,14 @@ import {
 
 import { CommandError } from "../error";
 import { PermissionLevel } from "../perms";
-import { Plugin } from "../plugins";
 
-export default class extends Plugin {
-  id = "math";
-  name = "Math";
-  description = "Plugin for useful mathematical operations.";
-  version = "0.0.1";
+export default {
+  id: "math",
+  name: "Math",
+  description: "Plugin for useful mathematical operations.",
+  version: "0.0.1",
 
-  commands: Command[] = [
+  commands: [
     {
       name: "simplify",
       description: "Simplify a mathematical expression.",
@@ -113,5 +112,5 @@ export default class extends Plugin {
         }).toString();
       },
     },
-  ];
-}
+  ],
+} satisfies Plugin;
