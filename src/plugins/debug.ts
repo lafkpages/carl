@@ -449,8 +449,7 @@ Stderr:
       minLevel: PermissionLevel.NONE,
       rateLimit: 10000,
 
-      async handler({ message, logger }) {
-        const chat = await message.getChat();
+      async handler({ chat, logger }) {
         const messages = await chat.fetchMessages({ limit: Infinity });
 
         let firstMessage: Message | null = null;
