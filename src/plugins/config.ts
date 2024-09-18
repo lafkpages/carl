@@ -2,6 +2,7 @@ import type { Config } from "../config";
 import type { Command } from "../plugins";
 
 import { flatten, unflatten } from "flat";
+import { isValiError } from "valibot";
 
 import { getRawConfig, updateConfig } from "../config";
 import { CommandError } from "../error";
@@ -20,7 +21,7 @@ export default class extends Plugin {
       description: "View or update the bot configuration.",
       minLevel: PermissionLevel.ADMIN,
 
-      async handler({ config, rest }) {
+      async handler({ config, rest, logger }) {
         const [, key, value] = rest.match(/^(\S+)(?:\s+(\S+))?$/i) || [];
 
         if (!key) {
@@ -45,11 +46,18 @@ export default class extends Plugin {
           throw new CommandError(`failed to parse value: ${err}`);
         }
 
-        updateConfig(
-          unflatten({
-            [key]: parsedValue,
-          }),
-        );
+        try {
+          await updateConfig(
+            unflatten({
+              [key]: parsedValue,
+            }),
+          );
+        } catch (err) {
+          if (isValiError(err)) {
+            throw new CommandError(err.message);
+          }
+          throw err;
+        }
 
         return true;
       },
