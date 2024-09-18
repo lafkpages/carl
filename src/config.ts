@@ -7,6 +7,7 @@ import { defu } from "defu";
 import {
   array,
   boolean,
+  check,
   looseObject,
   nullish,
   number,
@@ -20,6 +21,8 @@ import {
   union,
   void_,
 } from "valibot";
+
+import { isInGithubCodespace } from "./utils";
 
 const configSchema = object({
   /**
@@ -62,7 +65,15 @@ const configSchema = object({
   /**
    * If true, disables Puppeteer's headless mode.
    */
-  visible: optional(boolean(), false),
+  visible: pipe(
+    optional(boolean(), false),
+    check((visible) => {
+      if (visible && isInGithubCodespace) {
+        return false;
+      }
+      return true;
+    }, "Visible mode is not supported in GitHub Codespaces"),
+  ),
 
   port: optional(number(), 3000),
 
