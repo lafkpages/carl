@@ -3,6 +3,8 @@ import type { Client, Message } from "whatsapp-web.js";
 import { getConfig } from "./config";
 
 export const isInGithubCodespace = process.env.CODESPACES === "true";
+export const isInDevelopment =
+  process.env.NODE_ENV === "development" || isInGithubCodespace;
 
 export type ParametersButFirst<T extends (...args: any) => any> = T extends (
   first: any,

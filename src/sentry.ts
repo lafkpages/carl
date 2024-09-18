@@ -3,6 +3,7 @@ import type { Config } from "./config";
 import { init } from "@sentry/bun";
 
 import { configEvents, initialConfig } from "./config";
+import { isInDevelopment } from "./utils";
 
 function initSentry(config: Config) {
   return config.sentry
@@ -11,6 +12,8 @@ function initSentry(config: Config) {
           typeof config.sentry === "string"
             ? config.sentry
             : "https://83d6f2993580f85ccc38910233e24e82@o4505375756124161.ingest.us.sentry.io/4507963249852416",
+
+        environment: isInDevelopment ? "development" : "production",
 
         // Tracing
         tracesSampleRate: 1.0, // Capture 100% of the transactions
