@@ -13,6 +13,14 @@ function checkLanguageCode(code: string) {
   }
 }
 
+declare module "../config" {
+  interface PluginsConfig {
+    translate?: {
+      defaultLanguage?: keyof typeof languages;
+    };
+  }
+}
+
 export default {
   id: "translate",
   name: "Translate",
@@ -68,7 +76,10 @@ export default {
               [string]
             >('SELECT "to" FROM translate WHERE user = ?')
             .get(sender);
-          to = toEntry?.to || "en";
+          to =
+            toEntry?.to ||
+            config.pluginsConfig.translate?.defaultLanguage ||
+            "en";
 
           if (!toEntry) {
             database!.run<[string, string]>(
@@ -79,7 +90,7 @@ export default {
             // TODO: allow configuring default language
             await client.sendMessage(
               sender,
-              "Your default language for `/translate` has been set to English. You can change it by using `/translatelang <language>`",
+              `Your default language for \`/translate\` has been set to ${languages[to as keyof typeof languages]}. You can change it by using \`/translatelang <language>\``,
             );
           }
         }
