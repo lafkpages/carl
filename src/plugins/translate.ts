@@ -1,20 +1,15 @@
-import type { Config } from "../config";
 import type { Plugin } from "../plugins";
 
-import { libreTranslate } from "libretranslate-ts";
+import translate, { languages } from "google-translate-api-x";
 
 import { CommandError } from "../error";
 import { PermissionLevel } from "../perms";
 
-const apiKey = process.env.TRANSLATE_API_KEY;
-
-if (apiKey) {
-  libreTranslate.setApiKey(apiKey);
-}
-
-function updateConfig(config: Config) {
-  if (config.pluginsConfig?.translate?.url) {
-    libreTranslate.setApiEndpoint(config.pluginsConfig.translate.url);
+function checkLanguageCode(code: string) {
+  if (!(code in languages)) {
+    throw new CommandError(
+      "invalid language code. Use `/translatelangs` to see a list of available languages.",
+    );
   }
 }
 
@@ -28,68 +23,32 @@ export default {
 
   commands: [
     {
-      name: "detect",
-      description: "Detect the language of a text",
-      minLevel: PermissionLevel.NONE,
-      rateLimit: 2000,
-
-      async handler({ message, rest, config }) {
-        updateConfig(config);
-
-        let text = "";
-
-        if (message.hasQuotedMsg) {
-          const quotedMsg = await message.getQuotedMessage();
-
-          if (quotedMsg.body) {
-            text = quotedMsg.body;
-          }
-        } else if (rest) {
-          text = rest;
-        }
-
-        if (!text) {
-          throw new CommandError("no text to detect language provided");
-        }
-
-        const language = await libreTranslate.detect(text);
-
-        if (language.error) {
-          throw new CommandError(language.error);
-        }
-
-        return `\`${language.language}\``;
-      },
-    },
-    {
       name: "translate",
       description: "Translate text to a different language",
       minLevel: PermissionLevel.NONE,
       rateLimit: 10000,
 
-      async handler({ message, rest, sender, config, database, client }) {
-        updateConfig(config);
-
-        let from = "auto";
+      async handler({
+        message,
+        rest,
+        sender,
+        config,
+        database,
+        client,
+        logger,
+      }) {
         let text = "";
+        let to = "";
 
         if (message.hasQuotedMsg) {
           const quotedMsg = await message.getQuotedMessage();
-
-          if (quotedMsg.body) {
-            if (rest) {
-              const [, fromArg] = rest.match(/^\((\w+)\)/) || [];
-
-              from = fromArg || rest;
-            }
-
-            text = quotedMsg.body;
-          }
+          text = quotedMsg.body;
+          to = rest;
         } else if (rest) {
-          const [, fromArg, textArg] = rest.match(/^\((\w+)\)\s+(.+)$/) || [];
+          const [, toArg, textArg] = rest.match(/^\((\w+)\)\s+(.+)$/) || [];
 
-          if (fromArg && textArg) {
-            from = fromArg;
+          if (toArg && textArg) {
+            to = toArg;
             text = textArg;
           } else {
             text = rest;
@@ -98,55 +57,40 @@ export default {
 
         if (!text) {
           throw new CommandError(
-            "no text to translate provided.\n\nUsage: `/translate (es) Hola, que tal?`\nThe language code in parentheses is optional. If not provided, the language will be detected automatically, but detection will delay the response.\n\nYou can also reply to a message with `/translate` to translate it.",
+            "no text to translate provided.\n\nUsage: `/translate (en) Hola, que tal?`\nThe language code in parentheses is optional. If not provided, it will use your default configured language.\n\nYou can also reply to a message with `/translate` to translate it, optionally providing a language code.",
           );
         }
 
-        if (from === "auto") {
-          const detectedLanguage = await libreTranslate.detect(text);
+        if (!to) {
+          const toEntry = database!
+            .query<
+              { to: string },
+              [string]
+            >('SELECT "to" FROM translate WHERE user = ?')
+            .get(sender);
+          to = toEntry?.to || "en";
 
-          if (detectedLanguage.error) {
-            throw new CommandError(
-              `failed to detect language: ${detectedLanguage.error}`,
+          if (!toEntry) {
+            database!.run<[string, string]>(
+              'INSERT INTO translate (user, "to") VALUES (?, ?)',
+              [sender, to],
+            );
+
+            // TODO: allow configuring default language
+            await client.sendMessage(
+              sender,
+              "Your default language for `/translate` has been set to English. You can change it by using `/translatelang <language>`",
             );
           }
-
-          from = detectedLanguage.language;
-
-          if (!from) {
-            throw new CommandError("could not detect source language");
-          }
-        } else if (!from) {
-          throw new CommandError("source language not specified");
         }
 
-        const toEntry = database!
-          .query<
-            { to: string },
-            [string]
-          >('SELECT "to" FROM translate WHERE user = ?')
-          .get(sender);
-        const to = toEntry?.to || "en";
+        checkLanguageCode(to);
 
-        if (!toEntry) {
-          database!.run<[string, string]>(
-            'INSERT INTO translate (user, "to") VALUES (?, ?)',
-            [sender, to],
-          );
+        const translation = await translate(text, {
+          to,
+        });
 
-          await client.sendMessage(
-            sender,
-            "Your default language for `/translate` has been set to English. You can change it by using `/translatelang <language>`",
-          );
-        }
-
-        const translation = await libreTranslate.translate(text, from, to);
-
-        if (translation.error) {
-          throw new Error(translation.error);
-        }
-
-        return translation.translatedText;
+        return translation.text;
       },
     },
     {
@@ -158,6 +102,8 @@ export default {
         if (!rest) {
           throw new CommandError("no language provided");
         }
+
+        checkLanguageCode(rest);
 
         const changes = database!.run<[string, string]>(
           'INSERT OR REPLACE INTO translate (user, "to") VALUES (?, ?)',
@@ -177,18 +123,10 @@ export default {
       minLevel: PermissionLevel.NONE,
       rateLimit: 10000,
 
-      async handler({ config }) {
-        updateConfig(config);
-
-        const languages = await libreTranslate.listLanguages();
-
-        if (!languages?.length) {
-          throw new CommandError("failed to fetch languages");
-        }
-
+      async handler() {
         let msg = "Available languages for translation:";
-        for (const lang of languages) {
-          msg += `\n* \`${lang.code}\`: ${lang.name}`;
+        for (const [code, name] of Object.entries(languages)) {
+          msg += `\n* \`${code}\`: ${name}`;
         }
 
         return msg;
@@ -205,14 +143,3 @@ CREATE TABLE IF NOT EXISTS "translate" (
 );`);
   },
 } satisfies Plugin;
-
-declare module "../config" {
-  interface PluginsConfig {
-    translate?: {
-      /**
-       * The URL to a LibreTranslate server.
-       */
-      url?: string;
-    };
-  }
-}
