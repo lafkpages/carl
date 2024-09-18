@@ -195,7 +195,7 @@ export default {
       minLevel: PermissionLevel.TRUSTED,
       rateLimit: 60000,
 
-      async handler({ message, logger, config }) {
+      async handler({ message, logger, config, database }) {
         if (!message.hasQuotedMsg) {
           throw new CommandError(
             "reply to a message you want to summarise from",
@@ -254,6 +254,21 @@ Brief overall summary
 
         conversation.reverse();
 
+        const hash = objectHash(conversation);
+
+        const cached = database!
+          .query<
+            {
+              value: string;
+            },
+            [string]
+          >("SELECT value FROM cache WHERE key = ?")
+          .get(hash);
+
+        if (cached) {
+          return cached.value;
+        }
+
         logger.debug("conversation:", conversation);
 
         const completion = await openai.chat.completions.create({
@@ -263,8 +278,16 @@ Brief overall summary
 
         logger.debug("AI response:", completion);
 
-        const response = returnResponse(completion.choices[0].message.content);
-        return response.replace(/^( *[*-] +)\*(\*.+?\*)\*/gm, "$1$2");
+        const response = returnResponse(
+          completion.choices[0].message.content,
+        ).replace(/^( *[*-] +)\*(\*.+?\*)\*/gm, "$1$2");
+
+        database!.run<[string, string]>(
+          "INSERT INTO cache (key, value) VALUES (?, ?)",
+          [hash, response],
+        );
+
+        return response;
       },
     },
   ],
