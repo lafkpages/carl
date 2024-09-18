@@ -10,6 +10,7 @@ import { getScopes } from "../google";
 import { PermissionLevel } from "../perms";
 import { InteractionContinuation, Plugin } from "../plugins";
 import { pingCheck } from "../server";
+import { isInDevelopment } from "../utils";
 
 declare module "../config" {
   interface PluginsConfig {
@@ -87,7 +88,13 @@ ${Bun.inspect(quotedMessage.id, { colors: false })}
 
         await message.react("\u{1F3D3}");
 
-        return `Latency: ${start - message.timestamp * 1000}ms`;
+        const msg = await message.reply(
+          `Latency: ${start - message.timestamp * 1000}ms`,
+        );
+
+        if (isInDevelopment) {
+          await msg.react("\u2692\uFE0F");
+        }
       },
     },
     {
