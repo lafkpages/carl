@@ -325,22 +325,28 @@ Brief overall summary
       minLevel: PermissionLevel.TRUSTED,
       rateLimit: 60000,
 
-      async handler({ message, database }) {
-        if (!message.hasMedia) {
+      async handler({ message, logger, database }) {
+        if (!message.hasQuotedMsg) {
+          throw new CommandError("reply to an audio message");
+        }
+
+        const quotedMsg = await message.getQuotedMessage();
+
+        if (!quotedMsg.hasMedia) {
           throw new CommandError("message does not contain media");
         }
 
         if (
-          message.type !== MessageTypes.AUDIO &&
-          message.type !== MessageTypes.VOICE &&
-          message.type !== MessageTypes.VIDEO
+          quotedMsg.type !== MessageTypes.AUDIO &&
+          quotedMsg.type !== MessageTypes.VOICE &&
+          quotedMsg.type !== MessageTypes.VIDEO
         ) {
           throw new CommandError(
             "message must be an audio, voice or video message",
           );
         }
 
-        const media = await message.downloadMedia();
+        const media = await quotedMsg.downloadMedia();
 
         // underscore to prevent collisions between other type of hash from objectHash
         const hash = `_${Bun.hash(media.data).toString(36)}`;
