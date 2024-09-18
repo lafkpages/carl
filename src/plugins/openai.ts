@@ -7,7 +7,8 @@ import type { Contact, Message } from "whatsapp-web.js";
 import type { Plugin } from "../plugins";
 
 import objectHash from "object-hash";
-import OpenAI from "openai";
+import OpenAI, { toFile } from "openai";
+import { MessageTypes } from "whatsapp-web.js";
 
 import { CommandError } from "../error";
 import { PermissionLevel } from "../perms";
@@ -316,6 +317,58 @@ Brief overall summary
         );
 
         return response;
+      },
+    },
+    {
+      name: "transcribe",
+      description: "Transcribe an audio message",
+      minLevel: PermissionLevel.TRUSTED,
+      rateLimit: 60000,
+
+      async handler({ message, database }) {
+        if (!message.hasMedia) {
+          throw new CommandError("message does not contain media");
+        }
+
+        if (
+          message.type !== MessageTypes.AUDIO &&
+          message.type !== MessageTypes.VOICE &&
+          message.type !== MessageTypes.VIDEO
+        ) {
+          throw new CommandError(
+            "message must be an audio, voice or video message",
+          );
+        }
+
+        const media = await message.downloadMedia();
+
+        // underscore to prevent collisions between other type of hash from objectHash
+        const hash = `_${Bun.hash(media.data).toString(36)}`;
+
+        const cached = database!
+          .query<
+            {
+              value: string;
+            },
+            [string]
+          >("SELECT value FROM cache WHERE key = ?")
+          .get(hash);
+
+        if (cached) {
+          return cached.value;
+        }
+
+        const transcription = await openai.audio.transcriptions.create({
+          file: await toFile(Buffer.from(media.data, "base64"), media.filename),
+          model: "whisper-1",
+        });
+
+        database!.run<[string, string]>(
+          "INSERT INTO cache (key, value) VALUES (?, ?)",
+          [hash, transcription.text],
+        );
+
+        return transcription.text;
       },
     },
   ],
