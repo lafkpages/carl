@@ -325,7 +325,7 @@ Brief overall summary
       minLevel: PermissionLevel.TRUSTED,
       rateLimit: 60000,
 
-      async handler({ message, logger, database }) {
+      async handler({ message, database }) {
         if (!message.hasQuotedMsg) {
           throw new CommandError("reply to an audio message");
         }
