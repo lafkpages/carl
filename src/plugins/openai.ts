@@ -6,6 +6,7 @@ import type {
 import type { Contact, Message } from "whatsapp-web.js";
 import type { Plugin } from "../plugins";
 
+import objectHash from "object-hash";
 import OpenAI from "openai";
 
 import { CommandError } from "../error";
@@ -85,6 +86,8 @@ export default {
   description: "Talk to ChatGPT on WhatsApp!",
   version: "0.0.1",
 
+  database: true,
+
   commands: [
     {
       name: "ai",
@@ -117,7 +120,7 @@ export default {
       minLevel: PermissionLevel.TRUSTED,
       rateLimit: 5000,
 
-      async handler({ message, rest, logger, config }) {
+      async handler({ message, rest, logger, config, database }) {
         let messages: ChatCompletionMessageParam[] = [
           {
             role: "system",
@@ -154,6 +157,21 @@ export default {
           throw new CommandError("no text provided");
         }
 
+        const hash = objectHash(messages);
+
+        const cached = database!
+          .query<
+            {
+              value: string;
+            },
+            [string]
+          >("SELECT value FROM cache WHERE key = ?")
+          .get(hash);
+
+        if (cached) {
+          return cached.value;
+        }
+
         const completion = await openai.chat.completions.create({
           messages,
           model: config.pluginsConfig.openai?.model || defaultModel,
@@ -161,7 +179,14 @@ export default {
 
         logger.debug("AI response:", completion);
 
-        return returnResponse(completion.choices[0].message.content);
+        const response = returnResponse(completion.choices[0].message.content);
+
+        database!.run<[string, string]>(
+          "INSERT INTO cache (key, value) VALUES (?, ?)",
+          [hash, response],
+        );
+
+        return response;
       },
     },
     {
@@ -243,4 +268,13 @@ Brief overall summary
       },
     },
   ],
+
+  onLoad({ database }) {
+    database!.run(`--sql
+      CREATE TABLE IF NOT EXISTS cache (
+        key TEXT PRIMARY KEY,
+        value TEXT NOT NULL
+      );
+    `);
+  },
 } satisfies Plugin;
