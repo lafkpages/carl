@@ -95,23 +95,47 @@ export default {
       minLevel: PermissionLevel.TRUSTED,
       rateLimit: 5000,
 
-      async handler({ rest, logger, config }) {
+      async handler({ rest, logger, config, database }) {
         // todo: handle thread of replies as chat history
         // for future self: this is really hard, good luck
 
-        const completion = await openai.chat.completions.create({
-          messages: [
+        const messages: ChatCompletionMessageParam[] = [
+          {
+            role: "user",
+            content: rest,
+          },
+        ];
+
+        const hash = objectHash(messages);
+
+        const cached = database!
+          .query<
             {
-              role: "user",
-              content: rest,
+              value: string;
             },
-          ],
+            [string]
+          >("SELECT value FROM cache WHERE key = ?")
+          .get(hash);
+
+        if (cached) {
+          return cached.value;
+        }
+
+        const completion = await openai.chat.completions.create({
+          messages,
           model: config.pluginsConfig.openai?.model || defaultModel,
         });
 
         logger.debug("AI response:", completion);
 
-        return returnResponse(completion.choices[0].message.content);
+        const response = returnResponse(completion.choices[0].message.content);
+
+        database!.run<[string, string]>(
+          "INSERT INTO cache (key, value) VALUES (?, ?)",
+          [hash, response],
+        );
+
+        return response;
       },
     },
     {
