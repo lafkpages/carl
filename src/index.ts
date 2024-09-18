@@ -100,7 +100,7 @@ async function loadPluginsFromConfig(idsToLoad?: Set<string> | null) {
 
     // add a cache buster to the import path
     // so that plugins can be reloaded
-    const plugin: Plugin = new (await import(`${pluginPath}?${now}`)).default();
+    const plugin: Plugin = (await import(`${pluginPath}?${now}`)).default;
 
     if (plugin.id !== pluginIdentifier) {
       consola.error("Plugin ID does not match plugin file name.", {
