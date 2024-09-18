@@ -119,13 +119,27 @@ export function getConfig() {
 export async function updateConfig(newConfig: Partial<Config>) {
   const mergedConfig = parse(configSchema, defu(newConfig, config));
 
-  await Bun.write(configFile, JSON.stringify(mergedConfig, null, 2));
+  await _updateConfig(mergedConfig);
 
-  config = mergedConfig;
+  configEvents.emit("update", mergedConfig, Object.keys(newConfig));
+}
 
-  configEvents.emit("update", config, Object.keys(newConfig));
+export async function updateConfigRaw(newConfig: unknown) {
+  configEvents.emit("update", await _updateConfig(newConfig));
+}
+
+async function _updateConfig(newConfig: unknown) {
+  config = parse(configSchema, newConfig);
+
+  await Bun.write(configFile, JSON.stringify(newConfig, null, 2));
+
+  return config;
 }
 
 export const configEvents = new EventEmitter<{
-  update: [newConfig: Config, modifiedProperties: string[]];
+  update: [newConfig: Config, modifiedProperties?: string[]];
 }>();
+
+configEvents.on("update", (newConfig, modifiedProperties) => {
+  consola.debug("Updated config properties:", modifiedProperties);
+});

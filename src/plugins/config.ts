@@ -4,7 +4,7 @@ import type { Command } from "../plugins";
 import { flatten, unflatten } from "flat";
 import { isValiError } from "valibot";
 
-import { getRawConfig, updateConfig } from "../config";
+import { getRawConfig, updateConfig, updateConfigRaw } from "../config";
 import { CommandError } from "../error";
 import { PermissionLevel } from "../perms";
 import { Plugin } from "../plugins";
@@ -52,6 +52,31 @@ export default class extends Plugin {
               [key]: parsedValue,
             }),
           );
+        } catch (err) {
+          if (isValiError(err)) {
+            throw new CommandError(err.message);
+          }
+          throw err;
+        }
+
+        return true;
+      },
+    },
+    {
+      name: "configimport",
+      description: "Import a new configuration.",
+      minLevel: PermissionLevel.ADMIN,
+
+      async handler({ rest }) {
+        let parsedValue: unknown;
+        try {
+          parsedValue = JSON.parse(rest);
+        } catch (err) {
+          throw new CommandError(`failed to parse value: ${err}`);
+        }
+
+        try {
+          await updateConfigRaw(parsedValue);
         } catch (err) {
           if (isValiError(err)) {
             throw new CommandError(err.message);
