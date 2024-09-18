@@ -1,3 +1,4 @@
+import type { Config } from "../config";
 import type { Command, OnLoadArgs } from "../plugins";
 
 import { libreTranslate } from "libretranslate-ts";
@@ -10,6 +11,12 @@ const apiKey = process.env.TRANSLATE_API_KEY;
 
 if (apiKey) {
   libreTranslate.setApiKey(apiKey);
+}
+
+function updateConfig(config: Config) {
+  if (config.pluginsConfig?.translate?.url) {
+    libreTranslate.setApiEndpoint(config.pluginsConfig.translate.url);
+  }
 }
 
 export default class extends Plugin {
@@ -27,7 +34,9 @@ export default class extends Plugin {
       minLevel: PermissionLevel.NONE,
       rateLimit: 2000,
 
-      async handler({ message, rest }) {
+      async handler({ message, rest, config }) {
+        updateConfig(config);
+
         let text = "";
 
         if (message.hasQuotedMsg) {
@@ -59,7 +68,9 @@ export default class extends Plugin {
       minLevel: PermissionLevel.NONE,
       rateLimit: 10000,
 
-      async handler({ message, rest, sender, database, client }) {
+      async handler({ message, rest, sender, config, database, client }) {
+        updateConfig(config);
+
         let from = "auto";
         let text = "";
 
@@ -133,7 +144,7 @@ export default class extends Plugin {
         const translation = await libreTranslate.translate(text, from, to);
 
         if (translation.error) {
-          throw new CommandError(translation.error);
+          throw new Error(translation.error);
         }
 
         return translation.translatedText;
@@ -167,7 +178,9 @@ export default class extends Plugin {
       minLevel: PermissionLevel.NONE,
       rateLimit: 10000,
 
-      async handler() {
+      async handler({ config }) {
+        updateConfig(config);
+
         const languages = await libreTranslate.listLanguages();
 
         if (!languages?.length) {
@@ -184,11 +197,7 @@ export default class extends Plugin {
     },
   ];
 
-  onLoad({ config, database }: OnLoadArgs) {
-    if (config.pluginsConfig?.translate?.url) {
-      libreTranslate.setApiEndpoint(config.pluginsConfig.translate.url);
-    }
-
+  onLoad({ database }: OnLoadArgs) {
     database!.run(`\
 CREATE TABLE IF NOT EXISTS "translate" (
   "user" TEXT,
