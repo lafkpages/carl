@@ -218,8 +218,9 @@ export default {
           },
         ];
 
+        let quotedMsg: Message | null = null;
         if (message.hasQuotedMsg) {
-          const quotedMsg = await message.getQuotedMessage();
+          quotedMsg = await message.getQuotedMessage();
           const completion = await whatsappMessageToChatCompletionMessage(
             quotedMsg,
             null,
@@ -259,6 +260,12 @@ export default {
           .get(hash);
 
         if (cached) {
+          if (quotedMsg) {
+            await quotedMsg.reply(cached.value, undefined, {
+              linkPreview: false,
+            });
+            return;
+          }
           return cached.value;
         }
 
@@ -276,6 +283,10 @@ export default {
           [hash, response],
         );
 
+        if (quotedMsg) {
+          await quotedMsg.reply(response, undefined, { linkPreview: false });
+          return;
+        }
         return response;
       },
     },
