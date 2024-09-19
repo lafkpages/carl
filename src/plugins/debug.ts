@@ -3,6 +3,7 @@ import type { Message } from "whatsapp-web.js";
 import type { Plugin } from "../plugins";
 
 import { google } from "googleapis";
+import Mime from "mime";
 import { MessageMedia } from "whatsapp-web.js";
 
 import { CommandError, CommandPermissionError } from "../error";
@@ -493,8 +494,19 @@ Stderr:
 
         const media = await quotedMessage.downloadMedia();
 
+        let filename = media.filename;
+        if (!filename) {
+          const ext = Mime.getExtension(media.mimetype);
+
+          if (ext) {
+            filename = `${Date.now()}.${ext}`;
+          } else {
+            filename = `${Date.now()}`;
+          }
+        }
+
         await Bun.write(
-          `media/${quotedMessage.id._serialized}/${media.filename || Date.now()}`,
+          `media/${quotedMessage.id._serialized}/${filename}`,
           Buffer.from(media.data, "base64"),
         );
 
