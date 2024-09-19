@@ -522,7 +522,7 @@ Stderr:
       minLevel: PermissionLevel.ADMIN,
 
       async handler() {
-        let msg = "Databases:\n";
+        let msg = "Databases:";
 
         for await (const databasePath of new Bun.Glob(
           "db/**/*.sqlite",
@@ -533,7 +533,7 @@ Stderr:
           msg += `\n* \`${databasePath}\`: ${size}`;
         }
 
-        if (msg.length <= 11) {
+        if (msg.length <= 10) {
           throw new CommandError("no databases found");
         }
 
