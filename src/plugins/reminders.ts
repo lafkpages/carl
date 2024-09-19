@@ -109,16 +109,20 @@ export default {
         });
 
         if (datetimes.length < 1) {
-          throw new CommandError("invalid date/time format.");
+          throw new CommandError("invalid date/time format");
         }
 
         if (datetimes.length > 1) {
           throw new CommandError(
-            "multiple date/time formats detected. Please specify only one.",
+            "multiple date/time formats detected. Please specify only one",
           );
         }
 
         const [datetime] = datetimes;
+
+        if (datetime.end) {
+          throw new CommandError("date/time ranges are not supported");
+        }
 
         await loadReminder(
           {
