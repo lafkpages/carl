@@ -43,6 +43,7 @@ function returnResponse(response: string | null) {
 
 async function whatsappMessageToChatCompletionMessage(
   message: Message,
+  database: Database,
   body?: string | null,
   includeNames = true,
 ): Promise<ChatCompletionMessageParam | null> {
@@ -70,7 +71,11 @@ async function whatsappMessageToChatCompletionMessage(
         },
       ];
     } else {
-      content = body;
+      try {
+        content = await transcribeMessage(message, database);
+      } catch {
+        content = body;
+      }
     }
   } else {
     content = body;
@@ -223,6 +228,7 @@ export default {
           quotedMsg = await message.getQuotedMessage();
           const completion = await whatsappMessageToChatCompletionMessage(
             quotedMsg,
+            database!,
             null,
             false,
           );
@@ -235,6 +241,7 @@ export default {
         if (rest || message.hasMedia) {
           const completion = await whatsappMessageToChatCompletionMessage(
             message,
+            database!,
             rest,
             false,
           );
@@ -325,7 +332,10 @@ export default {
           }
 
           const completionMessage =
-            await whatsappMessageToChatCompletionMessage(currentMessage);
+            await whatsappMessageToChatCompletionMessage(
+              currentMessage,
+              database!,
+            );
 
           if (completionMessage) {
             conversation.push(completionMessage);
