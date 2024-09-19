@@ -1,3 +1,4 @@
+import type { Database } from "bun:sqlite";
 import type {
   ChatCompletionContentPart,
   ChatCompletionMessageParam,
@@ -80,6 +81,63 @@ async function whatsappMessageToChatCompletionMessage(
       ? contact!.pushname?.replace(/[^a-zA-Z0-9_-]/g, "")
       : undefined,
   };
+}
+
+async function transcribeMessage(message: Message, database: Database) {
+  if (!message.hasMedia) {
+    throw new CommandError("message does not contain media");
+  }
+
+  if (
+    message.type !== MessageTypes.AUDIO &&
+    message.type !== MessageTypes.VOICE &&
+    message.type !== MessageTypes.VIDEO
+  ) {
+    throw new CommandError("message must be an audio, voice or video message");
+  }
+
+  const media = await message.downloadMedia();
+
+  // underscore to prevent collisions between other type of hash from objectHash
+  const hash = `_${Bun.hash(media.data).toString(36)}`;
+
+  const cached = database!
+    .query<
+      {
+        value: string;
+      },
+      [string]
+    >("SELECT value FROM cache WHERE key = ?")
+    .get(hash);
+
+  if (cached) {
+    return cached.value;
+  }
+
+  let filename = media.filename;
+  if (!filename) {
+    const ext = Mime.getExtension(media.mimetype);
+
+    if (ext) {
+      filename = `${hash}.${ext}`;
+    }
+  }
+
+  if (!filename) {
+    throw new CommandError("could not determine file extension");
+  }
+
+  const transcription = await openai.audio.transcriptions.create({
+    file: await toFile(Buffer.from(media.data, "base64"), filename),
+    model: "whisper-1",
+  });
+
+  database!.run<[string, string]>(
+    "INSERT INTO cache (key, value) VALUES (?, ?)",
+    [hash, transcription.text],
+  );
+
+  return transcription.text;
 }
 
 export default {
@@ -333,62 +391,7 @@ Brief overall summary
 
         const quotedMsg = await message.getQuotedMessage();
 
-        if (!quotedMsg.hasMedia) {
-          throw new CommandError("message does not contain media");
-        }
-
-        if (
-          quotedMsg.type !== MessageTypes.AUDIO &&
-          quotedMsg.type !== MessageTypes.VOICE &&
-          quotedMsg.type !== MessageTypes.VIDEO
-        ) {
-          throw new CommandError(
-            "message must be an audio, voice or video message",
-          );
-        }
-
-        const media = await quotedMsg.downloadMedia();
-
-        // underscore to prevent collisions between other type of hash from objectHash
-        const hash = `_${Bun.hash(media.data).toString(36)}`;
-
-        const cached = database!
-          .query<
-            {
-              value: string;
-            },
-            [string]
-          >("SELECT value FROM cache WHERE key = ?")
-          .get(hash);
-
-        if (cached) {
-          return cached.value;
-        }
-
-        let filename = media.filename;
-        if (!filename) {
-          const ext = Mime.getExtension(media.mimetype);
-
-          if (ext) {
-            filename = `${hash}.${ext}`;
-          }
-        }
-
-        if (!filename) {
-          throw new CommandError("could not determine file extension");
-        }
-
-        const transcription = await openai.audio.transcriptions.create({
-          file: await toFile(Buffer.from(media.data, "base64"), filename),
-          model: "whisper-1",
-        });
-
-        database!.run<[string, string]>(
-          "INSERT INTO cache (key, value) VALUES (?, ?)",
-          [hash, transcription.text],
-        );
-
-        return transcription.text;
+        return await transcribeMessage(quotedMsg, database!);
       },
     },
   ],
