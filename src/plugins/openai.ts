@@ -391,7 +391,7 @@ Brief overall summary
 
         const quotedMsg = await message.getQuotedMessage();
 
-        return await transcribeMessage(quotedMsg, database!);
+        await quotedMsg.reply(await transcribeMessage(quotedMsg, database!));
       },
     },
   ],
