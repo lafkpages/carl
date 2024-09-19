@@ -1,4 +1,5 @@
 import type { Database } from "bun:sqlite";
+import type { ConsolaInstance } from "consola";
 import type {
   ChatCompletionContentPart,
   ChatCompletionMessageParam,
@@ -44,6 +45,7 @@ function returnResponse(response: string | null) {
 async function whatsappMessageToChatCompletionMessage(
   message: Message,
   database: Database,
+  logger: ConsolaInstance,
   body?: string | null,
   includeNames = true,
 ): Promise<ChatCompletionMessageParam | null> {
@@ -73,7 +75,11 @@ async function whatsappMessageToChatCompletionMessage(
     } else {
       try {
         content = await transcribeMessage(message, database);
-      } catch {
+      } catch (err) {
+        logger.error(
+          "Error transcribing message in whatsappMessageToChatCompletionMessage:",
+          err,
+        );
         content = body;
       }
     }
