@@ -497,6 +497,8 @@ Stderr:
           `media/${quotedMessage.id._serialized}/${media.filename || Date.now()}`,
           Buffer.from(media.data, "base64"),
         );
+
+        return true;
       },
     },
     {
