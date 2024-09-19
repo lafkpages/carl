@@ -6,6 +6,7 @@ import type {
 import type { Contact, Message } from "whatsapp-web.js";
 import type { Plugin } from "../plugins";
 
+import Mime from "mime";
 import objectHash from "object-hash";
 import OpenAI, { toFile } from "openai";
 import { MessageTypes } from "whatsapp-web.js";
@@ -364,8 +365,21 @@ Brief overall summary
           return cached.value;
         }
 
+        let filename = media.filename;
+        if (!filename) {
+          const ext = Mime.getExtension(media.mimetype);
+
+          if (ext) {
+            filename = `${hash}.${ext}`;
+          }
+        }
+
+        if (!filename) {
+          throw new CommandError("could not determine file extension");
+        }
+
         const transcription = await openai.audio.transcriptions.create({
-          file: await toFile(Buffer.from(media.data, "base64"), media.filename),
+          file: await toFile(Buffer.from(media.data, "base64"), filename),
           model: "whisper-1",
         });
 
