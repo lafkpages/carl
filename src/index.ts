@@ -580,8 +580,8 @@ client.on("message", async (message) => {
     consola.debug("Interaction continuation found:", quotedMsg.id);
 
     try {
-      chat.sendSeen();
-      chat.sendStateTyping();
+      await chat.sendSeen();
+      await chat.sendStateTyping();
 
       const {
         handler: interactionContinuationHandler,
@@ -629,7 +629,7 @@ client.on("message", async (message) => {
     const cmd = resolveCommand(config, command, sender);
 
     if (cmd) {
-      chat.sendSeen();
+      await chat.sendSeen();
 
       if (
         isCommandRateLimited(
