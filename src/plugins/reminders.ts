@@ -99,7 +99,7 @@ export default {
       description: "Set a reminder.",
       minLevel: PermissionLevel.NONE,
 
-      async handler({ rest, sender, client, database }) {
+      async handler({ rest, sender, chat, client, database }) {
         const datetimes = parse(rest);
 
         if (datetimes.length < 1) {
@@ -117,7 +117,7 @@ export default {
         await loadReminder(
           {
             user: sender,
-            channel: null,
+            channel: chat.id._serialized,
 
             message: rest,
             time: datetime.date().getTime(),
