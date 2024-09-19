@@ -1,7 +1,12 @@
 import type { ConsolaInstance } from "consola";
 import type { Chat, Message, MessageId } from "whatsapp-web.js";
 import type { Config } from "./config";
-import type { Command, Interaction, InteractionResult } from "./plugins";
+import type {
+  Command,
+  Interaction,
+  InteractionResult,
+  Plugin,
+} from "./plugins";
 
 import "./sentry";
 
@@ -16,7 +21,7 @@ import { CommandError, CommandPermissionError } from "./error";
 import { getClient } from "./google";
 import { generateHelp, generateHelpPage } from "./help";
 import { getPermissionLevel, PermissionLevel } from "./perms";
-import { InteractionContinuation, Plugin, scanPlugins } from "./plugins";
+import { InteractionContinuation, scanPlugins } from "./plugins";
 import { isCommandRateLimited, isUserRateLimited } from "./ratelimits";
 import { generateTemporaryShortLink, server } from "./server";
 import { isInGithubCodespace, sendMessageToAdmins } from "./utils";
