@@ -131,7 +131,7 @@ export default {
     },
   ],
 
-  async onLoad({ client, database }) {
+  async onLoad({ client, logger, database }) {
     database!.run(`--sql
       CREATE TABLE IF NOT EXISTS reminders (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -147,5 +147,7 @@ export default {
     for (const row of rows) {
       await loadReminder(row, client, database!, false);
     }
+
+    logger.info("Loaded", reminders.size, "reminders.");
   },
 } satisfies Plugin;
