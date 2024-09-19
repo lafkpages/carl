@@ -51,23 +51,29 @@ async function whatsappMessageToChatCompletionMessage(
     contact = await message.getContact();
   }
 
+  body ||= message.body;
+
   let content: string | ChatCompletionContentPart[];
 
   if (message.hasMedia) {
     const media = await message.downloadMedia();
 
-    content = [
-      {
-        type: "text",
-        text: message.body,
-      },
-      {
-        type: "image_url",
-        image_url: { url: `data:${media.mimetype};base64,${media.data}` },
-      },
-    ];
+    if (media.mimetype.startsWith("image")) {
+      content = [
+        {
+          type: "text",
+          text: body,
+        },
+        {
+          type: "image_url",
+          image_url: { url: `data:${media.mimetype};base64,${media.data}` },
+        },
+      ];
+    } else {
+      content = body;
+    }
   } else {
-    content = body || message.body;
+    content = body;
   }
 
   if (!content) {
