@@ -2,6 +2,9 @@ import type { ElementHandle, Page } from "puppeteer";
 import type { Message } from "whatsapp-web.js";
 import type { Plugin } from "../plugins";
 
+import { stat } from "node:fs/promises";
+
+import filesize from "file-size";
 import { google } from "googleapis";
 import Mime from "mime";
 import { MessageMedia } from "whatsapp-web.js";
@@ -511,6 +514,30 @@ Stderr:
         );
 
         return true;
+      },
+    },
+    {
+      name: "plugindbs",
+      description: "List all plugin databases",
+      minLevel: PermissionLevel.ADMIN,
+
+      async handler() {
+        let msg = "Databases:\n";
+
+        for await (const databasePath of new Bun.Glob(
+          "db/**/*.sqlite",
+        ).scan()) {
+          const stats = await stat(databasePath);
+          const size = filesize(stats.size).human();
+
+          msg += `\n* \`${databasePath}\`: ${size}`;
+        }
+
+        if (msg.length <= 11) {
+          throw new CommandError("no databases found");
+        }
+
+        return msg;
       },
     },
     {
