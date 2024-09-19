@@ -1,3 +1,4 @@
+import type { Message } from "whatsapp-web.js";
 import type { Plugin } from "../plugins";
 
 import translate, { languages } from "google-translate-api-x";
@@ -36,20 +37,13 @@ export default {
       minLevel: PermissionLevel.NONE,
       rateLimit: 10000,
 
-      async handler({
-        message,
-        rest,
-        sender,
-        config,
-        database,
-        client,
-        logger,
-      }) {
+      async handler({ message, rest, sender, config, database, client }) {
         let text = "";
         let to = "";
 
+        let quotedMsg: Message | null = null;
         if (message.hasQuotedMsg) {
-          const quotedMsg = await message.getQuotedMessage();
+          quotedMsg = await message.getQuotedMessage();
           text = quotedMsg.body;
           to = rest;
         } else if (rest) {
@@ -101,6 +95,10 @@ export default {
           to,
         });
 
+        if (quotedMsg) {
+          await quotedMsg.reply(translation.text);
+          return;
+        }
         return translation.text;
       },
     },
