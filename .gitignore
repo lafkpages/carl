@@ -2,6 +2,7 @@
 /db
 /config.json
 /src/plugins/custom
+/media
 
 # Based on https://raw.githubusercontent.com/github/gitignore/main/Node.gitignore
 

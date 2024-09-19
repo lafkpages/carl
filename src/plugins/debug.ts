@@ -475,6 +475,31 @@ Stderr:
       },
     },
     {
+      name: "downloadmedia",
+      description: "Download media from a message",
+      minLevel: PermissionLevel.ADMIN,
+      rateLimit: 1000,
+
+      async handler({ message }) {
+        if (!message.hasQuotedMsg) {
+          throw new CommandError("no quoted message");
+        }
+
+        const quotedMessage = await message.getQuotedMessage();
+
+        if (!quotedMessage.hasMedia) {
+          throw new CommandError("quoted message has no media");
+        }
+
+        const media = await quotedMessage.downloadMedia();
+
+        await Bun.write(
+          `media/${quotedMessage.id._serialized}/${media.filename || Date.now()}`,
+          Buffer.from(media.data, "base64"),
+        );
+      },
+    },
+    {
       name: "testinteractioncontinuation",
       description: "Test interaction continuations",
       minLevel: PermissionLevel.NONE,
