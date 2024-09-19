@@ -100,7 +100,9 @@ export default {
       minLevel: PermissionLevel.NONE,
 
       async handler({ rest, sender, chat, client, database }) {
-        const datetimes = parse(rest);
+        const datetimes = parse(rest, undefined, {
+          forwardDate: true,
+        });
 
         if (datetimes.length < 1) {
           throw new CommandError("invalid date/time format.");
