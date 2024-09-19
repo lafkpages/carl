@@ -27,16 +27,20 @@ async function loadReminder(
   reminder: Reminder,
   client: Client,
   database: Database,
-  insert = true,
+  _new = true,
 ) {
   const now = Date.now();
 
-  if (reminder.time < now) {
+  if (reminder.time <= now) {
+    if (_new) {
+      throw new CommandError("reminder time is in the past");
+    }
+
     await sendReminder(reminder, client, database);
     return;
   }
 
-  if (insert) {
+  if (_new) {
     const { lastInsertRowid } = database.run<
       [string, string | null, string, number]
     >(
