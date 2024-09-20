@@ -51,7 +51,12 @@ export default {
       name: "defineword",
       description: "Define a word.",
       minLevel: PermissionLevel.NONE,
-      rateLimit: 5000,
+      rateLimit: [
+        {
+          duration: 5000,
+          max: 1,
+        },
+      ],
 
       async handler({ rest, logger }) {
         const resp = await fetch(

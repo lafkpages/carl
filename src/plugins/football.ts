@@ -241,7 +241,16 @@ export default {
       name: "football",
       description: "Shows today's football matches",
       minLevel: PermissionLevel.NONE,
-      rateLimit: 10000,
+      rateLimit: [
+        {
+          duration: 10000,
+          max: 1,
+        },
+        {
+          duration: 1000 * 60 * 60,
+          max: 10,
+        },
+      ],
 
       async handler({ rest, logger }) {
         const { matches } = await fetchMatches(

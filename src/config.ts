@@ -22,6 +22,7 @@ import {
   void_,
 } from "valibot";
 
+import { rateLimitSchema } from "./ratelimits";
 import { isInGithubCodespace } from "./utils";
 
 const configSchema = object({
@@ -46,9 +47,9 @@ const configSchema = object({
    * in milliseconds.
    */
   ratelimit: object({
-    admin: number(),
-    trusted: number(),
-    default: number(),
+    admin: array(rateLimitSchema),
+    trusted: array(rateLimitSchema),
+    default: array(rateLimitSchema),
   }),
 
   /**

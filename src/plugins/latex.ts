@@ -19,7 +19,13 @@ export default {
       name: "latex",
       description: "Render a LaTeX equation",
       minLevel: PermissionLevel.TRUSTED,
-      rateLimit: 5000,
+      rateLimit: [
+        {
+          // 5 times per minute
+          duration: 1000 * 60,
+          max: 5,
+        },
+      ],
 
       async handler({ message, rest, client, logger }) {
         rest = rest.trim();

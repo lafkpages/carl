@@ -25,7 +25,18 @@ export default {
       name: "gcalendars",
       description: "List Google Calendars",
       minLevel: PermissionLevel.NONE,
-      rateLimit: 10000,
+      rateLimit: [
+        {
+          // Five times a minute
+          duration: 60000,
+          max: 5,
+        },
+        {
+          // 10 times a day
+          duration: 1000 * 60 * 60 * 24,
+          max: 10,
+        },
+      ],
 
       async handler({ getGoogleClient }) {
         const calendar = await cal(getGoogleClient);
@@ -47,7 +58,13 @@ export default {
       name: "gcalevents",
       description: "List Google Calendar events",
       minLevel: PermissionLevel.NONE,
-      rateLimit: 10000,
+      rateLimit: [
+        {
+          // Five times a minute
+          duration: 60000,
+          max: 5,
+        },
+      ],
 
       async handler({ rest, getGoogleClient }) {
         const calendar = await cal(getGoogleClient);

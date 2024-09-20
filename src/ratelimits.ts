@@ -1,66 +1,87 @@
-const userRateLimitsPerPluginCommand: Map<
-  string,
-  Map<string, Map<string, number>>
-> = new Map();
-const userRateLimits: Map<string, number> = new Map();
+import type { InferOutput } from "valibot";
 
-export function isCommandRateLimited(
-  userId: string,
-  pluginId: string,
-  command: string,
-  rateLimit: number,
-) {
-  if (rateLimit <= 0) {
-    return false;
-  }
+import { number, object } from "valibot";
 
-  if (!userRateLimitsPerPluginCommand.has(userId)) {
-    userRateLimitsPerPluginCommand.set(userId, new Map());
-  }
-
-  const userRateLimits = userRateLimitsPerPluginCommand.get(userId)!;
-
-  if (!userRateLimits.has(pluginId)) {
-    userRateLimits.set(pluginId, new Map());
-  }
-
-  const pluginRateLimits = userRateLimits.get(pluginId)!;
-
-  if (!pluginRateLimits.has(command)) {
-    pluginRateLimits.set(command, Date.now());
-    return false;
-  }
-
-  const lastRun = pluginRateLimits.get(command)!;
-  const now = Date.now();
-
-  if (now - lastRun < rateLimit) {
-    return true;
-  }
-
-  pluginRateLimits.set(command, now);
-
-  return false;
+export interface RateLimitEvent {
+  timestamp: number;
+  points: number;
+  plugin?: string;
+  command?: string;
 }
 
-export function isUserRateLimited(userId: string, rateLimit: number) {
-  if (rateLimit <= 0) {
-    return false;
-  }
+export type RateLimit = InferOutput<typeof rateLimitSchema>;
 
-  if (!userRateLimits.has(userId)) {
-    userRateLimits.set(userId, Date.now());
-    return false;
-  }
+export const rateLimitSchema = object({
+  duration: number(),
+  max: number(),
+});
 
-  const lastRun = userRateLimits.get(userId)!;
+const userEvents = new Map<string, RateLimitEvent[]>();
+// export { userEvents as _userEvents };
+
+export function rateLimit(
+  userId: string,
+  event: Omit<RateLimitEvent, "timestamp">,
+) {
   const now = Date.now();
 
-  if (now - lastRun < rateLimit) {
-    return true;
+  let events = userEvents.get(userId);
+  if (!events) {
+    events = [];
+    userEvents.set(userId, events);
   }
 
-  userRateLimits.set(userId, now);
+  const fullEvent: RateLimitEvent = { ...event, timestamp: now };
+
+  events.push(fullEvent);
+
+  return fullEvent;
+}
+
+export function checkRateLimit(
+  userId: string,
+  rateLimits: RateLimit[],
+  plugin?: string,
+  command?: string,
+) {
+  const now = Date.now();
+
+  const events = userEvents.get(userId);
+
+  if (!events) {
+    return false;
+  }
+
+  const shouldFilterEvents = plugin || command;
+  const filteredEvents: RateLimitEvent[] = shouldFilterEvents ? [] : events;
+  if (shouldFilterEvents) {
+    for (const event of events) {
+      if (
+        (plugin && event.plugin !== plugin) ||
+        (command && event.command !== command)
+      ) {
+        continue;
+      }
+
+      filteredEvents.push(event);
+    }
+  }
+
+  for (const limit of rateLimits) {
+    let pointsUsed = 0;
+
+    for (const event of filteredEvents) {
+      if (now - event.timestamp > limit.duration) {
+        continue;
+      }
+
+      pointsUsed += event.points;
+    }
+
+    if (pointsUsed > limit.max) {
+      return true;
+    }
+  }
 
   return false;
 }

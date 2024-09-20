@@ -35,7 +35,12 @@ export default {
       name: "translate",
       description: "Translate text to a different language",
       minLevel: PermissionLevel.NONE,
-      rateLimit: 10000,
+      rateLimit: [
+        {
+          duration: 3000,
+          max: 1,
+        },
+      ],
 
       async handler({ message, rest, sender, config, database, client }) {
         let text = "";
@@ -130,9 +135,8 @@ export default {
       name: "translatelangs",
       description: "List available languages for translation",
       minLevel: PermissionLevel.NONE,
-      rateLimit: 10000,
 
-      async handler() {
+      handler() {
         let msg = "Available languages for translation:";
         for (const [code, name] of Object.entries(languages)) {
           msg += `\n* \`${code}\`: ${name}`;

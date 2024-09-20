@@ -23,7 +23,18 @@ export default {
       name: "bravesearch",
       description: "Search the web with Brave Search",
       minLevel: PermissionLevel.TRUSTED,
-      rateLimit: 5000,
+      rateLimit: [
+        {
+          // Once every 5 seconds
+          duration: 5000,
+          max: 1,
+        },
+        {
+          // 10 times per hour
+          duration: 1000 * 60 * 60,
+          max: 10,
+        },
+      ],
 
       async handler({ rest, logger }) {
         if (!rest) {

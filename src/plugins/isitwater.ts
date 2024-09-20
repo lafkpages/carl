@@ -67,7 +67,12 @@ export default {
       name: "isitwater",
       description: "Check if a location is on water or land",
       minLevel: PermissionLevel.NONE,
-      rateLimit: 10000,
+      rateLimit: [
+        {
+          duration: 10000,
+          max: 5,
+        },
+      ],
 
       async handler({ message, logger, rest }) {
         let locationMessage = message;

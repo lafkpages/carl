@@ -4,6 +4,7 @@ import type { OAuth2Client } from "google-auth-library";
 import type { Chat, Client, Message, Reaction } from "whatsapp-web.js";
 import type { Config } from "./config";
 import type { PermissionLevel } from "./perms";
+import type { RateLimit } from "./ratelimits";
 import type { generateTemporaryShortLink, server } from "./server";
 
 import { readdir } from "node:fs/promises";
@@ -60,7 +61,7 @@ export interface Command extends Interaction {
    * It is a good idea to rate limit commands that interact with
    * external APIs to prevent abuse.
    */
-  rateLimit?: number;
+  rateLimit?: RateLimit[];
 }
 
 export interface Interaction {

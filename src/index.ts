@@ -10,6 +10,8 @@ import type {
 
 import "./sentry";
 
+import type { RateLimit } from "./ratelimits";
+
 import { captureException } from "@sentry/bun";
 import { Database } from "bun:sqlite";
 import { consola } from "consola";
@@ -22,7 +24,7 @@ import { getClient } from "./google";
 import { generateHelp, generateHelpPage } from "./help";
 import { getPermissionLevel, PermissionLevel } from "./perms";
 import { InteractionContinuation, scanPlugins } from "./plugins";
-import { isCommandRateLimited, isUserRateLimited } from "./ratelimits";
+import { checkRateLimit, rateLimit } from "./ratelimits";
 import { generateTemporaryShortLink, server } from "./server";
 import { isInGithubCodespace, sendMessageToAdmins } from "./utils";
 
@@ -542,8 +544,7 @@ client.on("message", async (message) => {
     getPermissionLevel(config, chat.id._serialized),
   );
 
-  // TODO: rework PermissionLevel; enum is painful
-  const rateLimit =
+  const userRateLimits: RateLimit[] =
     permissionLevel === PermissionLevel.ADMIN
       ? config.ratelimit.admin
       : permissionLevel === PermissionLevel.TRUSTED
@@ -555,10 +556,9 @@ client.on("message", async (message) => {
     messageSenderId: sender,
     messageBody: message.body,
     permissionLevel,
-    rateLimit,
   });
 
-  let hasCheckedUserRateLimit = false;
+  const rateLimitEvent = rateLimit(sender, { points: 1 });
 
   let [, command, rest] = message.body.match(/^\/(\w+)\s*(.*)?$/is) || [];
   rest ||= "";
@@ -624,27 +624,21 @@ client.on("message", async (message) => {
   } else if (command) {
     consola.info("Command received:", { command, rest });
 
-    if (isUserRateLimited(sender, rateLimit)) {
-      consola.info("User rate limited at command:", sender);
-      return;
-    }
-    hasCheckedUserRateLimit = true;
-
     const cmd = resolveCommand(config, command, sender);
 
     if (cmd) {
       await chat.sendSeen();
 
-      if (
-        isCommandRateLimited(
-          sender,
-          cmd.plugin.id,
-          cmd.name,
-          cmd.rateLimit ?? 0,
-        )
-      ) {
+      const commandRateLimits = cmd.rateLimit
+        ? [...userRateLimits, ...cmd.rateLimit]
+        : userRateLimits;
+
+      if (checkRateLimit(sender, commandRateLimits, cmd.plugin.id, cmd.name)) {
         await message.react("\u23F3");
       } else {
+        rateLimitEvent.plugin = cmd.plugin.id;
+        rateLimitEvent.command = cmd.name;
+
         chat.sendStateTyping();
 
         if (permissionLevel >= cmd.minLevel) {
@@ -688,13 +682,11 @@ client.on("message", async (message) => {
 
   for (const plugin of plugins) {
     if (plugin.onMessage) {
-      if (!hasCheckedUserRateLimit) {
-        if (isUserRateLimited(sender, rateLimit)) {
-          consola.info("User rate limited at onMessage:", sender);
-          return;
-        }
-        hasCheckedUserRateLimit = true;
+      if (checkRateLimit(sender, userRateLimits)) {
+        consola.info("User rate limited at onMessage:", sender);
+        return;
       }
+      rateLimitEvent.plugin = plugin.id;
 
       consola.debug("Running plugin onMessage:", plugin.id);
 

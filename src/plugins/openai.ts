@@ -189,7 +189,17 @@ export default {
       name: "ai",
       description: "Ask a question to AI",
       minLevel: PermissionLevel.TRUSTED,
-      rateLimit: 5000,
+      rateLimit: [
+        {
+          duration: 5000,
+          max: 1,
+        },
+        {
+          // 20 per hour
+          duration: 3_600_000,
+          max: 20,
+        },
+      ],
 
       async handler({ rest, logger, config, database }) {
         // todo: handle thread of replies as chat history
@@ -228,7 +238,17 @@ export default {
       name: "summarise",
       description: "Summarise a given text or message",
       minLevel: PermissionLevel.TRUSTED,
-      rateLimit: 5000,
+      rateLimit: [
+        {
+          duration: 5000,
+          max: 1,
+        },
+        {
+          // 20 per hour
+          duration: 3_600_000,
+          max: 20,
+        },
+      ],
 
       async handler({ message, rest, logger, config, database }) {
         let messages: ChatCompletionMessageParam[] = [
@@ -308,7 +328,13 @@ export default {
       name: "summariseconvo",
       description: "Summarise a conversation",
       minLevel: PermissionLevel.TRUSTED,
-      rateLimit: 60000,
+      rateLimit: [
+        {
+          // once per 10 minutes
+          duration: 600_000,
+          max: 1,
+        },
+      ],
 
       async handler({ message, logger, config, database }) {
         if (!message.hasQuotedMsg) {
@@ -407,7 +433,17 @@ Brief overall summary
       name: "transcribe",
       description: "Transcribe an audio message",
       minLevel: PermissionLevel.TRUSTED,
-      rateLimit: 60000,
+      rateLimit: [
+        {
+          duration: 5000,
+          max: 1,
+        },
+        {
+          // 20 per hour
+          duration: 3_600_000,
+          max: 20,
+        },
+      ],
 
       async handler({ message, database }) {
         if (!message.hasQuotedMsg) {
@@ -423,7 +459,13 @@ Brief overall summary
       name: "generate",
       description: "Generate an image using DALL-E",
       minLevel: PermissionLevel.TRUSTED,
-      rateLimit: 60000,
+      rateLimit: [
+        {
+          // one per minute
+          duration: 60_000,
+          max: 1,
+        },
+      ],
 
       async handler({ message, rest, sender, logger, database }) {
         const hash = `image_${Bun.hash(rest).toString(36)}`;

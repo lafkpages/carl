@@ -300,7 +300,12 @@ Stderr:
       name: "messages",
       description: "List all messages in a chat",
       minLevel: PermissionLevel.TRUSTED,
-      rateLimit: 10000,
+      rateLimit: [
+        {
+          duration: 60000,
+          max: 5,
+        },
+      ],
 
       async handler({ client, message, rest, sender, permissionLevel }) {
         const chatId = rest;
@@ -385,7 +390,7 @@ Stderr:
       name: "googletest",
       description: "Test Google OAuth",
       minLevel: PermissionLevel.NONE,
-      rateLimit: 10000,
+      rateLimit: [{ duration: 10000, max: 1 }],
       hidden: true,
 
       async handler({ getGoogleClient }) {
@@ -451,7 +456,12 @@ Stderr:
       name: "firstmessage",
       description: "Get the first message in a chat",
       minLevel: PermissionLevel.NONE,
-      rateLimit: 10000,
+      rateLimit: [
+        {
+          duration: 10000,
+          max: 1,
+        },
+      ],
 
       async handler({ chat, logger }) {
         const messages = await chat.fetchMessages({ limit: Infinity });
@@ -482,7 +492,6 @@ Stderr:
       name: "downloadmedia",
       description: "Download media from a message",
       minLevel: PermissionLevel.ADMIN,
-      rateLimit: 1000,
 
       async handler({ message }) {
         if (!message.hasQuotedMsg) {

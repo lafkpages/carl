@@ -46,7 +46,12 @@ export default {
       name: "veriphone",
       description: "Looks up a phone number",
       minLevel: PermissionLevel.NONE,
-      rateLimit: 10000,
+      rateLimit: [
+        {
+          duration: 10000,
+          max: 1,
+        },
+      ],
 
       async handler({ message, rest }) {
         let phoneNumber = "";

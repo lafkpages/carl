@@ -18,7 +18,13 @@ export default {
       name: "requestpermission",
       description: "Request an admin a certain permission level",
       minLevel: PermissionLevel.NONE,
-      rateLimit: /* 1 hour */ 1000 * 60 * 60,
+      rateLimit: [
+        {
+          // Once per hour
+          duration: 1000 * 60 * 60,
+          max: 1,
+        },
+      ],
 
       async handler({ message, rest, sender, config, client }) {
         if (sender in pendingPermissionRequests) {

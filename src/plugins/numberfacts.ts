@@ -41,7 +41,12 @@ export default {
       name: "numberfact",
       description: "Get a random fact about a number",
       minLevel: PermissionLevel.NONE,
-      rateLimit: 2000,
+      rateLimit: [
+        {
+          duration: 2000,
+          max: 1,
+        },
+      ],
 
       async handler({ rest }) {
         const [, numberArg, typeArg] =
@@ -75,7 +80,12 @@ export default {
       name: "datefact",
       description: "Get a random fact about a date",
       minLevel: PermissionLevel.NONE,
-      rateLimit: 2000,
+      rateLimit: [
+        {
+          duration: 2000,
+          max: 1,
+        },
+      ],
 
       async handler({ rest }) {
         const [, monthArg, dayArg] =
@@ -95,7 +105,12 @@ export default {
       name: "todayfact",
       description: "Get a random fact about today",
       minLevel: PermissionLevel.NONE,
-      rateLimit: 2000,
+      rateLimit: [
+        {
+          duration: 2000,
+          max: 1,
+        },
+      ],
 
       async handler() {
         const now = new Date();
