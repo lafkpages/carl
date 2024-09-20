@@ -11,7 +11,7 @@ import type { Plugin } from "../plugins";
 import Mime from "mime";
 import objectHash from "object-hash";
 import OpenAI, { toFile } from "openai";
-import { MessageTypes } from "whatsapp-web.js";
+import { MessageMedia, MessageTypes } from "whatsapp-web.js";
 
 import { CommandError } from "../error";
 import { PermissionLevel } from "../perms";
@@ -157,6 +157,23 @@ async function transcribeMessage(message: Message, database: Database) {
   return transcription.text;
 }
 
+function getCached<Bin extends boolean = false>(
+  hash: string,
+  database: Database,
+  bin?: Bin,
+) {
+  return (
+    database!
+      .query<
+        {
+          value: Bin extends true ? Uint8Array : string;
+        },
+        [string]
+      >(`SELECT value FROM ${bin ? "binary_cache" : "cache"} WHERE key = ?`)
+      .get(hash)?.value || null
+  );
+}
+
 export default {
   id: "openai",
   name: "OpenAI",
@@ -185,17 +202,10 @@ export default {
 
         const hash = objectHash(messages);
 
-        const cached = database!
-          .query<
-            {
-              value: string;
-            },
-            [string]
-          >("SELECT value FROM cache WHERE key = ?")
-          .get(hash);
+        const cached = getCached(hash, database!);
 
         if (cached) {
-          return cached.value;
+          return cached;
         }
 
         const completion = await openai.chat.completions.create({
@@ -235,6 +245,7 @@ export default {
           const completion = await whatsappMessageToChatCompletionMessage(
             quotedMsg,
             database!,
+            logger,
             null,
             false,
           );
@@ -248,6 +259,7 @@ export default {
           const completion = await whatsappMessageToChatCompletionMessage(
             message,
             database!,
+            logger,
             rest,
             false,
           );
@@ -263,23 +275,16 @@ export default {
 
         const hash = objectHash(messages);
 
-        const cached = database!
-          .query<
-            {
-              value: string;
-            },
-            [string]
-          >("SELECT value FROM cache WHERE key = ?")
-          .get(hash);
+        const cached = getCached(hash, database!);
 
         if (cached) {
           if (quotedMsg) {
-            await quotedMsg.reply(cached.value, undefined, {
+            await quotedMsg.reply(cached, undefined, {
               linkPreview: false,
             });
             return;
           }
-          return cached.value;
+          return cached;
         }
 
         const completion = await openai.chat.completions.create({
@@ -341,6 +346,7 @@ export default {
             await whatsappMessageToChatCompletionMessage(
               currentMessage,
               database!,
+              logger,
             );
 
           if (completionMessage) {
@@ -377,17 +383,10 @@ Brief overall summary
 
         const hash = objectHash(conversation);
 
-        const cached = database!
-          .query<
-            {
-              value: string;
-            },
-            [string]
-          >("SELECT value FROM cache WHERE key = ?")
-          .get(hash);
+        const cached = getCached(hash, database!);
 
         if (cached) {
-          return cached.value;
+          return cached;
         }
 
         logger.debug("conversation:", conversation);
@@ -427,6 +426,50 @@ Brief overall summary
         await quotedMsg.reply(await transcribeMessage(quotedMsg, database!));
       },
     },
+    {
+      name: "generate",
+      description: "Generate an image using DALL-E",
+      minLevel: PermissionLevel.TRUSTED,
+      rateLimit: 60000,
+
+      async handler({ message, rest, sender, logger, database }) {
+        const hash = `image_${Bun.hash(rest).toString(36)}`;
+
+        const cache = getCached(hash, database!, true);
+
+        let imageData: string;
+        let caption: string | undefined;
+
+        if (cache) {
+          imageData = cache.toBase64();
+        } else {
+          const result = await openai.images.generate({
+            model: "dall-e-2",
+            prompt: rest,
+            size: "256x256",
+            quality: "standard",
+            user: sender,
+            response_format: "b64_json",
+          });
+
+          const [image] = result.data;
+
+          imageData = image.b64_json!;
+          caption = image.revised_prompt;
+
+          database!.run<[string, Uint8Array]>(
+            "INSERT INTO binary_cache (key, value) VALUES (?, ?)",
+            [hash, Buffer.from(imageData, "base64")],
+          );
+        }
+
+        await message.reply(
+          new MessageMedia("image/png", imageData),
+          undefined,
+          { caption },
+        );
+      },
+    },
   ],
 
   onLoad({ database }) {
@@ -434,6 +477,13 @@ Brief overall summary
       CREATE TABLE IF NOT EXISTS cache (
         key TEXT PRIMARY KEY,
         value TEXT NOT NULL
+      );
+    `);
+
+    database!.run(`--sql
+      CREATE TABLE IF NOT EXISTS binary_cache (
+        key TEXT PRIMARY KEY,
+        value BLOB NOT NULL
       );
     `);
   },
