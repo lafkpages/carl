@@ -118,17 +118,10 @@ async function transcribeMessage(message: Message, database: Database) {
   // underscore to prevent collisions between other type of hash from objectHash
   const hash = `_${Bun.hash(media.data).toString(36)}`;
 
-  const cached = database!
-    .query<
-      {
-        value: string;
-      },
-      [string]
-    >("SELECT value FROM cache WHERE key = ?")
-    .get(hash);
+  const cached = getCached(hash, database);
 
   if (cached) {
-    return cached.value;
+    return cached;
   }
 
   let filename = media.filename;
@@ -149,10 +142,7 @@ async function transcribeMessage(message: Message, database: Database) {
     model: "whisper-1",
   });
 
-  database!.run<[string, string]>(
-    "INSERT INTO cache (key, value) VALUES (?, ?)",
-    [hash, transcription.text],
-  );
+  setCache(hash, transcription.text, database);
 
   return transcription.text;
 }
@@ -171,6 +161,18 @@ function getCached<Bin extends boolean = false>(
         [string]
       >(`SELECT value FROM ${bin ? "binary_cache" : "cache"} WHERE key = ?`)
       .get(hash)?.value || null
+  );
+}
+
+function setCache<Bin extends boolean = false>(
+  hash: string,
+  value: Bin extends true ? NodeJS.TypedArray : string,
+  database: Database,
+  bin?: Bin,
+) {
+  database!.run<[string, Bin extends true ? NodeJS.TypedArray : string]>(
+    `INSERT INTO ${bin ? "binary_cache" : "cache"} (key, value) VALUES (?, ?)`,
+    [hash, value],
   );
 }
 
@@ -217,10 +219,7 @@ export default {
 
         const response = returnResponse(completion.choices[0].message.content);
 
-        database!.run<[string, string]>(
-          "INSERT INTO cache (key, value) VALUES (?, ?)",
-          [hash, response],
-        );
+        setCache(hash, response, database!);
 
         return response;
       },
@@ -296,10 +295,7 @@ export default {
 
         const response = returnResponse(completion.choices[0].message.content);
 
-        database!.run<[string, string]>(
-          "INSERT INTO cache (key, value) VALUES (?, ?)",
-          [hash, response],
-        );
+        setCache(hash, response, database!);
 
         if (quotedMsg) {
           await quotedMsg.reply(response, undefined, { linkPreview: false });
@@ -402,10 +398,7 @@ Brief overall summary
           completion.choices[0].message.content,
         ).replace(/^( *[*-] +)\*(\*.+?\*)\*/gm, "$1$2");
 
-        database!.run<[string, string]>(
-          "INSERT INTO cache (key, value) VALUES (?, ?)",
-          [hash, response],
-        );
+        setCache(hash, response, database!);
 
         return response;
       },
@@ -457,10 +450,7 @@ Brief overall summary
           imageData = image.b64_json!;
           caption = image.revised_prompt;
 
-          database!.run<[string, Uint8Array]>(
-            "INSERT INTO binary_cache (key, value) VALUES (?, ?)",
-            [hash, Buffer.from(imageData, "base64")],
-          );
+          setCache(hash, Buffer.from(imageData, "base64"), database!, true);
         }
 
         await message.reply(
