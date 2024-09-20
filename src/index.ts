@@ -160,7 +160,6 @@ const corePlugin: Plugin = {
       name: "stop",
       description: "Stop the bot gracefully",
       minLevel: PermissionLevel.ADMIN,
-      hidden: true,
 
       handler() {
         stopGracefully();
@@ -171,7 +170,6 @@ const corePlugin: Plugin = {
       name: "forcestop",
       description: "Stop the bot without unloading plugins",
       minLevel: PermissionLevel.ADMIN,
-      hidden: true,
 
       handler() {
         stop();
@@ -182,7 +180,6 @@ const corePlugin: Plugin = {
       name: "reload",
       description: "Reload plugins",
       minLevel: PermissionLevel.ADMIN,
-      hidden: true,
 
       async handler({ rest, logger, config }) {
         rest = rest.trim().toLowerCase();
