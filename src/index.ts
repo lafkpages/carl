@@ -136,14 +136,17 @@ const corePlugin: Plugin = {
       minLevel: PermissionLevel.NONE,
 
       handler({ rest, permissionLevel, config }) {
-        const [, pageArg, showHiddenArg] =
-          rest.match(/^(\d+)(\s+all)?$|^$/) || [];
+        const numbers = rest.match(/\d+/g);
 
-        const page = parseInt(pageArg || "1");
-        const showHidden = !!showHiddenArg;
+        if (numbers && numbers.length > 1) {
+          throw new CommandError("invalid arguments. Usage: `/help [page]`");
+        }
+
+        const page = parseInt(numbers?.[0] || "1");
+        const showHidden = rest.includes("all");
 
         if (page < 1) {
-          return false;
+          throw new CommandError("page number must be greater than 0");
         }
 
         return generateHelpPage(
