@@ -2,6 +2,7 @@ import type { Database } from "bun:sqlite";
 import type { Client } from "whatsapp-web.js";
 import type { Plugin } from "../plugins";
 
+import { prettyDate } from "@based/pretty-date";
 import { parse } from "chrono-node";
 
 import { CommandError } from "../error";
@@ -137,6 +138,27 @@ export default {
         );
 
         return true;
+      },
+    },
+    {
+      name: "reminders",
+      description: "List all reminders.",
+      minLevel: PermissionLevel.NONE,
+
+      handler({ sender }) {
+        let reminderList = "*Reminders:*";
+
+        for (const reminder of reminders.values()) {
+          if (reminder.user === sender) {
+            reminderList += `\n* ${prettyDate(reminder.time, "date-time-human")}: ${reminder.message}`;
+          }
+        }
+
+        if (reminderList.length <= 12) {
+          return "No reminders set.";
+        }
+
+        return reminderList;
       },
     },
   ],
