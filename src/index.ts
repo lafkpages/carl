@@ -135,7 +135,7 @@ const corePlugin: Plugin = {
         "Shows this help message (use `/help all` to show hidden commands)",
       minLevel: PermissionLevel.NONE,
 
-      handler({ rest, config }) {
+      handler({ rest, permissionLevel, config }) {
         const [, pageArg, showHiddenArg] =
           rest.match(/^(\d+)(\s+all)?$|^$/) || [];
 
@@ -148,7 +148,7 @@ const corePlugin: Plugin = {
 
         return generateHelpPage(
           config,
-          generateHelp(plugins, showHidden),
+          generateHelp(plugins, permissionLevel, showHidden),
           page,
         );
       },

@@ -1,26 +1,38 @@
 import type { Config } from "./config";
+import type { PermissionLevel } from "./perms";
 import type { Plugin } from "./plugins";
 
-export function generateHelp(plugins: Plugin[], showHidden = false) {
+export function generateHelp(
+  plugins: Plugin[],
+  permissionLevel: PermissionLevel,
+  showHidden = false,
+) {
   let msg = "Plugins:";
 
   for (const plugin of plugins) {
-    if (plugin.hidden && !showHidden) {
+    if (!showHidden && plugin.hidden) {
       continue;
     }
 
-    msg += `\n\n*${plugin.name}* (${plugin.version})`;
-    msg += `\n> ${plugin.description}`;
-    msg += `\nCommands:`;
+    let commandsMsg = "";
 
     if (plugin.commands) {
       for (const command of plugin.commands) {
-        if (command.hidden && !showHidden) {
+        if (
+          (command.hidden || command.minLevel > permissionLevel) &&
+          !showHidden
+        ) {
           continue;
         }
 
-        msg += `\n* \`/${command.name}\`: ${command.description}`;
+        commandsMsg += `\n* \`/${command.name}\`: ${command.description}`;
       }
+    }
+
+    if (commandsMsg) {
+      msg += `\n\n*${plugin.name}* (${plugin.version})`;
+      msg += `\n> ${plugin.description}`;
+      msg += `\nCommands:${commandsMsg}`;
     }
   }
 
@@ -33,7 +45,7 @@ export function generateHelp(plugins: Plugin[], showHidden = false) {
  * split every line.
  */
 export function generateHelpPage(config: Config, help: string, page: number) {
-  const pageSize = config.helpPageSize || 300;
+  const pageSize = config.helpPageSize;
 
   let start = (page - 1) * pageSize;
   let end = start + pageSize;
