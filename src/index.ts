@@ -254,13 +254,17 @@ const corePlugin: Plugin = {
         }
 
         // Reload plugins
-        if (!pluginsToReload || pluginsToReload.has("core")) {
+        if (!pluginsToReload) {
           loadPlugin(corePlugin);
         }
         await loadPluginsFromConfig(pluginsToReload);
 
         // Fire plugin onLoad events
         for (const plugin of plugins) {
+          if (pluginsToReload && !pluginsToReload.has(plugin.id)) {
+            continue;
+          }
+
           await plugin.onLoad?.({
             plugin,
             client,
