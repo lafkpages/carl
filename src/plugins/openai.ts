@@ -466,7 +466,7 @@ Brief overall summary
         },
       ],
 
-      async handler({ message, rest, sender, logger, database }) {
+      async handler({ message, rest, sender, database }) {
         const hash = `image_${Bun.hash(rest).toString(36)}`;
 
         const cache = getCached(hash, database!, true);
