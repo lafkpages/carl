@@ -682,7 +682,10 @@ client.on("message", async (message) => {
         }
       }
     } else {
-      await message.reply(`Unknown command \`${command}\``);
+      await handleError(
+        new CommandError(`unknown command: \`${command}\``),
+        message,
+      );
     }
   }
 
