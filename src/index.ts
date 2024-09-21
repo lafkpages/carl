@@ -17,7 +17,7 @@ import { captureException } from "@sentry/bun";
 import { Database } from "bun:sqlite";
 import { consola } from "consola";
 import { generate } from "qrcode-terminal";
-import { LocalAuth } from "whatsapp-web.js";
+import { LocalAuth, MessageMedia } from "whatsapp-web.js";
 
 import { getConfig, initialConfig } from "./config";
 import { CommandError, CommandPermissionError } from "./error";
@@ -853,7 +853,7 @@ async function handleInteractionResult(
       );
     }
   } else {
-    if (typeof result === "string") {
+    if (typeof result === "string" || result instanceof MessageMedia) {
       if (_editMessage) {
         return await _editMessage.edit(result, { linkPreview: false });
       } else {

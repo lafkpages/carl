@@ -1,7 +1,13 @@
 import type { Database } from "bun:sqlite";
 import type { ConsolaInstance } from "consola";
 import type { OAuth2Client } from "google-auth-library";
-import type { Chat, Client, Message, Reaction } from "whatsapp-web.js";
+import type {
+  Chat,
+  Client,
+  Message,
+  MessageMedia,
+  Reaction,
+} from "whatsapp-web.js";
 import type { PluginsConfig } from "./config";
 import type { PermissionLevel } from "./perms";
 import type { RateLimit } from "./ratelimits";
@@ -121,7 +127,7 @@ interface BaseMessageInteractionHandlerArgs<TPlugin extends Plugin>
   permissionLevel: PermissionLevel;
 }
 
-type BasicInteractionResult = string | boolean | void;
+type BasicInteractionResult = string | boolean | void | MessageMedia;
 
 export type InteractionResult =
   | BasicInteractionResult
