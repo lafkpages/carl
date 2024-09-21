@@ -565,15 +565,21 @@ client.on("message", async (message) => {
 
   async function getGoogleClient(scope: string | string[]) {
     return (await getClient(sender, scope, (url) => {
-      client.sendMessage(
-        sender,
-        `Please login with Google using the link below:\n${url}`,
-        { linkPreview: false },
-      );
+      if (chat.id._serialized === sender) {
+        throw new CommandError(
+          `please login with Google using the link below:\n${url}`,
+        );
+      } else {
+        client.sendMessage(
+          sender,
+          `Please login with Google using the link below:\n${url}`,
+          { linkPreview: false },
+        );
 
-      throw new CommandError(
-        `please login with Google using the link sent to you privately`,
-      );
+        throw new CommandError(
+          `please login with Google using the link sent to you privately`,
+        );
+      }
     }))!;
   }
 
