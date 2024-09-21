@@ -78,6 +78,7 @@ export default {
         const events = await calendar.events.list({
           calendarId: rest,
           maxResults: 5,
+          timeMin: new Date().toISOString(),
         });
 
         if (!events.data.items) {
