@@ -4,6 +4,7 @@ import type {
   Command,
   Interaction,
   InteractionResult,
+  InteractionResultGenerator,
   InternalPlugin,
   Plugin,
 } from "./plugins";
@@ -816,9 +817,10 @@ function resolveCommand(command: string, user?: string) {
 }
 
 async function handleInteractionResult(
-  result: InteractionResult,
+  result: InteractionResult | InteractionResultGenerator,
   message: Message,
   plugin: InternalPlugin,
+  _editMessage?: Message | null,
 ) {
   if (result instanceof InteractionContinuation) {
     const reply = await message.reply(result.message);
@@ -852,13 +854,42 @@ async function handleInteractionResult(
     }
   } else {
     if (typeof result === "string") {
-      await message.reply(result, undefined, {
-        linkPreview: false,
-      });
+      if (_editMessage) {
+        return await _editMessage.edit(result, { linkPreview: false });
+      } else {
+        return await message.reply(result, undefined, {
+          linkPreview: false,
+        });
+      }
     } else if (result === true) {
       await message.react("\u{1F44D}");
     } else if (result === false) {
       await message.react("\u{1F44E}");
+    } else if (result) {
+      if (_editMessage) {
+        throw new Error("cannot iterate generator inside generator");
+      }
+
+      let newMessage: Message | null = null;
+
+      while (true) {
+        const { done, value } = await result.next(newMessage);
+
+        if (done) {
+          await handleInteractionResult(value, message, plugin, newMessage);
+          break;
+        }
+
+        const _newMessage = await handleInteractionResult(
+          value,
+          message,
+          plugin,
+          newMessage,
+        );
+        if (_newMessage) {
+          newMessage = _newMessage;
+        }
+      }
     }
   }
 }

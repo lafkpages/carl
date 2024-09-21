@@ -252,7 +252,9 @@ export default plugin({
         },
       ],
 
-      async handler({ rest, logger }) {
+      async *handler({ rest, logger }) {
+        yield "Fetching matches...";
+
         const { matches } = await fetchMatches(
           logger,
           parseCompetitionsList(rest),

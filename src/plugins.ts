@@ -94,7 +94,7 @@ export interface Interaction<TPlugin extends Plugin> {
     data: unknown;
 
     getGoogleClient: (scope: string | string[]) => Promise<OAuth2Client>;
-  }): MaybePromise<InteractionResult>;
+  }): MaybePromise<InteractionResult> | InteractionResultGenerator;
 }
 
 interface BaseInteractionHandlerArgs<TPlugin extends Plugin> {
@@ -121,11 +121,15 @@ interface BaseMessageInteractionHandlerArgs<TPlugin extends Plugin>
   permissionLevel: PermissionLevel;
 }
 
+type BasicInteractionResult = string | boolean | void;
+
 export type InteractionResult =
-  | InteractionContinuation
-  | string
-  | boolean
-  | void;
+  | BasicInteractionResult
+  | InteractionContinuation;
+
+export type InteractionResultGenerator =
+  | Generator<BasicInteractionResult, InteractionResult, unknown>
+  | AsyncGenerator<BasicInteractionResult, InteractionResult, unknown>;
 
 export class InteractionContinuation {
   handler;
