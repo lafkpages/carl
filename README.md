@@ -1,4 +1,4 @@
-# WhatsApp PA
+# Carl
 
 A customisable, extendable and powerful multi-purpose WhatsApp bot, built using [Bun][bun] and [whatsapp-web.js](https://wwebjs.dev).
 
@@ -19,13 +19,13 @@ You will also need Git installed on your system. You probably already have it, b
 Once you have installed Bun, clone this repository:
 
 ```sh
-git clone https://github.com/lafkpages/whatsapp-pa.git
+git clone https://github.com/lafkpages/carl.git
 ```
 
 Then, navigate to the directory and install the dependencies:
 
 ```sh
-cd whatsapp-pa
+cd carl
 bun install
 ```
 
@@ -55,7 +55,7 @@ Then, run `/stop` to gracefully stop the bot, and then restart it. You should no
 
 ## Plugins
 
-The bot is designed to be easily extendable with plugins. You can enable or disable plugins in the `config.json` file. WhatsApp PA comes with a few built-in plugins, such as:
+The bot is designed to be easily extendable with plugins. You can enable or disable plugins in the `config.json` file. Carl comes with a few built-in plugins, such as:
 
 - `admin-utils`: A collection of utilities to ease administration of the bot.
 - `config`: An admin-only plugin to view and update the bot's configuration.
