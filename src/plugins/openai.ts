@@ -501,6 +501,63 @@ Brief overall summary
         );
       },
     },
+    {
+      name: "speak",
+      description: "Generate speech from text",
+      minLevel: PermissionLevel.TRUSTED,
+      rateLimit: [
+        {
+          // one per minute
+          duration: 60_000,
+          max: 1,
+        },
+      ],
+
+      async handler({ message, rest, database }) {
+        let input = rest;
+
+        let quotedMsg: Message | null = null;
+        if (message.hasQuotedMsg) {
+          quotedMsg = await message.getQuotedMessage();
+          input = quotedMsg.body;
+        }
+
+        if (!input) {
+          throw new CommandError("no text provided");
+        }
+
+        const hash = `speech_${Bun.hash(input).toString(36)}`;
+
+        const cache = getCached(hash, database!, true);
+
+        if (cache) {
+          const media = new MessageMedia("audio/mpeg", cache.toBase64());
+
+          if (quotedMsg) {
+            await quotedMsg.reply(media);
+            return;
+          }
+          return media;
+        }
+
+        const result = await openai.audio.speech.create({
+          input,
+          model: "tts-1",
+          voice: "fable",
+        });
+        const resultData = new Uint8Array(await result.arrayBuffer());
+
+        setCache(hash, resultData, database!, true);
+
+        const media = new MessageMedia("audio/mpeg", resultData.toBase64());
+
+        if (quotedMsg) {
+          await quotedMsg.reply(media);
+          return;
+        }
+        return media;
+      },
+    },
   ],
 
   onLoad({ database }) {
