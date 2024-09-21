@@ -705,25 +705,29 @@ client.on("message", async (message) => {
 
       consola.debug("Running plugin onMessage:", plugin.id);
 
-      const result = await plugin.onMessage({
-        api: plugin.api || {},
-        client,
-        logger: plugin._logger,
-        config: config.pluginsConfig[plugin.id],
+      try {
+        const result = await plugin.onMessage({
+          api: plugin.api || {},
+          client,
+          logger: plugin._logger,
+          config: config.pluginsConfig[plugin.id],
 
-        database: plugin._db,
+          database: plugin._db,
 
-        message,
-        chat,
-        sender,
-        permissionLevel,
+          message,
+          chat,
+          sender,
+          permissionLevel,
 
-        didHandleCommand,
+          didHandleCommand,
 
-        generateTemporaryShortLink,
-      });
+          generateTemporaryShortLink,
+        });
 
-      await handleInteractionResult(result, message, plugin);
+        await handleInteractionResult(result, message, plugin);
+      } catch (err) {
+        await handleError(err, message);
+      }
     }
   }
 });
