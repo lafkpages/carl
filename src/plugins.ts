@@ -12,19 +12,19 @@ import { join } from "node:path";
 
 import { consola } from "consola";
 
-type PluginExternal = Record<string, unknown>;
+export interface PluginApis {
+  [pluginId: string]: Record<string, unknown>;
+}
 
-export default function plugin<
-  TId extends string,
-  TExternal extends PluginExternal,
->(plugin: Plugin<TId, TExternal>) {
+export default function plugin<TId extends string>(plugin: Plugin<TId>) {
+  if (!plugin.api) {
+    // @ts-expect-error - readonly is intended for user code
+    plugin.api = {};
+  }
   return plugin;
 }
 
-export interface InternalPlugin<
-  TId extends string = string,
-  TExternal extends PluginExternal = PluginExternal,
-> {
+export interface InternalPlugin<TId extends string = string> {
   readonly id: TId;
   readonly name: string;
   readonly description: string;
@@ -43,7 +43,7 @@ export interface InternalPlugin<
 
   readonly commands?: Command<this>[];
   readonly interactions?: Interactions<this>;
-  readonly external?: TExternal;
+  readonly api?: PluginApis[TId];
 
   onLoad?({}: BaseInteractionHandlerArgs<this> & {
     server: typeof server;
@@ -59,10 +59,10 @@ export interface InternalPlugin<
   _db: Database | null;
 }
 
-export type Plugin<
-  TId extends string = string,
-  TExternal extends PluginExternal = PluginExternal,
-> = Omit<InternalPlugin<TId, TExternal>, "_logger" | "_db">;
+export type Plugin<TId extends string = string> = Omit<
+  InternalPlugin<TId>,
+  "_logger" | "_db"
+>;
 
 export interface Command<TPlugin extends Plugin> extends Interaction<TPlugin> {
   name: string;
