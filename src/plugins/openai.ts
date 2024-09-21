@@ -560,6 +560,10 @@ Brief overall summary
     },
   ],
 
+  api: {
+    openai,
+  },
+
   onLoad({ database }) {
     database!.run(`--sql
       CREATE TABLE IF NOT EXISTS cache (
@@ -576,3 +580,11 @@ Brief overall summary
     `);
   },
 });
+
+declare module "../plugins" {
+  interface PluginApis {
+    openai?: {
+      openai: OpenAI;
+    };
+  }
+}
