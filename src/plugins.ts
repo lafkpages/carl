@@ -52,7 +52,9 @@ export interface InternalPlugin<TId extends string = string> {
   }): MaybePromise<void>;
   onUnload?({}: BaseInteractionHandlerArgs<this>): MaybePromise<void>;
 
-  onMessage?({}: BaseMessageInteractionHandlerArgs<this>): MaybePromise<InteractionResult>;
+  onMessage?({}: BaseMessageInteractionHandlerArgs<this> & {
+    didHandleCommand: boolean;
+  }): MaybePromise<InteractionResult>;
   onMessageReaction?({}: BaseMessageInteractionHandlerArgs<this> & {
     reaction: Reaction;
   }): MaybePromise<InteractionResult>;

@@ -585,6 +585,8 @@ client.on("message", async (message) => {
     }))!;
   }
 
+  let didHandleCommand = false;
+
   const quotedMsg = message.hasQuotedMsg
     ? await message.getQuotedMessage()
     : null;
@@ -689,6 +691,8 @@ client.on("message", async (message) => {
         message,
       );
     }
+
+    didHandleCommand = true;
   }
 
   for (const plugin of plugins) {
@@ -713,6 +717,8 @@ client.on("message", async (message) => {
         chat,
         sender,
         permissionLevel,
+
+        didHandleCommand,
 
         generateTemporaryShortLink,
       });
