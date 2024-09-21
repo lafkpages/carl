@@ -1,6 +1,7 @@
-import type { Config } from "./config";
 import type { PermissionLevel } from "./perms";
 import type { Plugin } from "./plugins";
+
+import { getConfig } from "./config";
 
 export function generateHelp(
   plugins: Plugin[],
@@ -41,14 +42,14 @@ export function generateHelp(
 
 /**
  * Splits a help message into pages, each containing
- * about {@link pageSize} characters. The pages are
+ * about `Config.helpPageSize` characters. The pages are
  * split every line.
  */
-export function generateHelpPage(config: Config, help: string, page: number) {
-  const pageSize = config.helpPageSize;
+export function generateHelpPage(help: string, page: number) {
+  const { helpPageSize } = getConfig();
 
-  let start = (page - 1) * pageSize;
-  let end = start + pageSize;
+  let start = (page - 1) * helpPageSize;
+  let end = start + helpPageSize;
 
   if (page > 1) {
     // Move start to the end of the current line

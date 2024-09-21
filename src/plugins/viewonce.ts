@@ -1,8 +1,8 @@
 import type { Client, Message } from "whatsapp-web.js";
-import type { Plugin } from "../plugins";
 
 import { CommandError } from "../error";
 import { PermissionLevel } from "../perms";
+import plugin from "../plugins";
 
 async function handleKeep(message: Message, client: Client, sender: string) {
   const media = await message.downloadMedia();
@@ -13,7 +13,7 @@ async function handleKeep(message: Message, client: Client, sender: string) {
   });
 }
 
-export default {
+export default plugin({
   id: "viewonce",
   name: "View Once",
   description: "Allows saving view-once media",
@@ -77,4 +77,4 @@ export default {
 
     await handleKeep(message, client, sender);
   },
-} satisfies Plugin;
+});

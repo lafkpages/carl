@@ -1,6 +1,5 @@
 import type { ElementHandle, Page } from "puppeteer";
 import type { Message } from "whatsapp-web.js";
-import type { Plugin } from "../plugins";
 
 import { stat } from "node:fs/promises";
 
@@ -12,7 +11,7 @@ import { MessageMedia } from "whatsapp-web.js";
 import { CommandError, CommandPermissionError } from "../error";
 import { getScopes } from "../google";
 import { PermissionLevel } from "../perms";
-import { InteractionContinuation } from "../plugins";
+import plugin, { InteractionContinuation } from "../plugins";
 import { pingCheck } from "../server";
 import { isInDevelopment } from "../utils";
 
@@ -24,7 +23,7 @@ declare module "../config" {
   }
 }
 
-export default {
+export default plugin({
   id: "debug",
   name: "Debug tools",
   description: "Helps debug WhatsApp PA core and plugins",
@@ -154,8 +153,7 @@ Exit code: ${proc.exitCode}`;
 Signal code: ${proc.signalCode}`;
         }
 
-        const trimOutput =
-          config.pluginsConfig?.debug?.evalShellTrimOutput ?? true;
+        const trimOutput = config?.evalShellTrimOutput ?? true;
 
         if (proc.stdout.length) {
           let stdout = proc.stdout.toString("utf-8");
@@ -578,4 +576,4 @@ Stderr:
       },
     },
   },
-} satisfies Plugin;
+});

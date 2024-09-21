@@ -1,10 +1,10 @@
 import type { ConsolaInstance } from "consola";
 import type { Chat, Message, MessageId } from "whatsapp-web.js";
-import type { Config } from "./config";
 import type {
   Command,
   Interaction,
   InteractionResult,
+  InternalPlugin,
   Plugin,
 } from "./plugins";
 
@@ -23,7 +23,7 @@ import { CommandError, CommandPermissionError } from "./error";
 import { getClient } from "./google";
 import { generateHelp, generateHelpPage } from "./help";
 import { getPermissionLevel, PermissionLevel } from "./perms";
-import { InteractionContinuation, scanPlugins } from "./plugins";
+import plugin, { InteractionContinuation, scanPlugins } from "./plugins";
 import { checkRateLimit, rateLimit } from "./ratelimits";
 import { generateTemporaryShortLink, server } from "./server";
 import { isInGithubCodespace, sendMessageToAdmins } from "./utils";
@@ -36,15 +36,12 @@ if (!process.isBun) {
   process.exit(1);
 }
 
-type InternalPlugin = Plugin & {
+interface InternalCommand<TPlugin extends InternalPlugin>
+  extends Command<TPlugin> {
+  plugin: TPlugin;
   _logger: ConsolaInstance;
-  _db: Database | null;
-};
-type InternalCommand = Command & {
-  plugin: InternalPlugin;
-  _logger: ConsolaInstance;
-};
-const commands: Record<string, InternalCommand> = {};
+}
+const commands: Record<string, InternalCommand<InternalPlugin>> = {};
 const plugins: InternalPlugin[] = [];
 let pluginsDir = await scanPlugins();
 
@@ -121,7 +118,7 @@ async function loadPluginsFromConfig(idsToLoad?: Set<string> | null) {
   }
 }
 
-const corePlugin: Plugin = {
+const corePlugin: Plugin = plugin({
   id: "core",
   name: "Core",
   description: "Core commands",
@@ -135,7 +132,7 @@ const corePlugin: Plugin = {
         "Shows this help message (use `/help all` to show hidden commands)",
       minLevel: PermissionLevel.NONE,
 
-      handler({ rest, permissionLevel, config }) {
+      handler({ rest, permissionLevel }) {
         const numbers = rest.match(/\d+/g);
 
         if (numbers && numbers.length > 1) {
@@ -150,7 +147,6 @@ const corePlugin: Plugin = {
         }
 
         return generateHelpPage(
-          config,
           generateHelp(plugins, permissionLevel, showHidden),
           page,
         );
@@ -181,7 +177,7 @@ const corePlugin: Plugin = {
       description: "Reload plugins",
       minLevel: PermissionLevel.ADMIN,
 
-      async handler({ rest, logger, config }) {
+      async handler({ rest, logger }) {
         rest = rest.trim().toLowerCase();
 
         const pluginsToReload = rest ? new Set(rest.split(/[,\s]+/)) : null;
@@ -208,6 +204,8 @@ const corePlugin: Plugin = {
           }
         }
 
+        const config = getConfig();
+
         // Run plugin onUnload events
         for (const plugin of plugins) {
           if (pluginsToReload && !pluginsToReload.has(plugin.id)) {
@@ -221,7 +219,7 @@ const corePlugin: Plugin = {
               plugin,
               client,
               logger: plugin._logger,
-              config,
+              config: config.pluginsConfig[plugin.id],
 
               database: plugin._db,
 
@@ -271,7 +269,7 @@ const corePlugin: Plugin = {
             plugin,
             client,
             logger: plugin._logger,
-            config,
+            config: config.pluginsConfig[plugin.id],
 
             database: plugin._db,
             server,
@@ -364,12 +362,12 @@ const corePlugin: Plugin = {
       minLevel: PermissionLevel.NONE,
       hidden: true,
 
-      handler({ rest, config }) {
+      handler({ rest }) {
         if (!rest) {
           throw new CommandError("Usage: `/resolvecommand <command>`");
         }
 
-        const cmd = resolveCommand(config, rest);
+        const cmd = resolveCommand(rest);
 
         if (cmd) {
           return `Command \`${rest}\` resolves to \`${cmd.plugin.id}/${cmd.name}\``;
@@ -425,7 +423,7 @@ CREATE TABLE IF NOT EXISTS aliases (
       await message.delete(true);
     }
   },
-};
+});
 
 // Load plugins
 loadPlugin(corePlugin);
@@ -499,7 +497,7 @@ for (const plugin of plugins) {
       plugin,
       client,
       logger: plugin._logger,
-      config: initialConfig,
+      config: initialConfig.pluginsConfig[plugin.id],
 
       database: plugin._db,
       server,
@@ -513,13 +511,16 @@ for (const plugin of plugins) {
 
 process.on("SIGINT", stopGracefully);
 
+interface InternalInteraction<TPlugin extends InternalPlugin>
+  extends Interaction<TPlugin> {
+  _data: unknown;
+  _plugin: InternalPlugin;
+  _timeout: Timer;
+}
+
 const interactionContinuations = new Map<
   string,
-  Interaction & {
-    _data: unknown;
-    _plugin: InternalPlugin;
-    _timeout: Timer;
-  }
+  InternalInteraction<InternalPlugin>
 >();
 
 client.on("message", async (message) => {
@@ -540,8 +541,8 @@ client.on("message", async (message) => {
   const config = getConfig();
 
   const permissionLevel = Math.max(
-    getPermissionLevel(config, sender),
-    getPermissionLevel(config, chat.id._serialized),
+    getPermissionLevel(sender),
+    getPermissionLevel(chat.id._serialized),
   );
 
   const userRateLimits: RateLimit[] =
@@ -612,7 +613,7 @@ client.on("message", async (message) => {
         logger: _plugin._logger.withDefaults({
           tag: `${_plugin.id}:${interactionContinuationHandler.name}`,
         }),
-        config,
+        config: config.pluginsConfig[_plugin.id],
 
         database: _plugin._db,
 
@@ -630,7 +631,7 @@ client.on("message", async (message) => {
   } else if (command) {
     consola.info("Command received:", { command, rest });
 
-    const cmd = resolveCommand(config, command, sender);
+    const cmd = resolveCommand(command, sender);
 
     if (cmd) {
       await chat.sendSeen();
@@ -660,7 +661,7 @@ client.on("message", async (message) => {
               plugin: cmd.plugin,
               client,
               logger: cmd._logger,
-              config,
+              config: config.pluginsConfig[cmd.plugin.id],
 
               database: cmd.plugin._db,
 
@@ -703,7 +704,7 @@ client.on("message", async (message) => {
         plugin,
         client,
         logger: plugin._logger,
-        config,
+        config: config.pluginsConfig[plugin.id],
 
         database: plugin._db,
 
@@ -736,7 +737,7 @@ client.on("message_reaction", async (reaction) => {
 
   const config = getConfig();
 
-  const permissionLevel = getPermissionLevel(config, reaction.senderId);
+  const permissionLevel = getPermissionLevel(reaction.senderId);
 
   consola.debug("Message reaction received:", {
     reaction,
@@ -764,7 +765,7 @@ client.on("message_reaction", async (reaction) => {
         plugin,
         client,
         logger: plugin._logger,
-        config,
+        config: config.pluginsConfig[plugin.id],
 
         database: plugin._db,
 
@@ -790,22 +791,23 @@ client.on("message_reaction", async (reaction) => {
   }
 });
 
-function resolveCommand(config: Config, command: string, user?: string) {
+function resolveCommand(command: string, user?: string) {
   if (command in commands) {
     return commands[command];
   }
+
+  const config = getConfig();
 
   if (user && userCommandAliases.has(user)) {
     const userAliases = userCommandAliases.get(user)!;
 
     if (userAliases.has(command)) {
-      return resolveCommand(config, userAliases.get(command)!, user);
+      return resolveCommand(userAliases.get(command)!, user);
     }
   }
 
   if (config.aliases && command in config.aliases) {
     return resolveCommand(
-      config,
       config.aliases[command as keyof typeof config.aliases],
     );
   }
@@ -865,7 +867,7 @@ async function handleError(
   error: unknown,
   message: Message,
   interactionContinuationMessage?: Message | null,
-  command?: InternalCommand | null,
+  command?: InternalCommand<InternalPlugin> | null,
 ) {
   await message.react("\u274C");
 
@@ -946,7 +948,7 @@ async function stopGracefully() {
         plugin,
         client,
         logger: plugin._logger,
-        config,
+        config: config.pluginsConfig[plugin.id],
 
         database: plugin._db,
 

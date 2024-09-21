@@ -6,7 +6,6 @@ import type {
   ChatModel,
 } from "openai/resources/index";
 import type { Contact, Message } from "whatsapp-web.js";
-import type { Plugin } from "../plugins";
 
 import Mime from "mime";
 import objectHash from "object-hash";
@@ -15,6 +14,7 @@ import { MessageMedia, MessageTypes } from "whatsapp-web.js";
 
 import { CommandError } from "../error";
 import { PermissionLevel } from "../perms";
+import plugin from "../plugins";
 
 const openai = new OpenAI();
 
@@ -176,7 +176,7 @@ function setCache<Bin extends boolean = false>(
   );
 }
 
-export default {
+export default plugin({
   id: "openai",
   name: "OpenAI",
   description: "Talk to ChatGPT on WhatsApp!",
@@ -222,7 +222,7 @@ export default {
 
         const completion = await openai.chat.completions.create({
           messages,
-          model: config.pluginsConfig.openai?.model || defaultModel,
+          model: config?.model || defaultModel,
         });
 
         logger.debug("AI response:", completion);
@@ -308,7 +308,7 @@ export default {
 
         const completion = await openai.chat.completions.create({
           messages,
-          model: config.pluginsConfig.openai?.model || defaultModel,
+          model: config?.model || defaultModel,
         });
 
         logger.debug("AI response:", completion);
@@ -350,10 +350,9 @@ export default {
 
         const messages = await chat.fetchMessages({
           limit:
-            config.pluginsConfig.openai?.maxConversationLength === -1
+            config?.maxConversationLength === -1
               ? Infinity
-              : config.pluginsConfig.openai?.maxConversationLength ||
-                defaultMaxConversationLength,
+              : config?.maxConversationLength || defaultMaxConversationLength,
         });
 
         let found = false;
@@ -415,7 +414,7 @@ Brief overall summary
 
         const completion = await openai.chat.completions.create({
           messages: conversation,
-          model: config.pluginsConfig.openai?.model || defaultModel,
+          model: config?.model || defaultModel,
         });
 
         logger.debug("AI response:", completion);
@@ -519,4 +518,4 @@ Brief overall summary
       );
     `);
   },
-} satisfies Plugin;
+});

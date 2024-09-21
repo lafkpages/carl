@@ -99,7 +99,7 @@ export type Config = InferOutput<typeof configSchema> & {
 };
 
 export interface PluginsConfig {
-  [pluginId: string]: any;
+  [pluginId: string]: unknown;
 }
 
 const configFile = Bun.file(require.resolve("../config.json"));

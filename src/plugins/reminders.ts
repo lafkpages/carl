@@ -1,12 +1,12 @@
 import type { Database } from "bun:sqlite";
 import type { Client } from "whatsapp-web.js";
-import type { Plugin } from "../plugins";
 
 import { prettyDate } from "@based/pretty-date";
 import { parse } from "chrono-node";
 
 import { CommandError } from "../error";
 import { PermissionLevel } from "../perms";
+import plugin from "../plugins";
 
 interface Reminder {
   id?: number;
@@ -90,7 +90,7 @@ async function sendReminder(
   return message;
 }
 
-export default {
+export default plugin({
   id: "reminders",
   name: "Reminders",
   description: "Set reminders for yourselfs.",
@@ -182,4 +182,4 @@ export default {
 
     logger.info("Loaded", reminders.size, "reminders.");
   },
-} satisfies Plugin;
+});

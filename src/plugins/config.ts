@@ -1,15 +1,19 @@
 import type { Config } from "../config";
-import type { Command } from "../plugins";
 
 import { flatten, unflatten } from "flat";
 import { isValiError } from "valibot";
 
-import { getRawConfig, updateConfig, updateConfigRaw } from "../config";
+import {
+  getConfig,
+  getRawConfig,
+  updateConfig,
+  updateConfigRaw,
+} from "../config";
 import { CommandError } from "../error";
 import { PermissionLevel } from "../perms";
-import { type Plugin } from "../plugins";
+import plugin from "../plugins";
 
-export default {
+export default plugin({
   id: "config",
   name: "Config",
   description: "Bot configuration commands.",
@@ -21,7 +25,7 @@ export default {
       description: "View or update the bot configuration.",
       minLevel: PermissionLevel.ADMIN,
 
-      async handler({ config, rest }) {
+      async handler({ rest }) {
         const [, key, value] = rest.match(/^(\S+)(?:\s+(\S+))?$/i) || [];
 
         if (!key) {
@@ -30,7 +34,7 @@ export default {
         }
 
         if (!value) {
-          const configFlat = flatten<Config, {}>(config, { safe: true });
+          const configFlat = flatten<Config, {}>(getConfig(), { safe: true });
 
           if (key in configFlat) {
             return `*\`${key}\`*: \`${JSON.stringify(configFlat[key as keyof typeof configFlat])}\``;
@@ -88,4 +92,4 @@ export default {
       },
     },
   ],
-} satisfies Plugin;
+});

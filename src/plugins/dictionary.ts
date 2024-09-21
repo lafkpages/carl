@@ -2,7 +2,7 @@ import { array, nullish, object, parse, string, union } from "valibot";
 
 import { CommandError } from "../error";
 import { PermissionLevel } from "../perms";
-import { type Plugin } from "../plugins";
+import plugin from "../plugins";
 
 const schema = union([
   array(
@@ -39,7 +39,7 @@ const schema = union([
   }),
 ]);
 
-export default {
+export default plugin({
   id: "dictionary",
   name: "Dictionary",
   description:
@@ -98,4 +98,4 @@ export default {
       },
     },
   ],
-} satisfies Plugin;
+});

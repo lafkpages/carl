@@ -2,7 +2,7 @@ import { BraveSearch } from "brave-search";
 
 import { CommandError } from "../error";
 import { PermissionLevel } from "../perms";
-import { type Plugin } from "../plugins";
+import plugin from "../plugins";
 
 const apiKey = process.env.BRAVE_SEARCH_API_KEY;
 
@@ -12,7 +12,7 @@ if (!apiKey) {
 
 const braveSearch = new BraveSearch(apiKey);
 
-export default {
+export default plugin({
   id: "bravesearch",
   name: "Brave Search",
   description: "Search the web with Brave Search",
@@ -69,4 +69,4 @@ ${result.url}
       },
     },
   ],
-} satisfies Plugin;
+});

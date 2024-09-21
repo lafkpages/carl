@@ -1,6 +1,5 @@
 import type { ConsolaInstance } from "consola";
 import type { Message } from "whatsapp-web.js";
-import type { Plugin } from "../plugins";
 
 import assert from "node:assert";
 
@@ -8,6 +7,7 @@ import { MessageTypes } from "whatsapp-web.js";
 
 import { CommandError } from "../error";
 import { PermissionLevel } from "../perms";
+import plugin from "../plugins";
 
 const apiKey = process.env.ISITWATER_API_KEY;
 
@@ -56,7 +56,7 @@ async function handleMessage(
   await message.react(water ? "\u{1F30A}" : "\u26F0\uFE0F");
 }
 
-export default {
+export default plugin({
   id: "isitwater",
   name: "Is It Water?",
   description: "A plugin to check if a given location is on water or not.",
@@ -109,4 +109,4 @@ export default {
       await handleMessage(message, logger);
     }
   },
-} satisfies Plugin;
+});

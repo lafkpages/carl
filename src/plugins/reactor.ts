@@ -1,5 +1,6 @@
 import type { PermissionLevel } from "../perms";
-import type { Plugin } from "../plugins";
+
+import plugin from "../plugins";
 
 let regexes: {
   regex?: RegExp | null;
@@ -21,14 +22,14 @@ declare module "../config" {
   }
 }
 
-export default {
+export default plugin({
   id: "reactor",
   name: "Reactor",
   description: "React to messages with emojis.",
   version: "0.0.1",
 
   onLoad({ config }) {
-    const reactions = config.pluginsConfig?.reactor?.reactions;
+    const reactions = config?.reactions;
 
     if (!reactions) {
       return;
@@ -66,4 +67,4 @@ export default {
       await message.react(emoji);
     }
   },
-} satisfies Plugin;
+});

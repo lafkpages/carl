@@ -1,14 +1,13 @@
-import type { Plugin } from "../plugins";
-
 import { nullable, object, parse, string } from "valibot";
 import { MessageMedia } from "whatsapp-web.js";
 
 import { CommandError } from "../error";
 import { PermissionLevel } from "../perms";
+import plugin from "../plugins";
 
 let latex2imageEndpoint: string;
 
-export default {
+export default plugin({
   id: "latex",
   name: "LaTeX",
   description: "Plugin for rendering LaTeX equations",
@@ -95,4 +94,4 @@ export default {
 
     logger.debug("Fetched latex2image endpoint:", latex2imageEndpoint);
   },
-} satisfies Plugin;
+});

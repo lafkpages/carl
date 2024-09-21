@@ -1,5 +1,3 @@
-import type { Plugin } from "../plugins";
-
 import {
   areaUnder,
   derive,
@@ -13,8 +11,9 @@ import {
 
 import { CommandError } from "../error";
 import { PermissionLevel } from "../perms";
+import plugin from "../plugins";
 
-export default {
+export default plugin({
   id: "math",
   name: "Math",
   description: "Plugin for useful mathematical operations.",
@@ -113,4 +112,4 @@ export default {
       },
     },
   ],
-} satisfies Plugin;
+});

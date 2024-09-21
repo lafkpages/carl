@@ -1,9 +1,8 @@
-import type { Plugin } from "../plugins";
-
 import { boolean, object, parse, picklist, string } from "valibot";
 
 import { CommandError } from "../error";
 import { PermissionLevel } from "../perms";
+import plugin from "../plugins";
 
 const apiKey = process.env.VERIPHONE_API_KEY;
 
@@ -35,7 +34,7 @@ const schema = object({
   carrier: string(),
 });
 
-export default {
+export default plugin({
   id: "veriphone",
   name: "Veriphone",
   description: "Verifies and looks up phone numbers using the Veriphone API",
@@ -90,4 +89,4 @@ export default {
       },
     },
   ],
-} satisfies Plugin;
+});

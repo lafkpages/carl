@@ -2,7 +2,7 @@ import type { Database } from "bun:sqlite";
 import type { ConsolaInstance } from "consola";
 import type { OAuth2Client } from "google-auth-library";
 import type { Chat, Client, Message, Reaction } from "whatsapp-web.js";
-import type { Config } from "./config";
+import type { PluginsConfig } from "./config";
 import type { PermissionLevel } from "./perms";
 import type { RateLimit } from "./ratelimits";
 import type { generateTemporaryShortLink, server } from "./server";
@@ -12,8 +12,20 @@ import { join } from "node:path";
 
 import { consola } from "consola";
 
-export interface Plugin {
-  readonly id: string;
+type PluginExternal = Record<string, unknown>;
+
+export default function plugin<
+  TId extends string,
+  TExternal extends PluginExternal,
+>(plugin: Plugin<TId, TExternal>) {
+  return plugin;
+}
+
+export interface InternalPlugin<
+  TId extends string = string,
+  TExternal extends PluginExternal = PluginExternal,
+> {
+  readonly id: TId;
   readonly name: string;
   readonly description: string;
   readonly version: string;
@@ -29,17 +41,30 @@ export interface Plugin {
    */
   readonly database?: boolean;
 
-  readonly commands?: Command[];
-  readonly interactions?: Interactions;
+  readonly commands?: Command<this>[];
+  readonly interactions?: Interactions<this>;
+  readonly external?: TExternal;
 
-  onLoad?({}: OnLoadArgs): MaybePromise<void>;
-  onUnload?({}: OnUnloadArgs): MaybePromise<void>;
+  onLoad?({}: BaseInteractionHandlerArgs<this> & {
+    server: typeof server;
+  }): MaybePromise<void>;
+  onUnload?({}: BaseInteractionHandlerArgs<this>): MaybePromise<void>;
 
-  onMessage?({}: OnMessageArgs): MaybePromise<InteractionResult>;
-  onMessageReaction?({}: OnMessageReactionArgs): MaybePromise<InteractionResult>;
+  onMessage?({}: BaseMessageInteractionHandlerArgs<this>): MaybePromise<InteractionResult>;
+  onMessageReaction?({}: BaseMessageInteractionHandlerArgs<this> & {
+    reaction: Reaction;
+  }): MaybePromise<InteractionResult>;
+
+  _logger: ConsolaInstance;
+  _db: Database | null;
 }
 
-export interface Command extends Interaction {
+export type Plugin<
+  TId extends string = string,
+  TExternal extends PluginExternal = PluginExternal,
+> = Omit<InternalPlugin<TId, TExternal>, "_logger" | "_db">;
+
+export interface Command<TPlugin extends Plugin> extends Interaction<TPlugin> {
   name: string;
   description: string;
 
@@ -64,8 +89,8 @@ export interface Command extends Interaction {
   rateLimit?: RateLimit[];
 }
 
-export interface Interaction {
-  handler({}: BaseMessageInteractionHandlerArgs & {
+export interface Interaction<TPlugin extends Plugin> {
+  handler({}: BaseMessageInteractionHandlerArgs<TPlugin> & {
     rest: string;
 
     permissionLevel: PermissionLevel;
@@ -76,37 +101,28 @@ export interface Interaction {
   }): MaybePromise<InteractionResult>;
 }
 
-interface BaseInteractionHandlerArgs {
-  plugin: Plugin;
+interface BaseInteractionHandlerArgs<TPlugin extends Plugin> {
+  plugin: TPlugin;
   client: Client;
   logger: ConsolaInstance;
-  config: Config;
+  config: PluginsConfig[TPlugin["id"]];
 
   database: Database | null;
 
   generateTemporaryShortLink: typeof generateTemporaryShortLink;
 }
 
-export type Interactions = Record<string, Interaction>;
+export type Interactions<TPlugin extends Plugin> = Record<
+  string,
+  Interaction<TPlugin>
+>;
 
-interface BaseMessageInteractionHandlerArgs extends BaseInteractionHandlerArgs {
+interface BaseMessageInteractionHandlerArgs<TPlugin extends Plugin>
+  extends BaseInteractionHandlerArgs<TPlugin> {
   message: Message;
   chat: Chat;
   sender: string;
   permissionLevel: PermissionLevel;
-}
-
-export interface OnLoadArgs extends BaseInteractionHandlerArgs {
-  server: typeof server;
-}
-
-export interface OnUnloadArgs extends BaseInteractionHandlerArgs {}
-
-export interface OnMessageArgs extends BaseMessageInteractionHandlerArgs {}
-
-export interface OnMessageReactionArgs
-  extends BaseMessageInteractionHandlerArgs {
-  reaction: Reaction;
 }
 
 export type InteractionResult =
