@@ -17,10 +17,6 @@ export interface PluginApis {
 }
 
 export default function plugin<TId extends string>(plugin: Plugin<TId>) {
-  if (!plugin.api) {
-    // @ts-expect-error - readonly is intended for user code
-    plugin.api = {};
-  }
   return plugin;
 }
 
@@ -102,7 +98,7 @@ export interface Interaction<TPlugin extends Plugin> {
 }
 
 interface BaseInteractionHandlerArgs<TPlugin extends Plugin> {
-  plugin: TPlugin;
+  api: PluginApis[TPlugin["id"]];
   client: Client;
   logger: ConsolaInstance;
   config: PluginsConfig[TPlugin["id"]];
