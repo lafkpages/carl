@@ -118,7 +118,7 @@ async function loadPluginsFromConfig(idsToLoad?: Set<string> | null) {
   }
 }
 
-const corePlugin: Plugin = plugin({
+const corePlugin = plugin({
   id: "core",
   name: "Core",
   description: "Core commands",
