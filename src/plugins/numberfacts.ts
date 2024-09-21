@@ -1,3 +1,5 @@
+import { parseDate } from "chrono-node";
+
 import { CommandError } from "../error";
 import { PermissionLevel } from "../perms";
 import plugin from "../plugins";
@@ -87,17 +89,13 @@ export default plugin({
       ],
 
       async handler({ rest }) {
-        const [, monthArg, dayArg] =
-          rest.match(/^\s*(\d{1,2})\/(\d{1,2})$/) ?? [];
+        const date = parseDate(rest);
 
-        const month = parseInt(monthArg);
-        const day = parseInt(dayArg);
-
-        if (isNaN(month) || isNaN(day)) {
-          throw new CommandError("Invalid date");
+        if (!date) {
+          throw new CommandError("invalid date");
         }
 
-        return await apiCall([month, day], "date");
+        return await apiCall([date.getMonth() + 1, date.getDate()], "date");
       },
     },
     {
