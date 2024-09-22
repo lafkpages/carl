@@ -216,20 +216,21 @@ export default plugin({
 
         const cached = getCached(hash, database!);
 
+        let response: string;
         if (cached) {
-          return cached;
+          response = cached;
+        } else {
+          const completion = await openai.chat.completions.create({
+            messages,
+            model: config?.model || defaultModel,
+          });
+
+          logger.debug("AI response:", completion);
+
+          response = returnResponse(completion.choices[0].message.content);
+
+          setCache(hash, response, database!);
         }
-
-        const completion = await openai.chat.completions.create({
-          messages,
-          model: config?.model || defaultModel,
-        });
-
-        logger.debug("AI response:", completion);
-
-        const response = returnResponse(completion.choices[0].message.content);
-
-        setCache(hash, response, database!);
 
         messages.push({
           role: "assistant",
@@ -577,18 +578,19 @@ Brief overall summary
 
         const cached = getCached(hash, database!);
 
+        let response: string;
         if (cached) {
-          return cached;
+          response = cached;
+        } else {
+          const completion = await openai.chat.completions.create({
+            messages,
+            model: config?.model || defaultModel,
+          });
+
+          response = returnResponse(completion.choices[0].message.content);
+
+          setCache(hash, response, database!);
         }
-
-        const completion = await openai.chat.completions.create({
-          messages,
-          model: config?.model || defaultModel,
-        });
-
-        const response = returnResponse(completion.choices[0].message.content);
-
-        setCache(hash, response, database!);
 
         messages.push({
           role: "assistant",
