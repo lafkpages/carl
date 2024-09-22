@@ -14,7 +14,7 @@ import { MessageMedia, MessageTypes } from "whatsapp-web.js";
 
 import { CommandError } from "../error";
 import { PermissionLevel } from "../perms";
-import plugin from "../plugins";
+import plugin, { InteractionContinuation } from "../plugins";
 
 const openai = new OpenAI();
 
@@ -231,7 +231,12 @@ export default plugin({
 
         setCache(hash, response, database!);
 
-        return response;
+        messages.push({
+          role: "assistant",
+          content: response,
+        });
+
+        return new InteractionContinuation("ai", response, messages);
       },
     },
     {
@@ -560,6 +565,41 @@ Brief overall summary
     },
   ],
 
+  interactions: {
+    ai: {
+      async handler({ rest, data, config, database }) {
+        const messages: ChatCompletionMessageParam[] = [
+          ...data,
+          { role: "user", content: rest },
+        ];
+
+        const hash = objectHash(messages);
+
+        const cached = getCached(hash, database!);
+
+        if (cached) {
+          return cached;
+        }
+
+        const completion = await openai.chat.completions.create({
+          messages,
+          model: config?.model || defaultModel,
+        });
+
+        const response = returnResponse(completion.choices[0].message.content);
+
+        setCache(hash, response, database!);
+
+        messages.push({
+          role: "assistant",
+          content: response,
+        });
+
+        return new InteractionContinuation("ai", response, messages);
+      },
+    },
+  },
+
   api: {
     openai,
   },
@@ -583,8 +623,14 @@ Brief overall summary
 
 declare module "../plugins" {
   interface PluginApis {
-    openai?: {
+    openai: {
       openai: OpenAI;
+    };
+  }
+
+  interface PluginInteractions {
+    openai: {
+      ai: ChatCompletionMessageParam[];
     };
   }
 }

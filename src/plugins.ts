@@ -18,21 +18,23 @@ import { join } from "node:path";
 
 import { consola } from "consola";
 
+export interface PluginInteractions {
+  [pluginId: string]: {
+    [interaction: string]: unknown;
+  };
+}
+
 export interface PluginApis {
   [pluginId: string]: Record<string, unknown>;
 }
 
-export default function plugin<
-  TId extends string,
-  TInteractions extends string,
->(plugin: Plugin<TId, TInteractions>) {
+export default function plugin<PluginId extends string>(
+  plugin: Plugin<PluginId>,
+) {
   return plugin;
 }
 
-export interface InternalPlugin<
-  PluginId extends string = string,
-  PluginInteractions extends string = string,
-> {
+export interface InternalPlugin<PluginId extends string = string> {
   readonly id: PluginId;
   readonly name: string;
   readonly description: string;
@@ -49,11 +51,13 @@ export interface InternalPlugin<
    */
   readonly database?: boolean;
 
-  readonly commands?: Command<PluginId, PluginInteractions>[];
-  readonly interactions?: Record<
-    PluginInteractions,
-    Interaction<PluginId, PluginInteractions>
-  >;
+  readonly commands?: Command<PluginId>[];
+  readonly interactions?: {
+    [interaction in keyof PluginInteractions[PluginId]]: Interaction<
+      PluginInteractions[PluginId][interaction],
+      PluginId
+    >;
+  };
   readonly api?: PluginApis[PluginId];
 
   onLoad?({}: BaseInteractionHandlerArgs<PluginId> & {
@@ -63,24 +67,22 @@ export interface InternalPlugin<
 
   onMessage?({}: BaseMessageInteractionHandlerArgs<PluginId> & {
     didHandleCommand: boolean;
-  }): MaybePromise<InteractionResult<PluginInteractions>>;
+  }): MaybePromise<InteractionResult<PluginId>>;
   onMessageReaction?({}: BaseMessageInteractionHandlerArgs<PluginId> & {
     reaction: Reaction;
-  }): MaybePromise<InteractionResult<PluginInteractions>>;
+  }): MaybePromise<InteractionResult<PluginId>>;
 
   _logger: ConsolaInstance;
   _db: Database | null;
 }
 
-export type Plugin<
-  PluginId extends string = string,
-  PluginInteractions extends string = string,
-> = Omit<InternalPlugin<PluginId, PluginInteractions>, "_logger" | "_db">;
+export type Plugin<PluginId extends string = string> = Omit<
+  InternalPlugin<PluginId>,
+  "_logger" | "_db"
+>;
 
-export interface Command<
-  PluginId extends string,
-  PluginInteractions extends string,
-> extends Interaction<PluginId, PluginInteractions> {
+export interface Command<PluginId extends string>
+  extends Interaction<never, PluginId> {
   name: string;
   description: string;
 
@@ -105,21 +107,18 @@ export interface Command<
   rateLimit?: RateLimit[];
 }
 
-export interface Interaction<
-  PluginId extends string,
-  PluginInteractions extends string,
-> {
+export interface Interaction<Data, PluginId extends string> {
   handler({}: BaseMessageInteractionHandlerArgs<PluginId> & {
     rest: string;
 
     permissionLevel: PermissionLevel;
 
-    data: unknown;
+    data: Data;
 
     getGoogleClient: (scope: string | string[]) => Promise<OAuth2Client>;
   }):
-    | MaybePromise<InteractionResult<PluginInteractions>>
-    | InteractionResultGenerator<PluginInteractions>;
+    | MaybePromise<InteractionResult<PluginId>>
+    | InteractionResultGenerator<PluginId>;
 }
 
 interface BaseInteractionHandlerArgs<PluginId extends string> {
@@ -143,9 +142,9 @@ interface BaseMessageInteractionHandlerArgs<PluginId extends string>
 
 type BasicInteractionResult = string | boolean | void | MessageMedia;
 
-export type InteractionResult<PluginInteractions extends string> =
+export type InteractionResult<PluginId extends string> =
   | BasicInteractionResult
-  | InteractionContinuation<PluginInteractions>;
+  | InteractionContinuation<PluginId>;
 
 export type InteractionResultGenerator<PluginInteractions extends string> =
   | Generator<
@@ -159,12 +158,20 @@ export type InteractionResultGenerator<PluginInteractions extends string> =
       unknown
     >;
 
-export class InteractionContinuation<PluginInteractions extends string> {
+export class InteractionContinuation<
+  PluginId extends string,
+  Handler extends
+    keyof PluginInteractions[PluginId] = keyof PluginInteractions[PluginId],
+> {
   handler;
   message;
   data;
 
-  constructor(handler: PluginInteractions, message: string, data?: unknown) {
+  constructor(
+    handler: Handler,
+    message: string,
+    data: PluginInteractions[PluginId][Handler],
+  ) {
     this.handler = handler;
     this.message = message;
     this.data = data;
