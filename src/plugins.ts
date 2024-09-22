@@ -22,12 +22,18 @@ export interface PluginApis {
   [pluginId: string]: Record<string, unknown>;
 }
 
-export default function plugin<TId extends string>(plugin: Plugin<TId>) {
+export default function plugin<
+  TId extends string,
+  TInteractions extends string,
+>(plugin: Plugin<TId, TInteractions>) {
   return plugin;
 }
 
-export interface InternalPlugin<TId extends string = string> {
-  readonly id: TId;
+export interface InternalPlugin<
+  PluginId extends string = string,
+  PluginInteractions extends string = string,
+> {
+  readonly id: PluginId;
   readonly name: string;
   readonly description: string;
   readonly version: string;
@@ -43,32 +49,38 @@ export interface InternalPlugin<TId extends string = string> {
    */
   readonly database?: boolean;
 
-  readonly commands?: Command<this>[];
-  readonly interactions?: Interactions<this>;
-  readonly api?: PluginApis[TId];
+  readonly commands?: Command<PluginId, PluginInteractions>[];
+  readonly interactions?: Record<
+    PluginInteractions,
+    Interaction<PluginId, PluginInteractions>
+  >;
+  readonly api?: PluginApis[PluginId];
 
-  onLoad?({}: BaseInteractionHandlerArgs<this> & {
+  onLoad?({}: BaseInteractionHandlerArgs<PluginId> & {
     server: typeof server;
   }): MaybePromise<void>;
-  onUnload?({}: BaseInteractionHandlerArgs<this>): MaybePromise<void>;
+  onUnload?({}: BaseInteractionHandlerArgs<PluginId>): MaybePromise<void>;
 
-  onMessage?({}: BaseMessageInteractionHandlerArgs<this> & {
+  onMessage?({}: BaseMessageInteractionHandlerArgs<PluginId> & {
     didHandleCommand: boolean;
-  }): MaybePromise<InteractionResult>;
-  onMessageReaction?({}: BaseMessageInteractionHandlerArgs<this> & {
+  }): MaybePromise<InteractionResult<PluginInteractions>>;
+  onMessageReaction?({}: BaseMessageInteractionHandlerArgs<PluginId> & {
     reaction: Reaction;
-  }): MaybePromise<InteractionResult>;
+  }): MaybePromise<InteractionResult<PluginInteractions>>;
 
   _logger: ConsolaInstance;
   _db: Database | null;
 }
 
-export type Plugin<TId extends string = string> = Omit<
-  InternalPlugin<TId>,
-  "_logger" | "_db"
->;
+export type Plugin<
+  PluginId extends string = string,
+  PluginInteractions extends string = string,
+> = Omit<InternalPlugin<PluginId, PluginInteractions>, "_logger" | "_db">;
 
-export interface Command<TPlugin extends Plugin> extends Interaction<TPlugin> {
+export interface Command<
+  PluginId extends string,
+  PluginInteractions extends string,
+> extends Interaction<PluginId, PluginInteractions> {
   name: string;
   description: string;
 
@@ -93,8 +105,11 @@ export interface Command<TPlugin extends Plugin> extends Interaction<TPlugin> {
   rateLimit?: RateLimit[];
 }
 
-export interface Interaction<TPlugin extends Plugin> {
-  handler({}: BaseMessageInteractionHandlerArgs<TPlugin> & {
+export interface Interaction<
+  PluginId extends string,
+  PluginInteractions extends string,
+> {
+  handler({}: BaseMessageInteractionHandlerArgs<PluginId> & {
     rest: string;
 
     permissionLevel: PermissionLevel;
@@ -102,27 +117,24 @@ export interface Interaction<TPlugin extends Plugin> {
     data: unknown;
 
     getGoogleClient: (scope: string | string[]) => Promise<OAuth2Client>;
-  }): MaybePromise<InteractionResult> | InteractionResultGenerator;
+  }):
+    | MaybePromise<InteractionResult<PluginInteractions>>
+    | InteractionResultGenerator<PluginInteractions>;
 }
 
-interface BaseInteractionHandlerArgs<TPlugin extends Plugin> {
-  api: PluginApis[TPlugin["id"]];
+interface BaseInteractionHandlerArgs<PluginId extends string> {
+  api: PluginApis[PluginId];
   client: Client;
   logger: ConsolaInstance;
-  config: PluginsConfig[TPlugin["id"]];
+  config: PluginsConfig[PluginId];
 
   database: Database | null;
 
   generateTemporaryShortLink: typeof generateTemporaryShortLink;
 }
 
-export type Interactions<TPlugin extends Plugin> = Record<
-  string,
-  Interaction<TPlugin>
->;
-
-interface BaseMessageInteractionHandlerArgs<TPlugin extends Plugin>
-  extends BaseInteractionHandlerArgs<TPlugin> {
+interface BaseMessageInteractionHandlerArgs<PluginId extends string>
+  extends BaseInteractionHandlerArgs<PluginId> {
   message: Message;
   chat: Chat;
   sender: string;
@@ -131,20 +143,28 @@ interface BaseMessageInteractionHandlerArgs<TPlugin extends Plugin>
 
 type BasicInteractionResult = string | boolean | void | MessageMedia;
 
-export type InteractionResult =
+export type InteractionResult<PluginInteractions extends string> =
   | BasicInteractionResult
-  | InteractionContinuation;
+  | InteractionContinuation<PluginInteractions>;
 
-export type InteractionResultGenerator =
-  | Generator<BasicInteractionResult, InteractionResult, unknown>
-  | AsyncGenerator<BasicInteractionResult, InteractionResult, unknown>;
+export type InteractionResultGenerator<PluginInteractions extends string> =
+  | Generator<
+      BasicInteractionResult,
+      InteractionResult<PluginInteractions>,
+      unknown
+    >
+  | AsyncGenerator<
+      BasicInteractionResult,
+      InteractionResult<PluginInteractions>,
+      unknown
+    >;
 
-export class InteractionContinuation {
+export class InteractionContinuation<PluginInteractions extends string> {
   handler;
   message;
   data;
 
-  constructor(handler: string, message: string, data?: unknown) {
+  constructor(handler: PluginInteractions, message: string, data?: unknown) {
     this.handler = handler;
     this.message = message;
     this.data = data;
