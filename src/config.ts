@@ -113,7 +113,7 @@ export async function getRawConfig() {
   return await configFile.text();
 }
 
-export function getConfig() {
+export function getConfig(): Config {
   return config;
 }
 
