@@ -4,7 +4,7 @@ import type { Plugin } from "./plugins";
 import { getConfig } from "./config";
 
 export function generateHelp(
-  plugins: Plugin[],
+  plugins: Iterable<Plugin>,
   permissionLevel: PermissionLevel,
   showHidden = false,
 ) {
