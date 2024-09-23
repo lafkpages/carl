@@ -29,12 +29,12 @@ export interface PluginApis {
 }
 
 export default function plugin<PluginId extends string>(
-  plugin: Plugin<PluginId>,
+  plugin: PluginDefinition<PluginId>,
 ) {
   return plugin;
 }
 
-export interface InternalPlugin<PluginId extends string = string> {
+export interface PluginDefinition<PluginId extends string = string> {
   readonly id: PluginId;
   readonly name: string;
   readonly description: string;
@@ -67,19 +67,17 @@ export interface InternalPlugin<PluginId extends string = string> {
 
   onMessage?({}: BaseMessageInteractionHandlerArgs<PluginId> & {
     didHandleCommand: boolean;
-  }): MaybePromise<InteractionResult<PluginId>>;
+  }): MaybePromise<InteractionResult>;
   onMessageReaction?({}: BaseMessageInteractionHandlerArgs<PluginId> & {
     reaction: Reaction;
-  }): MaybePromise<InteractionResult<PluginId>>;
+  }): MaybePromise<InteractionResult>;
+}
 
+export interface Plugin<PluginId extends string = string>
+  extends PluginDefinition<PluginId> {
   _logger: ConsolaInstance;
   _db: Database | null;
 }
-
-export type Plugin<PluginId extends string = string> = Omit<
-  InternalPlugin<PluginId>,
-  "_logger" | "_db"
->;
 
 export interface Command<PluginId extends string>
   extends Interaction<never, PluginId> {
@@ -116,13 +114,13 @@ export interface Interaction<Data, PluginId extends string> {
     data: Data;
 
     getGoogleClient: (scope: string | string[]) => Promise<OAuth2Client>;
-  }):
-    | MaybePromise<InteractionResult<PluginId>>
-    | InteractionResultGenerator<PluginId>;
+  }): MaybePromise<InteractionResult> | InteractionResultGenerator;
 }
 
 interface BaseInteractionHandlerArgs<PluginId extends string> {
   api: PluginApis[PluginId];
+  pluginApis: Partial<PluginApis>;
+
   client: Client;
   logger: ConsolaInstance;
   config: PluginsConfig[PluginId];
@@ -142,35 +140,23 @@ interface BaseMessageInteractionHandlerArgs<PluginId extends string>
 
 type BasicInteractionResult = string | boolean | void | MessageMedia;
 
-export type InteractionResult<PluginId extends string> =
+export type InteractionResult =
   | BasicInteractionResult
-  | InteractionContinuation<PluginId>;
+  | InteractionContinuation;
 
-export type InteractionResultGenerator<PluginInteractions extends string> =
-  | Generator<
-      BasicInteractionResult,
-      InteractionResult<PluginInteractions>,
-      unknown
-    >
-  | AsyncGenerator<
-      BasicInteractionResult,
-      InteractionResult<PluginInteractions>,
-      unknown
-    >;
+export type InteractionResultGenerator =
+  | Generator<BasicInteractionResult, InteractionResult, unknown>
+  | AsyncGenerator<BasicInteractionResult, InteractionResult, unknown>;
 
-export class InteractionContinuation<
-  PluginId extends string,
-  Handler extends
-    keyof PluginInteractions[PluginId] = keyof PluginInteractions[PluginId],
-> {
+export class InteractionContinuation<PluginId extends string = string> {
   handler;
   message;
   data;
 
   constructor(
-    handler: Handler,
+    handler: keyof PluginInteractions[PluginId],
     message: string,
-    data: PluginInteractions[PluginId][Handler],
+    data: PluginInteractions[PluginId][keyof PluginInteractions[PluginId]],
   ) {
     this.handler = handler;
     this.message = message;
