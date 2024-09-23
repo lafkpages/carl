@@ -24,7 +24,7 @@ function initSentry(config: Config) {
 let sentry = initSentry(initialConfig);
 
 configEvents.on("update", async (newConfig, modifiedProperties) => {
-  if (!modifiedProperties.includes("sentry")) {
+  if (!modifiedProperties?.includes("sentry")) {
     return;
   }
 
