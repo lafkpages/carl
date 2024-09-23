@@ -35,3 +35,7 @@ export async function sendMessageToAdmins(
 
   return await sendMessageToUsers(client, whitelist.admin, ...args);
 }
+
+export function getMessageSender(message: Message) {
+  return message.author || message.from;
+}

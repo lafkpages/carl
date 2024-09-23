@@ -2,6 +2,9 @@ import type { InferOutput } from "valibot";
 
 import { number, object } from "valibot";
 
+import { getConfig } from "./config";
+import { PermissionLevel } from "./perms";
+
 export interface RateLimitEvent {
   timestamp: number;
   points: number;
@@ -84,4 +87,16 @@ export function checkRateLimit(
   }
 
   return false;
+}
+
+export function getPermissionLevelRateLimits(
+  permissionLevel: PermissionLevel,
+): RateLimit[] {
+  const config = getConfig();
+
+  return permissionLevel === PermissionLevel.ADMIN
+    ? config.ratelimit.admin
+    : permissionLevel === PermissionLevel.TRUSTED
+      ? config.ratelimit.trusted
+      : config.ratelimit.default;
 }

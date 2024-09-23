@@ -113,8 +113,12 @@ export interface Interaction<Data, PluginId extends string> {
 
     data: Data;
 
-    getGoogleClient: (scope: string | string[]) => Promise<OAuth2Client>;
+    getGoogleClient: GetGoogleClient;
   }): MaybePromise<InteractionResult> | InteractionResultGenerator;
+}
+
+export interface GetGoogleClient {
+  (scope: string | string[]): Promise<OAuth2Client>;
 }
 
 interface BaseInteractionHandlerArgs<PluginId extends string> {

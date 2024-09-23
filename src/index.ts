@@ -2,6 +2,7 @@ import type { ConsolaInstance } from "consola";
 import type { Chat, Message, MessageId } from "whatsapp-web.js";
 import type {
   Command,
+  GetGoogleClient,
   Interaction,
   InteractionResult,
   InteractionResultGenerator,
@@ -12,7 +13,7 @@ import type {
 
 import "./sentry";
 
-import type { RateLimit } from "./ratelimits";
+import type { RateLimit, RateLimitEvent } from "./ratelimits";
 
 import { captureException } from "@sentry/bun";
 import { Database } from "bun:sqlite";
@@ -26,9 +27,17 @@ import { getClient } from "./google";
 import { generateHelp, generateHelpPage } from "./help";
 import { getPermissionLevel, PermissionLevel } from "./perms";
 import plugin, { InteractionContinuation, scanPlugins } from "./plugins";
-import { checkRateLimit, rateLimit } from "./ratelimits";
+import {
+  checkRateLimit,
+  getPermissionLevelRateLimits,
+  rateLimit,
+} from "./ratelimits";
 import { generateTemporaryShortLink, server } from "./server";
-import { isInGithubCodespace, sendMessageToAdmins } from "./utils";
+import {
+  getMessageSender,
+  isInGithubCodespace,
+  sendMessageToAdmins,
+} from "./utils";
 
 const { Client } =
   require("whatsapp-web.js") as typeof import("whatsapp-web.js");
@@ -464,28 +473,12 @@ client.on("qr", (qr) => {
   // TODO: qrcode-terminal not working
 });
 
-const messagesById = new Map<string, Message>();
-
 async function getMessageById(id: string | MessageId) {
   if (typeof id !== "string") {
     id = id._serialized;
   }
 
-  const cachedMessage = messagesById.get(id);
-  if (cachedMessage) {
-    return cachedMessage;
-  }
-
-  const messageById = await client.getMessageById(id).catch(() => null);
-  if (messageById) {
-    if (!messagesById.has(id)) {
-      messagesById.set(id, messageById);
-    }
-
-    return messageById;
-  }
-
-  return null;
+  return await client.getMessageById(id).catch(() => null);
 }
 
 const clientReadyPromise = Promise.withResolvers<void>();
@@ -541,8 +534,6 @@ const interactionContinuations = new Map<
 >();
 
 client.on("message", async (message) => {
-  messagesById.set(message.id._serialized, message);
-
   if (!message.body) {
     return;
   }
@@ -552,22 +543,14 @@ client.on("message", async (message) => {
     return;
   }
 
-  const sender = message.author || message.from;
+  const sender = getMessageSender(message);
   const chat = await message.getChat();
 
   const config = getConfig();
 
-  const permissionLevel = Math.max(
-    getPermissionLevel(sender),
-    getPermissionLevel(chat.id._serialized),
-  );
+  const permissionLevel = getPermissionLevel(sender, chat.id);
 
-  const userRateLimits: RateLimit[] =
-    permissionLevel === PermissionLevel.ADMIN
-      ? config.ratelimit.admin
-      : permissionLevel === PermissionLevel.TRUSTED
-        ? config.ratelimit.trusted
-        : config.ratelimit.default;
+  const userRateLimits = getPermissionLevelRateLimits(permissionLevel);
 
   consola.debug("Message received:", {
     message,
@@ -649,60 +632,20 @@ client.on("message", async (message) => {
       await handleError(err, message, quotedMsg);
     }
   } else if (command) {
-    consola.info("Command received:", { command, rest });
+    consola.info("Command received:", { command, rest, sender });
 
     const cmd = resolveCommand(command, sender);
 
     if (cmd) {
-      await chat.sendSeen();
-
-      const commandRateLimits = cmd.rateLimit
-        ? [...userRateLimits, ...cmd.rateLimit]
-        : userRateLimits;
-
-      if (checkRateLimit(sender, commandRateLimits, cmd.plugin.id, cmd.name)) {
-        await message.react("\u23F3");
-      } else {
-        rateLimitEvent.plugin = cmd.plugin.id;
-        rateLimitEvent.command = cmd.name;
-
-        chat.sendStateTyping();
-
-        if (permissionLevel >= cmd.minLevel) {
-          try {
-            const result = await cmd.handler({
-              message,
-              rest,
-              sender,
-              chat,
-
-              permissionLevel,
-
-              api: cmd.plugin.api || {},
-              pluginApis,
-              client,
-              logger: cmd._logger,
-              config: config.pluginsConfig[cmd.plugin.id],
-
-              database: cmd.plugin._db,
-
-              data: null as never,
-
-              generateTemporaryShortLink,
-              getGoogleClient,
-            });
-
-            await handleInteractionResult(result, message, cmd.plugin);
-          } catch (err) {
-            await handleError(err, message, null, cmd);
-          }
-        } else {
-          await handleError(
-            new CommandPermissionError(command, cmd.minLevel),
-            message,
-          );
-        }
-      }
+      await execute(
+        cmd,
+        rest,
+        message,
+        chat,
+        rateLimitEvent,
+        userRateLimits,
+        getGoogleClient,
+      );
     } else {
       await handleError(
         new CommandError(`unknown command: \`${command}\``),
@@ -829,6 +772,71 @@ client.on("message_reaction", async (reaction) => {
     }
   }
 });
+
+async function execute(
+  command: InternalCommand<string>,
+  rest: string,
+  message: Message,
+  chat: Chat,
+  rateLimitEvent: RateLimitEvent,
+  userRateLimits: RateLimit[],
+  getGoogleClient: GetGoogleClient,
+) {
+  const sender = getMessageSender(message);
+  const permissionLevel = getPermissionLevel(sender, chat.id);
+
+  await chat.sendSeen();
+
+  const commandRateLimits = command.rateLimit
+    ? [...userRateLimits, ...command.rateLimit]
+    : userRateLimits;
+
+  if (
+    checkRateLimit(sender, commandRateLimits, command.plugin.id, command.name)
+  ) {
+    await message.react("\u23F3");
+  } else {
+    rateLimitEvent.plugin = command.plugin.id;
+    rateLimitEvent.command = command.name;
+
+    chat.sendStateTyping();
+
+    if (permissionLevel >= command.minLevel) {
+      try {
+        const result = await command.handler({
+          message,
+          rest,
+          sender,
+          chat,
+
+          permissionLevel,
+
+          api: command.plugin.api || {},
+          pluginApis,
+          client,
+          logger: command._logger,
+          config: getConfig().pluginsConfig[command.plugin.id],
+
+          database: command.plugin._db,
+
+          data: null as never,
+
+          generateTemporaryShortLink,
+          getGoogleClient,
+        });
+
+        await handleInteractionResult(result, message, command.plugin);
+      } catch (err) {
+        await handleError(err, message, null, command);
+      }
+    } else {
+      await handleError(
+        new CommandPermissionError(command.name, command.minLevel),
+        message,
+      );
+    }
+  }
+}
 
 function resolveCommand(command: string, user?: string) {
   const cmd = commands.get(command);
