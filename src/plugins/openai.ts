@@ -18,19 +18,6 @@ import plugin, { InteractionContinuation } from "../plugins";
 
 const openai = new OpenAI();
 
-declare module "../config" {
-  interface PluginsConfig {
-    openai?: {
-      model?: ChatModel;
-
-      /**
-       * Maximum length of a conversation to summarise.
-       */
-      maxConversationLength?: number;
-    };
-  }
-}
-
 const defaultModel: ChatModel = "gpt-4o-mini";
 const defaultMaxConversationLength = 500;
 
@@ -202,9 +189,6 @@ export default plugin({
       ],
 
       async handler({ rest, logger, config, database }) {
-        // todo: handle thread of replies as chat history
-        // for future self: this is really hard, good luck
-
         const messages: ChatCompletionMessageParam[] = [
           {
             role: "user",
@@ -622,6 +606,19 @@ Brief overall summary
     `);
   },
 });
+
+declare module "../config" {
+  interface PluginsConfig {
+    openai?: {
+      model?: ChatModel;
+
+      /**
+       * Maximum length of a conversation to summarise.
+       */
+      maxConversationLength?: number;
+    };
+  }
+}
 
 declare module "../plugins" {
   interface PluginApis {
