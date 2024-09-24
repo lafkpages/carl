@@ -4,8 +4,10 @@ import type { Plugin } from "./$types";
 
 import { stat } from "node:fs/promises";
 
+import { Database } from "bun:sqlite";
 import filesize from "file-size";
 import { google } from "googleapis";
+import JSZip from "jszip";
 import Mime from "mime";
 import { MessageMedia } from "whatsapp-web.js";
 
@@ -15,6 +17,7 @@ import { PermissionLevel } from "../../perms";
 import { InteractionContinuation } from "../../plugins";
 import { pingCheck } from "../../server";
 import { isInDevelopment } from "../../utils";
+import { dbsGlob } from "./dbs";
 
 declare module "../../config" {
   interface PluginsConfig {
@@ -529,23 +532,47 @@ Stderr:
       description: "List all plugin databases",
       minLevel: PermissionLevel.ADMIN,
 
-      async handler() {
-        let msg = "Databases:";
+      async handler({ rest }) {
+        switch (rest) {
+          case "export": {
+            const zip = new JSZip();
 
-        for await (const databasePath of new Bun.Glob(
-          "db/**/*.sqlite",
-        ).scan()) {
-          const stats = await stat(databasePath);
-          const size = filesize(stats.size).human();
+            for await (const dbPath of dbsGlob.scan()) {
+              const db = new Database(dbPath, { readonly: true });
 
-          msg += `\n* \`${databasePath}\`: ${size}`;
+              zip.file(dbPath, db.serialize());
+
+              db.close();
+            }
+
+            return new MessageMedia(
+              "application/zip",
+              await zip.generateAsync({ type: "base64" }),
+            );
+          }
+
+          case "list":
+          case "": {
+            let msg = "Databases:";
+
+            for await (const dbPath of dbsGlob.scan()) {
+              const stats = await stat(dbPath);
+              const size = filesize(stats.size).human();
+
+              msg += `\n* \`${dbPath}\`: ${size}`;
+            }
+
+            if (msg.length <= 10) {
+              throw new CommandError("no databases found");
+            }
+
+            return msg;
+          }
+
+          default: {
+            throw new CommandError("invalid argument");
+          }
         }
-
-        if (msg.length <= 10) {
-          throw new CommandError("no databases found");
-        }
-
-        return msg;
       },
     },
     {
