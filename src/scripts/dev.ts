@@ -23,11 +23,16 @@ async function generatePluginTypes(pluginId: string, path: string) {
   const pluginIdString =
     pluginId === "TEMPLATE" ? '""' : JSON.stringify(pluginId);
 
+  const pluginsPath = `"../../${relative(path, join(process.cwd(), "src/plugins.ts"))}"`;
+
   await Bun.write(
     join("./src/plugins/.types", relative(process.cwd(), path)).slice(0, -9) +
       "$types.ts",
     `\
-import type { PluginDefinition } from "../../${relative(path, join(process.cwd(), "src/plugins.ts"))}";
+import type { PluginDefinition } from ${pluginsPath};
+import type _plugin from "./plugin";
+
+type plugin = typeof _plugin;
 
 export type Plugin = PluginDefinition<${pluginIdString}>;
 `,
