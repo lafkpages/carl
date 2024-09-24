@@ -1,4 +1,7 @@
 {
   "editor.formatOnSave": true,
-  "editor.formatOnType": true
+  "editor.formatOnType": true,
+  "files.exclude": {
+    "src/plugins/.types": true
+  }
 }
