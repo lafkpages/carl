@@ -3,7 +3,7 @@
   "module": "src/index.ts",
   "devDependencies": {
     "@ianvs/prettier-plugin-sort-imports": "^4.3.1",
-    "@types/bun": "^1.1.9",
+    "@types/bun": "^1.1.10",
     "@types/file-size": "^1.0.3",
     "@types/object-hash": "^3.0.6",
     "@types/qrcode-terminal": "^0.12.2",
@@ -21,7 +21,7 @@
     "chrono-node": "^2.7.7",
     "consola": "^3.2.3",
     "defu": "^6.1.4",
-    "elysia": "^1.1.13",
+    "elysia": "^1.1.16",
     "file-size": "^1.0.0",
     "flat": "^6.0.1",
     "google-translate-api-x": "^10.7.1",
@@ -30,11 +30,11 @@
     "mime": "^4.0.4",
     "nanoid": "^5.0.7",
     "object-hash": "^3.0.0",
-    "openai": "^4.62.1",
+    "openai": "^4.63.0",
     "paseto-ts": "^1.5.7",
     "qrcode-terminal": "^0.12.0",
     "random-word": "^3.0.0",
-    "valibot": "^0.42.0",
+    "valibot": "^0.42.1",
     "whatsapp-web.js": "^1.26.0"
   },
   "scripts": {
@@ -43,6 +43,6 @@
     "gen-config-schema": "ts-json-schema-generator -f tsconfig.json -p src/config.ts -t Config -o dist/config.schema.json"
   },
   "optionalDependencies": {
-    "@sentry/bun": "^8.30.0"
+    "@sentry/bun": "^8.31.0"
   }
 }
