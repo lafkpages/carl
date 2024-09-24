@@ -63,7 +63,7 @@ export interface PluginDefinition<PluginId extends string = string> {
   onUnload?({}: BaseInteractionHandlerArgs<PluginId>): MaybePromise<void>;
 
   onMessage?({}: BaseMessageInteractionHandlerArgs<PluginId> & {
-    didHandleCommand: boolean;
+    didHandle: boolean;
   }): MaybePromise<InteractionResult>;
   onMessageReaction?({}: BaseMessageInteractionHandlerArgs<PluginId> & {
     reaction: Reaction;

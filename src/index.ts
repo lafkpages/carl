@@ -15,9 +15,8 @@ import "./sentry";
 
 import type { RateLimit, RateLimitEvent } from "./ratelimits";
 
-import { Database } from "bun:sqlite";
-
 import { captureException } from "@sentry/bun";
+import { Database } from "bun:sqlite";
 import { consola } from "consola";
 import { generate } from "qrcode-terminal";
 import { LocalAuth, MessageMedia } from "whatsapp-web.js";
@@ -585,7 +584,7 @@ client.on("message", async (message) => {
     }))!;
   }
 
-  let didHandleCommand = false;
+  let didHandle = false;
 
   const quotedMsg = message.hasQuotedMsg
     ? await message.getQuotedMessage()
@@ -632,6 +631,8 @@ client.on("message", async (message) => {
     } catch (err) {
       await handleError(err, message, quotedMsg);
     }
+
+    didHandle = true;
   } else if (command) {
     consola.info("Command received:", { command, rest, sender });
 
@@ -654,7 +655,7 @@ client.on("message", async (message) => {
       );
     }
 
-    didHandleCommand = true;
+    didHandle = true;
   }
 
   for (const plugin of Object.values(plugins)) {
@@ -690,7 +691,7 @@ client.on("message", async (message) => {
           sender,
           permissionLevel,
 
-          didHandleCommand,
+          didHandle,
 
           generateTemporaryShortLink,
         });

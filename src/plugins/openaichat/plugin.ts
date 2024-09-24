@@ -8,15 +8,8 @@ export default {
   description: "Chat with the bot instead of using commands.",
   version: "0.0.1",
 
-  async onMessage({
-    message,
-    sender,
-    didHandleCommand,
-    chat,
-    config,
-    pluginApis,
-  }) {
-    if (didHandleCommand) {
+  async onMessage({ message, sender, didHandle, chat, config, pluginApis }) {
+    if (didHandle) {
       return;
     }
 
