@@ -146,10 +146,6 @@ CREATE TABLE IF NOT EXISTS "translate" (
   },
 } satisfies Plugin;
 
-declare module "../../config" {
-  interface PluginsConfig {
-    translate?: {
-      defaultLanguage?: keyof typeof languages;
-    };
-  }
+export interface PluginConfig {
+  defaultLanguage?: keyof typeof languages;
 }

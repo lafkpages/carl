@@ -23,7 +23,9 @@ async function generatePluginTypes(pluginId: string, path: string) {
   const pluginIdString =
     pluginId === "TEMPLATE" ? '""' : JSON.stringify(pluginId);
 
-  const pluginsPath = `"../../${relative(path, join(process.cwd(), "src/plugins.ts"))}"`;
+  const srcDir = join("../..", relative(path, join(process.cwd(), "src")));
+  const pluginsPath = JSON.stringify(join(srcDir, "plugins.ts"));
+  const configPath = JSON.stringify(join(srcDir, "config.ts"));
 
   await Bun.write(
     join("./src/plugins/.types", relative(process.cwd(), path)).slice(0, -9) +
@@ -31,10 +33,23 @@ async function generatePluginTypes(pluginId: string, path: string) {
     `\
 import type { PluginDefinition } from ${pluginsPath};
 import type _plugin from "./plugin";
+import type { PluginConfig } from "./plugin";
+
+export type Plugin = PluginDefinition<${pluginIdString}>;
 
 type plugin = typeof _plugin;
 
-export type Plugin = PluginDefinition<${pluginIdString}>;
+declare module ${pluginsPath} {
+  interface Plugins {
+    ${pluginIdString}: plugin;
+  }
+}
+
+declare module ${configPath} {
+  interface PluginsConfig {
+    ${pluginIdString}?: PluginConfig;
+  }
+}
 `,
   );
 }

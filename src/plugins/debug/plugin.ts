@@ -19,12 +19,8 @@ import { pingCheck } from "../../server";
 import { isInDevelopment } from "../../utils";
 import { dbsGlob } from "./dbs";
 
-declare module "../../config" {
-  interface PluginsConfig {
-    debug?: {
-      evalShellTrimOutput?: boolean;
-    };
-  }
+export interface PluginConfig {
+  evalShellTrimOutput?: boolean;
 }
 
 export default {

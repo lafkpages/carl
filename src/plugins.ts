@@ -15,14 +15,14 @@ import type { generateTemporaryShortLink, server } from "./server";
 
 import { consola } from "consola";
 
+export interface Plugins {
+  [pluginId: string]: PluginDefinition;
+}
+
 export interface PluginInteractions {
   [pluginId: string]: {
     [interaction: string]: unknown;
   };
-}
-
-export interface PluginApis {
-  [pluginId: string]: Record<string, unknown>;
 }
 
 export default function plugin<PluginId extends string>(
@@ -55,7 +55,7 @@ export interface PluginDefinition<PluginId extends string = string> {
       PluginId
     >;
   };
-  readonly api?: PluginApis[PluginId];
+  readonly api?: Record<string, unknown>;
 
   onLoad?({}: BaseInteractionHandlerArgs<PluginId> & {
     server: typeof server;
@@ -119,7 +119,7 @@ export interface GetGoogleClient {
 }
 
 interface BaseInteractionHandlerArgs<PluginId extends string> {
-  api: PluginApis[PluginId];
+  api: Plugins[PluginId]["api"];
   pluginApis: Partial<PluginApis>;
 
   client: Client;

@@ -38,10 +38,6 @@ export default {
   },
 } satisfies Plugin;
 
-declare module "../../config" {
-  interface PluginsConfig {
-    openaichat?: {
-      regex?: string | [string, string];
-    };
-  }
+export interface PluginConfig {
+  regex?: string | [string, string];
 }

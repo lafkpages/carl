@@ -8,17 +8,13 @@ let regexes: {
   emoji: string;
 }[] = [];
 
-declare module "../../config" {
-  interface PluginsConfig {
-    reactor?: {
-      reactions: {
-        regex?: string | [string, string];
-        senders?: string[];
-        minLevel?: PermissionLevel;
-        emoji: string;
-      }[];
-    };
-  }
+export interface PluginConfig {
+  reactions: {
+    regex?: string | [string, string];
+    senders?: string[];
+    minLevel?: PermissionLevel;
+    emoji: string;
+  };
 }
 
 export default {

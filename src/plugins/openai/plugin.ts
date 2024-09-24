@@ -589,6 +589,7 @@ Brief overall summary
 
   api: {
     openai,
+    defaultModel,
   },
 
   onLoad({ database }) {
@@ -608,26 +609,16 @@ Brief overall summary
   },
 } satisfies Plugin;
 
-declare module "../../config" {
-  interface PluginsConfig {
-    openai?: {
-      model?: ChatModel;
+export interface PluginConfig {
+  model?: ChatModel;
 
-      /**
-       * Maximum length of a conversation to summarise.
-       */
-      maxConversationLength?: number;
-    };
-  }
+  /**
+   * Maximum length of a conversation to summarise.
+   */
+  maxConversationLength?: number;
 }
 
 declare module "../../plugins" {
-  interface PluginApis {
-    openai: {
-      openai: OpenAI;
-    };
-  }
-
   interface PluginInteractions {
     openai: {
       ai: ChatCompletionMessageParam[];
