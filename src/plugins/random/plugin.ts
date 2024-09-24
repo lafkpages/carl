@@ -5,6 +5,7 @@ import { randomUUID } from "node:crypto";
 import { CommandError } from "../../error";
 import geekJokes from "../../geek-jokes/data.json";
 import { PermissionLevel } from "../../perms";
+import { mimeTypes } from "./mime";
 
 // Remove Chuck Norris jokes because they're overdone
 // and not very funny anymore
@@ -153,6 +154,12 @@ export default {
             return joke;
           }
 
+          case "mime":
+          case "mimetype":
+          case "mime-type": {
+            return `\`${mimeTypes[Math.floor(Math.random() * mimeTypes.length)]}\``;
+          }
+
           default:
             throw new CommandError(`\
 Invalid arguments. Please either provide two numbers, or a data type. For example:
@@ -167,7 +174,8 @@ Valid data types:
 * \`coinflip\`
 * \`git-commit\`
 * \`metaphor\`
-* \`geek-joke\`\
+* \`geek-joke\`
+* \"mime-type\`"
 `);
         }
       },
