@@ -172,11 +172,18 @@ export default {
         throw new Error("reminder.id is not set");
       }
 
-      const message = await client.sendMessage(
-        reminder.channel || reminder.user,
-        reminder.message,
-        { linkPreview: false },
-      );
+      const message =
+        reminder.channel && reminder.channel !== reminder.user
+          ? await client.sendMessage(
+              reminder.channel,
+              `Reminder for @${reminder.user.slice(0, -5)}: ${reminder.message}`,
+              { linkPreview: false, mentions: [reminder.user] },
+            )
+          : await client.sendMessage(
+              reminder.channel || reminder.user,
+              `Reminder: ${reminder.message}`,
+              { linkPreview: false },
+            );
 
       database.run<[number]>("DELETE FROM reminders WHERE id = ?", [
         reminder.id,
