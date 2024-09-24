@@ -1,4 +1,5 @@
-import type { Config } from "../config";
+import type { Config } from "../../config";
+import type { Plugin } from "./$types";
 
 import { flatten, unflatten } from "flat";
 import { isValiError } from "valibot";
@@ -8,12 +9,11 @@ import {
   getRawConfig,
   updateConfig,
   updateConfigRaw,
-} from "../config";
-import { CommandError } from "../error";
-import { PermissionLevel } from "../perms";
-import plugin from "../plugins";
+} from "../../config";
+import { CommandError } from "../../error";
+import { PermissionLevel } from "../../perms";
 
-export default plugin({
+export default {
   id: "config",
   name: "Config",
   description: "Bot configuration commands.",
@@ -92,4 +92,4 @@ export default plugin({
       },
     },
   ],
-});
+} satisfies Plugin;

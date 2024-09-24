@@ -38,6 +38,7 @@
     "whatsapp-web.js": "^1.26.0"
   },
   "scripts": {
+    "dev": "bun run ./src/scripts/dev.ts --watch",
     "format": "prettier --write .",
     "gen-config-schema": "ts-json-schema-generator -f tsconfig.json -p src/config.ts -t Config -o dist/config.schema.json"
   },

@@ -1,9 +1,10 @@
+import type { Plugin } from "./$types";
+
 import { randomUUID } from "node:crypto";
 
-import { CommandError } from "../error";
-import geekJokes from "../geek-jokes/data.json";
-import { PermissionLevel } from "../perms";
-import plugin from "../plugins";
+import { CommandError } from "../../error";
+import geekJokes from "../../geek-jokes/data.json";
+import { PermissionLevel } from "../../perms";
 
 // Remove Chuck Norris jokes because they're overdone
 // and not very funny anymore
@@ -18,7 +19,7 @@ const geekJokesFiltered = geekJokes.filter(
   (joke) => !/chuck\s*norris/i.test(joke),
 );
 
-export default plugin({
+export default {
   id: "random",
   name: "Random",
   description: "Utilities for generating random data",
@@ -30,7 +31,7 @@ export default plugin({
       description: "Generates random data",
       minLevel: PermissionLevel.NONE,
 
-      async handler({ message, client, rest }) {
+      async handler({ message, rest }) {
         const [, min, max] = rest.match(/^(\d+) (\d+)$/) || [];
 
         if (min && max) {
@@ -172,4 +173,4 @@ Valid data types:
       },
     },
   ],
-});
+} satisfies Plugin;

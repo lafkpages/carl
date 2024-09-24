@@ -13,9 +13,6 @@ import type { PermissionLevel } from "./perms";
 import type { RateLimit } from "./ratelimits";
 import type { generateTemporaryShortLink, server } from "./server";
 
-import { readdir } from "node:fs/promises";
-import { join } from "node:path";
-
 import { consola } from "consola";
 
 export interface PluginInteractions {
@@ -160,7 +157,7 @@ export class InteractionContinuation<PluginId extends string = string> {
   constructor(
     handler: keyof PluginInteractions[PluginId],
     message: string,
-    data: PluginInteractions[PluginId][keyof PluginInteractions[PluginId]],
+    data?: PluginInteractions[PluginId][keyof PluginInteractions[PluginId]],
   ) {
     this.handler = handler;
     this.message = message;
@@ -170,23 +167,27 @@ export class InteractionContinuation<PluginId extends string = string> {
 
 type MaybePromise<T> = T | Promise<T>;
 
-const pluginsDir = join(__dirname, "plugins");
+const pluginsGlob = new Bun.Glob("./src/plugins/**/plugin.ts");
+
+export function getPluginIdFromPath(path: string) {
+  return path.match(/(?:\/|^)(\w+)\/plugin\.ts$/)?.[1] || null;
+}
 
 export async function scanPlugins() {
   const plugins = new Map<string, string>();
 
-  for (const entry of await readdir(pluginsDir, {
-    recursive: true,
-    withFileTypes: true,
+  for await (const entry of pluginsGlob.scan({
+    absolute: true,
   })) {
-    if (!entry.isFile()) {
+    if (entry.includes(".types/")) {
+      consola.debug(`Ignoring type declaration file in plugins scan: ${entry}`);
       continue;
     }
 
-    const [, pluginId] = entry.name.match(/^(\w+)\.m?[jt]s$/) ?? [];
+    const pluginId = getPluginIdFromPath(entry);
 
     if (!pluginId) {
-      consola.debug(`Ignoring non-plugin file in plugins scan: ${entry.name}`);
+      consola.debug(`Ignoring non-plugin file in plugins scan: ${entry}`);
       continue;
     }
 
@@ -194,7 +195,7 @@ export async function scanPlugins() {
       throw new Error(`Duplicate plugin found: ${pluginId}`);
     }
 
-    plugins.set(pluginId, join(pluginsDir, entry.name));
+    plugins.set(pluginId, entry);
   }
 
   return plugins;

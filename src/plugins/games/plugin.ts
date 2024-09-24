@@ -1,11 +1,13 @@
+import type { Plugin } from "./$types";
+
 import Hangman from "hangman-game-engine";
 import randomWord from "random-word";
 
-import { CommandError } from "../error";
-import { PermissionLevel } from "../perms";
-import plugin, { InteractionContinuation } from "../plugins";
+import { CommandError } from "../../error";
+import { PermissionLevel } from "../../perms";
+import { InteractionContinuation } from "../../plugins";
 
-export default plugin({
+export default {
   id: "games",
   name: "Games",
   description: "A collection of fun games to play with friends",
@@ -62,4 +64,4 @@ Failed guesses: ${game.failedGuesses}/${game.totalGuesses}
       },
     },
   },
-});
+} satisfies Plugin;

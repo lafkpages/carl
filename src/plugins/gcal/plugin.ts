@@ -1,23 +1,19 @@
-import type { Interaction } from "../plugins";
+import type { GetGoogleClient } from "../../plugins";
+import type { Plugin } from "./$types";
 
 import { google } from "googleapis";
 
-import { CommandError } from "../error";
-import { PermissionLevel } from "../perms";
-import plugin from "../plugins";
+import { CommandError } from "../../error";
+import { PermissionLevel } from "../../perms";
 
-async function cal(
-  getGoogleClient: Parameters<
-    Interaction<any>["handler"]
-  >[0]["getGoogleClient"],
-) {
+async function cal(getGoogleClient: GetGoogleClient) {
   const client = await getGoogleClient(
     "https://www.googleapis.com/auth/calendar.readonly",
   );
   return google.calendar({ version: "v3", auth: client });
 }
 
-export default plugin({
+export default {
   id: "gcal",
   name: "Google Calendar",
   description: "Google Calendar integration",
@@ -102,4 +98,4 @@ export default plugin({
       },
     },
   ],
-});
+} satisfies Plugin;

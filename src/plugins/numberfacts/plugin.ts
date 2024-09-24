@@ -1,8 +1,9 @@
+import type { Plugin } from "./$types";
+
 import { parseDate } from "chrono-node";
 
-import { CommandError } from "../error";
-import { PermissionLevel } from "../perms";
-import plugin from "../plugins";
+import { CommandError } from "../../error";
+import { PermissionLevel } from "../../perms";
 
 const validFactTypes = new Set(["trivia", "math", "date", "year"] as const);
 type ValidFactType = typeof validFactTypes extends Set<infer T> ? T : never;
@@ -31,7 +32,7 @@ async function apiCall(numbers: number[], type: ValidFactType) {
   return fact;
 }
 
-export default plugin({
+export default {
   id: "numberfacts",
   name: "Number facts",
   description: "Fun facts about numbers!",
@@ -115,4 +116,4 @@ export default plugin({
       },
     },
   ],
-});
+} satisfies Plugin;

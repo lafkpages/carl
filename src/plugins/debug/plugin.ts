@@ -1,5 +1,6 @@
 import type { ElementHandle, Page } from "puppeteer";
 import type { Message } from "whatsapp-web.js";
+import type { Plugin } from "./$types";
 
 import { stat } from "node:fs/promises";
 
@@ -8,14 +9,14 @@ import { google } from "googleapis";
 import Mime from "mime";
 import { MessageMedia } from "whatsapp-web.js";
 
-import { CommandError, CommandPermissionError } from "../error";
-import { getScopes } from "../google";
-import { PermissionLevel } from "../perms";
-import plugin, { InteractionContinuation } from "../plugins";
-import { pingCheck } from "../server";
-import { isInDevelopment } from "../utils";
+import { CommandError, CommandPermissionError } from "../../error";
+import { getScopes } from "../../google";
+import { PermissionLevel } from "../../perms";
+import { InteractionContinuation } from "../../plugins";
+import { pingCheck } from "../../server";
+import { isInDevelopment } from "../../utils";
 
-declare module "../config" {
+declare module "../../config" {
   interface PluginsConfig {
     debug?: {
       evalShellTrimOutput?: boolean;
@@ -23,7 +24,7 @@ declare module "../config" {
   }
 }
 
-export default plugin({
+export default {
   id: "debug",
   name: "Debug tools",
   description: "Helps debug WhatsApp PA core and plugins",
@@ -576,4 +577,4 @@ Stderr:
       },
     },
   },
-});
+} satisfies Plugin;

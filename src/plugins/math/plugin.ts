@@ -1,3 +1,5 @@
+import type { Plugin } from "./$types";
+
 import {
   areaUnder,
   derive,
@@ -9,11 +11,10 @@ import {
   zeroes,
 } from "@metadelta/core";
 
-import { CommandError } from "../error";
-import { PermissionLevel } from "../perms";
-import plugin from "../plugins";
+import { CommandError } from "../../error";
+import { PermissionLevel } from "../../perms";
 
-export default plugin({
+export default {
   id: "math",
   name: "Math",
   description: "Plugin for useful mathematical operations.",
@@ -112,4 +113,4 @@ export default plugin({
       },
     },
   ],
-});
+} satisfies Plugin;

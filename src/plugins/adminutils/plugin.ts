@@ -1,13 +1,14 @@
-import { CommandError } from "../error";
-import { PermissionLevel } from "../perms";
-import plugin from "../plugins";
-import { sendMessageToAdmins } from "../utils";
+import type { Plugin } from "./$types";
+
+import { CommandError } from "../../error";
+import { PermissionLevel } from "../../perms";
+import { sendMessageToAdmins } from "../../utils";
 
 // TODO: pass config in interaction handlers
 
 const pendingPermissionRequests: Record<string, PermissionLevel> = {};
 
-export default plugin({
+export default {
   id: "adminutils",
   name: "Admin utilities",
   description: "Commands for administration.",
@@ -63,4 +64,4 @@ export default plugin({
       },
     },
   ],
-});
+} satisfies Plugin;

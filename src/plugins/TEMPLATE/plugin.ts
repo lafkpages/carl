@@ -1,7 +1,8 @@
-import { PermissionLevel } from "../perms";
-import plugin from "../plugins";
+import type { Plugin } from "./$types";
 
-export default plugin({
+import { PermissionLevel } from "../../perms";
+
+export default {
   id: "",
   name: "",
   description: "",
@@ -16,4 +17,4 @@ export default plugin({
       handler({ message, rest }) {},
     },
   ],
-});
+} satisfies Plugin;

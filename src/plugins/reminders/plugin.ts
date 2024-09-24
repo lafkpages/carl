@@ -1,12 +1,12 @@
 import type { Database } from "bun:sqlite";
 import type { Client, Message } from "whatsapp-web.js";
+import type { Plugin } from "./$types";
 
 import { prettyDate } from "@based/pretty-date";
 import { parse } from "chrono-node";
 
-import { CommandError } from "../error";
-import { PermissionLevel } from "../perms";
-import plugin from "../plugins";
+import { CommandError } from "../../error";
+import { PermissionLevel } from "../../perms";
 
 interface Reminder {
   id?: number;
@@ -24,7 +24,7 @@ interface InternalReminder extends Reminder {
 
 const reminders = new Map<number, InternalReminder>();
 
-export default plugin({
+export default {
   id: "reminders",
   name: "Reminders",
   description: "Set reminders for yourselfs.",
@@ -185,9 +185,9 @@ export default plugin({
       return message;
     },
   },
-});
+} satisfies Plugin;
 
-declare module "../plugins" {
+declare module "../../plugins" {
   interface PluginApis {
     reminders: {
       loadReminder(

@@ -6,15 +6,16 @@ import type {
   ChatModel,
 } from "openai/resources/index";
 import type { Contact, Message } from "whatsapp-web.js";
+import type { Plugin } from "./$types";
 
 import Mime from "mime";
 import objectHash from "object-hash";
 import OpenAI, { toFile } from "openai";
 import { MessageMedia, MessageTypes } from "whatsapp-web.js";
 
-import { CommandError } from "../error";
-import { PermissionLevel } from "../perms";
-import plugin, { InteractionContinuation } from "../plugins";
+import { CommandError } from "../../error";
+import { PermissionLevel } from "../../perms";
+import { InteractionContinuation } from "../../plugins";
 
 const openai = new OpenAI();
 
@@ -163,7 +164,7 @@ function setCache<Bin extends boolean = false>(
   );
 }
 
-export default plugin({
+export default {
   id: "openai",
   name: "OpenAI",
   description: "Talk to ChatGPT on WhatsApp!",
@@ -605,9 +606,9 @@ Brief overall summary
       );
     `);
   },
-});
+} satisfies Plugin;
 
-declare module "../config" {
+declare module "../../config" {
   interface PluginsConfig {
     openai?: {
       model?: ChatModel;
@@ -620,7 +621,7 @@ declare module "../config" {
   }
 }
 
-declare module "../plugins" {
+declare module "../../plugins" {
   interface PluginApis {
     openai: {
       openai: OpenAI;

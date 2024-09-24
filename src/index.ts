@@ -15,8 +15,9 @@ import "./sentry";
 
 import type { RateLimit, RateLimitEvent } from "./ratelimits";
 
-import { captureException } from "@sentry/bun";
 import { Database } from "bun:sqlite";
+
+import { captureException } from "@sentry/bun";
 import { consola } from "consola";
 import { generate } from "qrcode-terminal";
 import { LocalAuth, MessageMedia } from "whatsapp-web.js";
@@ -115,7 +116,7 @@ async function loadPluginsFromConfig(idsToLoad?: Set<string> | null) {
       continue;
     }
 
-    consola.info("Importing plugin:", pluginIdentifier);
+    consola.info("Importing plugin:", pluginIdentifier, pluginPath);
 
     // add a cache buster to the import path
     // so that plugins can be reloaded

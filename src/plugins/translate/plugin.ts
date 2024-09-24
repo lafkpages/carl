@@ -1,10 +1,10 @@
 import type { Message } from "whatsapp-web.js";
+import type { Plugin } from "./$types";
 
 import translate, { languages } from "google-translate-api-x";
 
-import { CommandError } from "../error";
-import { PermissionLevel } from "../perms";
-import plugin from "../plugins";
+import { CommandError } from "../../error";
+import { PermissionLevel } from "../../perms";
 
 function checkLanguageCode(code: string) {
   if (!(code in languages)) {
@@ -14,15 +14,7 @@ function checkLanguageCode(code: string) {
   }
 }
 
-declare module "../config" {
-  interface PluginsConfig {
-    translate?: {
-      defaultLanguage?: keyof typeof languages;
-    };
-  }
-}
-
-export default plugin({
+export default {
   id: "translate",
   name: "Translate",
   description: "Text language translation and detection",
@@ -152,4 +144,12 @@ CREATE TABLE IF NOT EXISTS "translate" (
   PRIMARY KEY ("user")
 );`);
   },
-});
+} satisfies Plugin;
+
+declare module "../../config" {
+  interface PluginsConfig {
+    translate?: {
+      defaultLanguage?: keyof typeof languages;
+    };
+  }
+}

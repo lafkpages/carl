@@ -1,8 +1,9 @@
+import type { Plugin } from "./$types";
+
 import { array, nullish, object, parse, string, union } from "valibot";
 
-import { CommandError } from "../error";
-import { PermissionLevel } from "../perms";
-import plugin from "../plugins";
+import { CommandError } from "../../error";
+import { PermissionLevel } from "../../perms";
 
 const schema = union([
   array(
@@ -39,7 +40,7 @@ const schema = union([
   }),
 ]);
 
-export default plugin({
+export default {
   id: "dictionary",
   name: "Dictionary",
   description:
@@ -98,4 +99,4 @@ export default plugin({
       },
     },
   ],
-});
+} satisfies Plugin;

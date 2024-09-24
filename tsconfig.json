@@ -1,5 +1,7 @@
 {
   "compilerOptions": {
+    "rootDirs": [".", "./src/plugins/.types"],
+
     // Enable latest features
     "lib": ["ESNext", "DOM"],
     "target": "ESNext",
