@@ -27,7 +27,7 @@ export default {
         },
       ],
 
-      async handler({ message, rest, sender, config, client }) {
+      async handler({ message, rest, sender, client }) {
         if (sender in pendingPermissionRequests) {
           throw new CommandError(
             `you already have a pending permission request for permission level \`${PermissionLevel[pendingPermissionRequests[sender]]}\``,
