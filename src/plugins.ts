@@ -1,6 +1,7 @@
 import type { Database } from "bun:sqlite";
 import type { ConsolaInstance } from "consola";
 import type { OAuth2Client } from "google-auth-library";
+import type { AnySchema } from "valibot";
 import type {
   Chat,
   Client,
@@ -8,16 +9,14 @@ import type {
   MessageMedia,
   Reaction,
 } from "whatsapp-web.js";
-import type { PluginsConfig } from "./config";
+import type { _PluginsConfig } from "./config";
 import type { PermissionLevel } from "./perms";
 import type { RateLimit } from "./ratelimits";
 import type { generateTemporaryShortLink, server } from "./server";
 
 import { consola } from "consola";
 
-export interface Plugins {
-  [pluginId: string]: PluginDefinition;
-}
+export interface Plugins {}
 
 export interface PluginInteractions {
   [pluginId: string]: {
@@ -25,11 +24,14 @@ export interface PluginInteractions {
   };
 }
 
-export default function plugin<PluginId extends string>(
-  plugin: PluginDefinition<PluginId>,
-) {
-  return plugin;
-}
+export type PluginApi = Record<string, unknown>;
+
+export interface PluginApis {}
+export type _PluginApis = {
+  [pluginId: string]: PluginApi;
+} & {
+  [PluginId in keyof PluginApis]: PluginApis[PluginId];
+};
 
 export interface PluginDefinition<PluginId extends string = string> {
   readonly id: PluginId;
@@ -55,7 +57,6 @@ export interface PluginDefinition<PluginId extends string = string> {
       PluginId
     >;
   };
-  readonly api?: Record<string, unknown>;
 
   onLoad?({}: BaseInteractionHandlerArgs<PluginId> & {
     server: typeof server;
@@ -68,12 +69,6 @@ export interface PluginDefinition<PluginId extends string = string> {
   onMessageReaction?({}: BaseMessageInteractionHandlerArgs<PluginId> & {
     reaction: Reaction;
   }): MaybePromise<InteractionResult>;
-}
-
-export interface Plugin<PluginId extends string = string>
-  extends PluginDefinition<PluginId> {
-  _logger: ConsolaInstance;
-  _db: Database | null;
 }
 
 export interface Command<PluginId extends string>
@@ -119,12 +114,12 @@ export interface GetGoogleClient {
 }
 
 interface BaseInteractionHandlerArgs<PluginId extends string> {
-  api: Plugins[PluginId]["api"];
-  pluginApis: Partial<PluginApis>;
+  api: _PluginApis[PluginId];
+  pluginApis: Partial<_PluginApis>;
 
   client: Client;
   logger: ConsolaInstance;
-  config: PluginsConfig[PluginId];
+  config: _PluginsConfig[PluginId];
 
   database: Database | null;
 
@@ -163,6 +158,12 @@ export class InteractionContinuation<PluginId extends string = string> {
     this.message = message;
     this.data = data;
   }
+}
+
+export interface PluginExports<PluginId extends string> {
+  default: PluginDefinition<PluginId>;
+  config?: AnySchema;
+  api?: _PluginApis[PluginId];
 }
 
 type MaybePromise<T> = T | Promise<T>;

@@ -1,5 +1,7 @@
 import type { Plugin } from "./$types";
 
+import { object, optional, string, tuple, union } from "valibot";
+
 import { getConfig } from "../../config";
 
 export default {
@@ -38,6 +40,8 @@ export default {
   },
 } satisfies Plugin;
 
-export interface PluginConfig {
-  regex?: string | [string, string];
-}
+export const config = optional(
+  object({
+    regex: optional(union([string(), tuple([string(), string()])])),
+  }),
+);

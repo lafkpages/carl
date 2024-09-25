@@ -1,5 +1,6 @@
 import type { Database } from "bun:sqlite";
-import type { Client, Message } from "whatsapp-web.js";
+import type { Client } from "whatsapp-web.js";
+import type { PluginApi } from "../../plugins";
 import type { Plugin } from "./$types";
 
 import { prettyDate } from "@based/pretty-date";
@@ -116,98 +117,78 @@ export default {
 
     logger.info("Loaded", reminders.size, "reminders.");
   },
-
-  api: {
-    async loadReminder(
-      reminder: Reminder,
-      client: Client,
-      database: Database,
-      _new = true,
-    ) {
-      const now = Date.now();
-
-      if (reminder.time <= now) {
-        if (_new) {
-          throw new CommandError("reminder time is in the past");
-        }
-
-        await this.sendReminder(reminder, client, database);
-        return;
-      }
-
-      if (_new) {
-        const { lastInsertRowid } = database.run<
-          [string, string | null, string, number]
-        >(
-          "INSERT INTO reminders (user, channel, message, time) VALUES (?, ?, ?, ?)",
-          [reminder.user, reminder.channel, reminder.message, reminder.time],
-        );
-
-        const { id } = database
-          .query<
-            { id: number },
-            [number]
-          >("SELECT id FROM reminders WHERE rowid = ?")
-          .get(lastInsertRowid as number)!;
-
-        reminder.id = id;
-      } else if (reminder.id === undefined) {
-        throw new Error("reminder.id is not set");
-      }
-
-      const timeout = setTimeout(async () => {
-        await this.sendReminder(reminder, client, database);
-
-        reminders.delete(reminder.id!);
-      }, reminder.time - now);
-
-      reminders.set(reminder.id, { ...reminder, _timeout: timeout });
-    },
-    async sendReminder(
-      reminder: InternalReminder,
-      client: Client,
-      database: Database,
-    ) {
-      if (!reminder.id) {
-        throw new Error("reminder.id is not set");
-      }
-
-      const message =
-        reminder.channel && reminder.channel !== reminder.user
-          ? await client.sendMessage(
-              reminder.channel,
-              `Reminder for @${reminder.user.slice(0, -5)}: ${reminder.message}`,
-              { linkPreview: false, mentions: [reminder.user] },
-            )
-          : await client.sendMessage(
-              reminder.channel || reminder.user,
-              `Reminder: ${reminder.message}`,
-              { linkPreview: false },
-            );
-
-      database.run<[number]>("DELETE FROM reminders WHERE id = ?", [
-        reminder.id,
-      ]);
-
-      return message;
-    },
-  },
 } satisfies Plugin;
 
-declare module "../../plugins" {
-  interface PluginApis {
-    reminders: {
-      loadReminder(
-        reminder: Reminder,
-        client: Client,
-        database: Database,
-        _new?: boolean,
-      ): Promise<void>;
-      sendReminder(
-        reminder: InternalReminder,
-        client: Client,
-        database: Database,
-      ): Promise<Message>;
-    };
-  }
-}
+export const api = {
+  async loadReminder(
+    reminder: Reminder,
+    client: Client,
+    database: Database,
+    _new = true,
+  ) {
+    const now = Date.now();
+
+    if (reminder.time <= now) {
+      if (_new) {
+        throw new CommandError("reminder time is in the past");
+      }
+
+      await api.sendReminder(reminder, client, database);
+      return;
+    }
+
+    if (_new) {
+      const { lastInsertRowid } = database.run<
+        [string, string | null, string, number]
+      >(
+        "INSERT INTO reminders (user, channel, message, time) VALUES (?, ?, ?, ?)",
+        [reminder.user, reminder.channel, reminder.message, reminder.time],
+      );
+
+      const { id } = database
+        .query<
+          { id: number },
+          [number]
+        >("SELECT id FROM reminders WHERE rowid = ?")
+        .get(lastInsertRowid as number)!;
+
+      reminder.id = id;
+    } else if (reminder.id === undefined) {
+      throw new Error("reminder.id is not set");
+    }
+
+    const timeout = setTimeout(async () => {
+      await api.sendReminder(reminder, client, database);
+
+      reminders.delete(reminder.id!);
+    }, reminder.time - now);
+
+    reminders.set(reminder.id, { ...reminder, _timeout: timeout });
+  },
+  async sendReminder(
+    reminder: InternalReminder,
+    client: Client,
+    database: Database,
+  ) {
+    if (!reminder.id) {
+      throw new Error("reminder.id is not set");
+    }
+
+    const message =
+      reminder.channel && reminder.channel !== reminder.user
+        ? await client.sendMessage(
+            reminder.channel,
+            `Reminder for @${reminder.user.slice(0, -5)}: ${reminder.message}`,
+            { linkPreview: false, mentions: [reminder.user] },
+          )
+        : await client.sendMessage(
+            reminder.channel || reminder.user,
+            `Reminder: ${reminder.message}`,
+            { linkPreview: false },
+          );
+
+    database.run<[number]>("DELETE FROM reminders WHERE id = ?", [reminder.id]);
+
+    return message;
+  },
+} satisfies PluginApi;

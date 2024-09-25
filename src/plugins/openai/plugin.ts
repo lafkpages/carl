@@ -3,14 +3,15 @@ import type { ConsolaInstance } from "consola";
 import type {
   ChatCompletionContentPart,
   ChatCompletionMessageParam,
-  ChatModel,
 } from "openai/resources/index";
 import type { Contact, Message } from "whatsapp-web.js";
+import type { PluginApi } from "../../plugins";
 import type { Plugin } from "./$types";
 
 import Mime from "mime";
 import objectHash from "object-hash";
 import OpenAI, { toFile } from "openai";
+import { number, object, optional, string } from "valibot";
 import { MessageMedia, MessageTypes } from "whatsapp-web.js";
 
 import { CommandError } from "../../error";
@@ -18,9 +19,6 @@ import { PermissionLevel } from "../../perms";
 import { InteractionContinuation } from "../../plugins";
 
 const openai = new OpenAI();
-
-const defaultModel: ChatModel = "gpt-4o-mini";
-const defaultMaxConversationLength = 500;
 
 function returnResponse(response: string | null) {
   if (response) {
@@ -207,7 +205,7 @@ export default {
         } else {
           const completion = await openai.chat.completions.create({
             messages,
-            model: config?.model || defaultModel,
+            model: config.model,
           });
 
           logger.debug("AI response:", completion);
@@ -299,7 +297,7 @@ export default {
 
         const completion = await openai.chat.completions.create({
           messages,
-          model: config?.model || defaultModel,
+          model: config.model,
         });
 
         logger.debug("AI response:", completion);
@@ -341,9 +339,9 @@ export default {
 
         const messages = await chat.fetchMessages({
           limit:
-            config?.maxConversationLength === -1
+            config.maxConversationLength === -1
               ? Infinity
-              : config?.maxConversationLength || defaultMaxConversationLength,
+              : config.maxConversationLength,
         });
 
         let found = false;
@@ -405,7 +403,7 @@ Brief overall summary
 
         const completion = await openai.chat.completions.create({
           messages: conversation,
-          model: config?.model || defaultModel,
+          model: config.model,
         });
 
         logger.debug("AI response:", completion);
@@ -569,7 +567,7 @@ Brief overall summary
         } else {
           const completion = await openai.chat.completions.create({
             messages,
-            model: config?.model || defaultModel,
+            model: config.model,
           });
 
           response = returnResponse(completion.choices[0].message.content);
@@ -585,11 +583,6 @@ Brief overall summary
         return new InteractionContinuation("ai", response, messages);
       },
     },
-  },
-
-  api: {
-    openai,
-    defaultModel,
   },
 
   onLoad({ database }) {
@@ -609,14 +602,19 @@ Brief overall summary
   },
 } satisfies Plugin;
 
-export interface PluginConfig {
-  model?: ChatModel;
+export const config = optional(
+  object({
+    model: optional(string(), "gpt-4o-mini"),
 
-  /**
-   * Maximum length of a conversation to summarise.
-   */
-  maxConversationLength?: number;
-}
+    /**
+     * Maximum length of a conversation to summarise.
+     */
+    maxConversationLength: optional(number(), 500),
+  }),
+  {},
+);
+
+export const api = { openai } satisfies PluginApi;
 
 declare module "../../plugins" {
   interface PluginInteractions {

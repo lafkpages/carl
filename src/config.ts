@@ -1,4 +1,4 @@
-import type { InferOutput } from "valibot";
+import type { AnySchema, InferOutput } from "valibot";
 
 import { EventEmitter } from "node:events";
 
@@ -94,17 +94,33 @@ const configSchema = object({
   sentry: optional(union([string(), boolean()]), true),
 });
 
-export type Config = InferOutput<typeof configSchema> & {
+type RawConfig = InferOutput<typeof configSchema>;
+export type Config = RawConfig & {
   pluginsConfig?: PluginsConfig;
 };
 
-export interface PluginsConfig {
+export interface PluginsConfig {}
+export type _PluginsConfig = {
   [pluginId: string]: unknown;
+} & {
+  [PluginId in keyof PluginsConfig]: PluginsConfig[PluginId];
+};
+
+const pluginsConfig: {
+  [pluginId: string]: AnySchema | undefined;
+} = {};
+
+export function setPluginConfig(pluginId: string, pluginConfig?: AnySchema) {
+  pluginsConfig[pluginId] = pluginConfig;
+
+  if (pluginConfig) {
+    parse(pluginConfig, config.pluginsConfig[pluginId]);
+  }
 }
 
 const configFile = Bun.file(require.resolve("../config.json"));
 
-let config = parse(configSchema, await configFile.json());
+let config: RawConfig = parse(configSchema, await configFile.json());
 export const initialConfig = config;
 
 consola.debug("Loaded initial config:", initialConfig);
@@ -113,12 +129,12 @@ export async function getRawConfig() {
   return await configFile.text();
 }
 
-export function getConfig(): Config {
+export function getConfig() {
   return config;
 }
 
 export async function updateConfig(newConfig: Partial<Config>) {
-  const mergedConfig = parse(configSchema, defu(newConfig, config));
+  const mergedConfig = defu(newConfig, config);
 
   await _updateConfig(mergedConfig);
 
@@ -132,15 +148,24 @@ export async function updateConfigRaw(newConfig: unknown) {
 async function _updateConfig(newConfig: unknown) {
   config = parse(configSchema, newConfig);
 
+  for (const [pluginId, schema] of Object.entries(pluginsConfig)) {
+    if (!schema) {
+      continue;
+    }
+
+    parse(schema, config.pluginsConfig[pluginId]);
+  }
+
   await Bun.write(configFile, JSON.stringify(newConfig, null, 2));
 
   return config;
 }
 
 export const configEvents = new EventEmitter<{
-  update: [newConfig: Config, modifiedProperties?: string[]];
+  update: [newConfig: RawConfig, modifiedProperties?: string[]];
 }>();
 
 configEvents.on("update", (newConfig, modifiedProperties) => {
   consola.debug("Updated config properties:", modifiedProperties);
+  consola.verbose("Updated config:", newConfig);
 });

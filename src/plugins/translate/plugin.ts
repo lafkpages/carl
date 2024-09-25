@@ -2,6 +2,7 @@ import type { Message } from "whatsapp-web.js";
 import type { Plugin } from "./$types";
 
 import translate, { languages } from "google-translate-api-x";
+import { object, optional, picklist } from "valibot";
 
 import { CommandError } from "../../error";
 import { PermissionLevel } from "../../perms";
@@ -67,7 +68,7 @@ export default {
               [string]
             >('SELECT "to" FROM translate WHERE user = ?')
             .get(sender);
-          to = toEntry?.to || config?.defaultLanguage || "en";
+          to = toEntry?.to || config.defaultLanguage;
 
           if (!toEntry) {
             database!.run<[string, string]>(
@@ -146,6 +147,12 @@ CREATE TABLE IF NOT EXISTS "translate" (
   },
 } satisfies Plugin;
 
-export interface PluginConfig {
-  defaultLanguage?: keyof typeof languages;
-}
+export const config = optional(
+  object({
+    defaultLanguage: optional(
+      picklist(Object.keys(languages) as (keyof typeof languages)[]),
+      "en",
+    ),
+  }),
+  {},
+);

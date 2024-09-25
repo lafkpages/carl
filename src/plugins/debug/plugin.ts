@@ -1,4 +1,4 @@
-import type { ElementHandle, Page } from "puppeteer";
+import type { ElementHandle } from "puppeteer";
 import type { Message } from "whatsapp-web.js";
 import type { Plugin } from "./$types";
 
@@ -9,6 +9,8 @@ import filesize from "file-size";
 import { google } from "googleapis";
 import JSZip from "jszip";
 import Mime from "mime";
+import { Page } from "puppeteer";
+import { boolean, object, optional } from "valibot";
 import { MessageMedia } from "whatsapp-web.js";
 
 import { CommandError, CommandPermissionError } from "../../error";
@@ -19,9 +21,12 @@ import { pingCheck } from "../../server";
 import { isInDevelopment } from "../../utils";
 import { dbsGlob } from "./dbs";
 
-export interface PluginConfig {
-  evalShellTrimOutput?: boolean;
-}
+export const config = optional(
+  object({
+    evalShellTrimOutput: optional(boolean(), true),
+  }),
+  {},
+);
 
 export default {
   id: "debug",
@@ -153,7 +158,7 @@ Exit code: ${proc.exitCode}`;
 Signal code: ${proc.signalCode}`;
         }
 
-        const trimOutput = config?.evalShellTrimOutput ?? true;
+        const trimOutput = config.evalShellTrimOutput ?? true;
 
         if (proc.stdout.length) {
           let stdout = proc.stdout.toString("utf-8");

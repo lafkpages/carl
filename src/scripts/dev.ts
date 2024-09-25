@@ -9,24 +9,6 @@ await rm("./src/plugins/.types", { recursive: true, force: true });
 
 const shouldWatch = process.argv.includes("--watch");
 
-function scanTypeExports(source: string) {
-  const exports = new Map<string, string>();
-
-  for (const interfaceExport of source.matchAll(
-    /(?<=^|;|\n)export\s+interface\s+(\w+)\s+{/gm,
-  )) {
-    exports.set(interfaceExport[1], "interface");
-  }
-
-  for (const typeExport of source.matchAll(
-    /(?<=^|;|\n)export\s+type\s+(\w+)\s*=/gm,
-  )) {
-    exports.set(typeExport[1], "type");
-  }
-
-  return exports;
-}
-
 async function generateAllPluginTypes() {
   const plugins = await scanPlugins();
 
@@ -48,31 +30,42 @@ async function generatePluginTypes(pluginId: string, path: string) {
   const file = Bun.file(path);
   const source = await file.text();
 
-  const typeExports = scanTypeExports(source);
-
-  consola.verbose("Detected type exports:", typeExports);
+  const transpiler = new Bun.Transpiler({ loader: "ts" });
+  const { exports } = transpiler.scan(source);
 
   let types = `\
 import type { PluginDefinition } from ${pluginsPath};
 export type Plugin = PluginDefinition<${pluginIdString}>;
 
 import type _plugin from "./plugin";
-type plugin = typeof _plugin;
 
 declare module ${pluginsPath} {
   interface Plugins {
-    ${pluginIdString}: plugin;
+    ${pluginIdString}: typeof _plugin;
   }
 }
 `;
 
-  if (typeExports.has("PluginConfig")) {
+  if (exports.includes("config")) {
     types += `
-import type { PluginConfig } from "./plugin";
+import type { config } from "./plugin";
+import type { InferOutput } from "valibot";
 
 declare module ${configPath} {
   interface PluginsConfig {
-    ${pluginIdString}?: PluginConfig;
+    ${pluginIdString}: InferOutput<typeof config>;
+  }
+}
+`;
+  }
+
+  if (exports.includes("api")) {
+    types += `
+import type { api } from "./plugin";
+
+declare module ${pluginsPath} {
+  interface PluginApis {
+    ${pluginIdString}: typeof api;
   }
 }
 `;

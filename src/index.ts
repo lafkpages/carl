@@ -1,14 +1,14 @@
 import type { ConsolaInstance } from "consola";
-import type { Chat, Message, MessageId } from "whatsapp-web.js";
+import type { Chat, Message } from "whatsapp-web.js";
 import type {
+  _PluginApis,
   Command,
   GetGoogleClient,
   Interaction,
   InteractionResult,
   InteractionResultGenerator,
-  Plugin,
-  PluginApis,
   PluginDefinition,
+  PluginExports,
 } from "./plugins";
 
 import "./sentry";
@@ -21,12 +21,12 @@ import { consola } from "consola";
 import { generate } from "qrcode-terminal";
 import { LocalAuth, MessageMedia } from "whatsapp-web.js";
 
-import { getConfig, initialConfig } from "./config";
+import { getConfig, initialConfig, setPluginConfig } from "./config";
 import { CommandError, CommandPermissionError } from "./error";
 import { getClient } from "./google";
 import { generateHelp, generateHelpPage } from "./help";
 import { getPermissionLevel, PermissionLevel } from "./perms";
-import plugin, { InteractionContinuation, scanPlugins } from "./plugins";
+import { InteractionContinuation, scanPlugins } from "./plugins";
 import {
   checkRateLimit,
   getPermissionLevelRateLimits,
@@ -47,45 +47,92 @@ if (!process.isBun) {
   process.exit(1);
 }
 
+interface InternalPlugin<PluginId extends string = string>
+  extends PluginDefinition<PluginId> {
+  _logger: ConsolaInstance;
+  _db: Database | null;
+
+  _unload(runOnUnload?: boolean): Promise<void>;
+}
 interface InternalCommand<PluginId extends string> extends Command<PluginId> {
-  plugin: Plugin<PluginId>;
+  plugin: InternalPlugin<PluginId>;
   _logger: ConsolaInstance;
 }
+
 const commands = new Map<string, InternalCommand<string>>();
 const plugins: {
-  [PluginId in string]: Plugin<PluginId>;
+  [PluginId in string]: InternalPlugin<PluginId>;
 } = {};
-const pluginApis: Partial<PluginApis> = {};
+const pluginApis: Partial<_PluginApis> = {};
 let pluginsDir = await scanPlugins();
 
 const userCommandAliases = new Map<string, Map<string, string>>();
 
-function loadPlugin(plugin: PluginDefinition<any>) {
-  consola.info("Loading plugin:", plugin.id);
+function loadPlugin(plugin: PluginExports<string>) {
+  consola.info("Loading plugin:", plugin.default.id);
   consola.debug("Loading plugin:", plugin);
 
+  if (plugin.config) {
+    // If the plugin has config, it will be declared
+    // on PluginsConfig so the type assertion is safe
+    setPluginConfig(plugin.default.id, plugin.config);
+  }
+
   const _logger = consola.withDefaults({
-    tag: plugin.id,
+    tag: plugin.default.id,
   });
 
-  const _db = plugin.database
-    ? new Database(`db/plugins/${plugin.id}.sqlite`, { strict: true })
+  const _db = plugin.default.database
+    ? new Database(`db/plugins/${plugin.default.id}.sqlite`, { strict: true })
     : null;
   _db?.exec("PRAGMA journal_mode = WAL;");
 
-  const _plugin = { ...plugin, _logger, _db };
+  const _plugin: InternalPlugin = {
+    ...plugin.default,
+    _logger,
+    _db,
+    async _unload(runOnUnload = true) {
+      consola.info("Unloading plugin:", this.id);
 
-  plugins[plugin.id] = _plugin;
-  pluginApis[plugin.id] = _plugin.api;
+      delete plugins[this.id];
+      this._db?.close();
 
-  if (plugin.commands) {
-    for (const cmd of plugin.commands) {
+      for (const [commandName, command] of commands) {
+        if (command.plugin === this) {
+          commands.delete(commandName);
+        }
+      }
+
+      if (runOnUnload && this.onUnload) {
+        await this.onUnload({
+          api: pluginApis[this.id] || {},
+          pluginApis,
+          client,
+          logger: this._logger,
+          config: getConfig().pluginsConfig[this.id],
+
+          database: this._db,
+
+          generateTemporaryShortLink,
+        });
+      }
+    },
+  };
+
+  // Set config before storing plugin because setPluginConfig
+  // may throw an error if the config is invalid
+
+  plugins[plugin.default.id] = _plugin;
+  pluginApis[plugin.default.id] = plugin.api;
+
+  if (plugin.default.commands) {
+    for (const cmd of plugin.default.commands) {
       const existingCommand = commands.get(cmd.name);
       if (existingCommand) {
         consola.error("Duplicate command, dupe not loaded", {
           cmdName: cmd.name,
           existingPlugin: existingCommand.plugin.id,
-          newPlugin: plugin.id,
+          newPlugin: plugin.default.id,
         });
 
         continue;
@@ -95,7 +142,7 @@ function loadPlugin(plugin: PluginDefinition<any>) {
         ...cmd,
         plugin: _plugin,
         _logger: _logger.withDefaults({
-          tag: `${plugin.id}/${cmd.name}`,
+          tag: `${plugin.default.id}/${cmd.name}`,
         }),
       });
     }
@@ -119,293 +166,255 @@ async function loadPluginsFromConfig(idsToLoad?: Set<string> | null) {
 
     // add a cache buster to the import path
     // so that plugins can be reloaded
-    const plugin: Plugin = (await import(`${pluginPath}?${now}`)).default;
+    const plugin: PluginExports<typeof pluginIdentifier> = await import(
+      `${pluginPath}?${now}`
+    );
 
-    if (plugin.id !== pluginIdentifier) {
+    if (plugin.default.id !== pluginIdentifier) {
       consola.error("Plugin ID does not match plugin file name.", {
-        pluginId: plugin.id,
+        pluginId: plugin.default.id,
         pluginIdentifier,
       });
       continue;
     }
 
-    loadPlugin(plugin);
+    try {
+      loadPlugin(plugin);
+    } catch (err) {
+      consola.error(`Error loading plugin "${pluginIdentifier}":`, err);
+    }
   }
 }
 
-const corePlugin = plugin({
-  id: "core",
-  name: "Core",
-  description: "Core commands",
-  version: "1.0.0",
-  database: true,
+const corePlugin = {
+  default: {
+    id: "core",
+    name: "Core",
+    description: "Core commands",
+    version: "1.0.0",
+    database: true,
 
-  commands: [
-    {
-      name: "help",
-      description:
-        "Shows this help message (use `/help all` to show hidden commands)",
-      minLevel: PermissionLevel.NONE,
+    commands: [
+      {
+        name: "help",
+        description:
+          "Shows this help message (use `/help all` to show hidden commands)",
+        minLevel: PermissionLevel.NONE,
 
-      handler({ rest, permissionLevel }) {
-        const numbers = rest.match(/\d+/g);
+        handler({ rest, permissionLevel }) {
+          const numbers = rest.match(/\d+/g);
 
-        if (numbers && numbers.length > 1) {
-          throw new CommandError("invalid arguments. Usage: `/help [page]`");
-        }
+          if (numbers && numbers.length > 1) {
+            throw new CommandError("invalid arguments. Usage: `/help [page]`");
+          }
 
-        const page = parseInt(numbers?.[0] || "1");
-        const showHidden = rest.includes("all");
+          const page = parseInt(numbers?.[0] || "1");
+          const showHidden = rest.includes("all");
 
-        if (page < 1) {
-          throw new CommandError("page number must be greater than 0");
-        }
+          if (page < 1) {
+            throw new CommandError("page number must be greater than 0");
+          }
 
-        return generateHelpPage(
-          generateHelp(Object.values(plugins), permissionLevel, showHidden),
-          page,
-        );
+          return generateHelpPage(
+            generateHelp(Object.values(plugins), permissionLevel, showHidden),
+            page,
+          );
+        },
       },
-    },
-    {
-      name: "stop",
-      description: "Stop the bot gracefully",
-      minLevel: PermissionLevel.ADMIN,
+      {
+        name: "stop",
+        description: "Stop the bot gracefully",
+        minLevel: PermissionLevel.ADMIN,
 
-      handler() {
-        stopGracefully();
-        return true;
+        handler() {
+          stopGracefully();
+          return true;
+        },
       },
-    },
-    {
-      name: "forcestop",
-      description: "Stop the bot without unloading plugins",
-      minLevel: PermissionLevel.ADMIN,
+      {
+        name: "forcestop",
+        description: "Stop the bot without unloading plugins",
+        minLevel: PermissionLevel.ADMIN,
 
-      handler() {
-        stop();
-        return true;
+        handler() {
+          stop();
+          return true;
+        },
       },
-    },
-    {
-      name: "reload",
-      description: "Reload plugins",
-      minLevel: PermissionLevel.ADMIN,
+      {
+        name: "reload",
+        description: "Reload plugins",
+        minLevel: PermissionLevel.ADMIN,
 
-      async handler({ rest, logger }) {
-        rest = rest.trim().toLowerCase();
+        async handler({ rest, logger }) {
+          rest = rest.trim().toLowerCase();
 
-        const pluginsToReload = rest ? new Set(rest.split(/[,\s]+/)) : null;
+          const pluginIdsToReload = rest ? new Set(rest.split(/[,\s]+/)) : null;
 
-        if (pluginsToReload?.size === 0) {
-          return false;
-        }
+          if (pluginIdsToReload?.size === 0) {
+            return false;
+          }
 
-        if (pluginsToReload?.has("core")) {
-          throw new CommandError("cannot reload core plugin");
-        }
+          if (pluginIdsToReload?.has("core")) {
+            throw new CommandError("cannot reload core plugin");
+          }
 
-        pluginsDir = await scanPlugins();
+          pluginsDir = await scanPlugins();
 
-        if (pluginsToReload) {
-          for (const pluginId of pluginsToReload) {
-            if (!pluginsDir.has(pluginId)) {
-              throw new CommandError(`plugin \`${pluginId}\` not found`);
-            }
+          const pluginsToReload: InternalPlugin[] = pluginIdsToReload
+            ? []
+            : Object.values(plugins);
 
-            let loaded = false;
-            for (const plugin in plugins) {
-              if (plugin === pluginId) {
-                loaded = true;
-                break;
+          if (pluginIdsToReload) {
+            for (const pluginId of pluginIdsToReload) {
+              if (!pluginsDir.has(pluginId)) {
+                throw new CommandError(`plugin \`${pluginId}\` not found`);
+              }
+
+              let loaded = false;
+              for (const plugin in plugins) {
+                if (plugin === pluginId) {
+                  loaded = true;
+                  pluginsToReload.push(plugins[plugin]);
+                  break;
+                }
+              }
+
+              if (!loaded) {
+                throw new CommandError(`plugin \`${pluginId}\` not loaded`);
               }
             }
-
-            if (!loaded) {
-              throw new CommandError(`plugin \`${pluginId}\` not loaded`);
-            }
-          }
-        }
-
-        const config = getConfig();
-
-        // Run plugin onUnload events
-        for (const plugin of Object.values(plugins)) {
-          if (pluginsToReload && !pluginsToReload.has(plugin.id)) {
-            continue;
           }
 
-          if (plugin.onUnload) {
-            logger.info("Unloading plugin:", plugin.id);
+          const config = getConfig();
 
-            await plugin.onUnload({
-              api: plugin.api || {},
+          // Unload plugins
+          for (const plugin of pluginsToReload) {
+            await plugin._unload();
+          }
+
+          // Reload plugins
+          await loadPluginsFromConfig(pluginIdsToReload);
+
+          // Fire plugin onLoad events
+          for (const plugin of pluginsToReload) {
+            await plugin.onLoad?.({
+              api: pluginApis[plugin.id] || {},
               pluginApis,
               client,
               logger: plugin._logger,
               config: config.pluginsConfig[plugin.id],
 
               database: plugin._db,
+              server,
 
               generateTemporaryShortLink,
             });
           }
-        }
 
-        if (pluginsToReload) {
-          for (const plugin of Object.values(plugins)) {
-            if (
-              // only unload plugins that are in pluginsToReload
-              pluginsToReload.has(plugin.id)
-            ) {
-              // delete plugin from plugins map
-              delete plugins[plugin.id];
+          return true;
+        },
+      },
+      {
+        name: "alias",
+        description: "Set an alias for a command",
+        minLevel: PermissionLevel.NONE,
 
-              // delete the plugin's commands from the commands object
-              for (const [commandName, command] of commands) {
-                if (command.plugin === plugin) {
-                  commands.delete(commandName);
-                }
-              }
+        handler({ rest, sender, database }) {
+          if (!rest) {
+            // List user's aliases
+            if (!userCommandAliases.has(sender)) {
+              return "You have no aliases set";
             }
-          }
-        } else {
-          // Clear all plugins and commands
-          for (const plugin in plugins) {
-            delete plugins[plugin];
-          }
-          commands.clear();
-        }
 
-        // Reload plugins
-        if (!pluginsToReload) {
-          loadPlugin(corePlugin);
-        }
-        await loadPluginsFromConfig(pluginsToReload);
+            let msg = "Your aliases:";
 
-        // Fire plugin onLoad events
-        for (const plugin of Object.values(plugins)) {
-          if (pluginsToReload && !pluginsToReload.has(plugin.id)) {
-            continue;
+            for (const [alias, command] of userCommandAliases.get(sender)!) {
+              msg += `\n* \`${alias}\`: \`${command}\``;
+            }
+
+            return msg;
           }
 
-          await plugin.onLoad?.({
-            api: plugin.api || {},
-            pluginApis,
-            client,
-            logger: plugin._logger,
-            config: config.pluginsConfig[plugin.id],
+          const [, alias, command] = rest.match(/^\/?(.+)\s+\/?(.+)$/) || [];
 
-            database: plugin._db,
-            server,
+          if (!alias) {
+            throw new CommandError("Usage: `/alias <alias> <command>`");
+          }
 
-            generateTemporaryShortLink,
-          });
-        }
+          database!.run<[string, string, string]>(
+            "INSERT OR REPLACE INTO aliases (user, alias, command) VALUES (?, ?, ?)",
+            [sender, alias, command],
+          );
 
-        return true;
-      },
-    },
-    {
-      name: "alias",
-      description: "Set an alias for a command",
-      minLevel: PermissionLevel.NONE,
-
-      handler({ rest, sender, database }) {
-        if (!rest) {
-          // List user's aliases
           if (!userCommandAliases.has(sender)) {
-            return "You have no aliases set";
+            userCommandAliases.set(sender, new Map());
           }
 
-          let msg = "Your aliases:";
+          userCommandAliases.get(sender)!.set(alias, command);
 
-          for (const [alias, command] of userCommandAliases.get(sender)!) {
-            msg += `\n* \`${alias}\`: \`${command}\``;
+          return true;
+        },
+      },
+      {
+        name: "unalias",
+        description: "Remove an alias",
+        minLevel: PermissionLevel.NONE,
+
+        handler({ rest, sender, database }) {
+          if (!rest) {
+            throw new CommandError("Usage: `/unalias <alias>`");
           }
 
-          return msg;
-        }
+          const userAliases = userCommandAliases.get(sender);
 
-        const [, alias, command] = rest.match(/^\/?(.+)\s+\/?(.+)$/) || [];
+          if (!userAliases) {
+            throw new CommandError("You have no aliases set");
+          }
 
-        if (!alias) {
-          throw new CommandError("Usage: `/alias <alias> <command>`");
-        }
+          if (!userAliases.has(rest)) {
+            return `Alias \`${rest}\` not found`;
+          }
 
-        database!.run<[string, string, string]>(
-          "INSERT OR REPLACE INTO aliases (user, alias, command) VALUES (?, ?, ?)",
-          [sender, alias, command],
-        );
+          database!.run<[string, string]>(
+            "DELETE FROM aliases WHERE user = ? AND alias = ?",
+            [sender, rest],
+          );
 
-        if (!userCommandAliases.has(sender)) {
-          userCommandAliases.set(sender, new Map());
-        }
+          userAliases.delete(rest);
 
-        userCommandAliases.get(sender)!.set(alias, command);
+          if (userAliases.size === 0) {
+            userCommandAliases.delete(sender);
+          }
 
-        return true;
+          return true;
+        },
       },
-    },
-    {
-      name: "unalias",
-      description: "Remove an alias",
-      minLevel: PermissionLevel.NONE,
+      {
+        name: "resolvecommand",
+        description: "Resolve a command [DEBUG]",
+        minLevel: PermissionLevel.NONE,
+        hidden: true,
 
-      handler({ rest, sender, database }) {
-        if (!rest) {
-          throw new CommandError("Usage: `/unalias <alias>`");
-        }
+        handler({ rest }) {
+          if (!rest) {
+            throw new CommandError("Usage: `/resolvecommand <command>`");
+          }
 
-        const userAliases = userCommandAliases.get(sender);
+          const cmd = resolveCommand(rest);
 
-        if (!userAliases) {
-          throw new CommandError("You have no aliases set");
-        }
-
-        if (!userAliases.has(rest)) {
-          return `Alias \`${rest}\` not found`;
-        }
-
-        database!.run<[string, string]>(
-          "DELETE FROM aliases WHERE user = ? AND alias = ?",
-          [sender, rest],
-        );
-
-        userAliases.delete(rest);
-
-        if (userAliases.size === 0) {
-          userCommandAliases.delete(sender);
-        }
-
-        return true;
+          if (cmd) {
+            return `Command \`${rest}\` resolves to \`${cmd.plugin.id}/${cmd.name}\``;
+          } else {
+            return false;
+          }
+        },
       },
-    },
-    {
-      name: "resolvecommand",
-      description: "Resolve a command [DEBUG]",
-      minLevel: PermissionLevel.NONE,
-      hidden: true,
+    ],
 
-      handler({ rest }) {
-        if (!rest) {
-          throw new CommandError("Usage: `/resolvecommand <command>`");
-        }
-
-        const cmd = resolveCommand(rest);
-
-        if (cmd) {
-          return `Command \`${rest}\` resolves to \`${cmd.plugin.id}/${cmd.name}\``;
-        } else {
-          return false;
-        }
-      },
-    },
-  ],
-
-  onLoad({ database }) {
-    // Configure database
-    database!.run(`\
+    onLoad({ database }) {
+      // Configure database
+      database!.run(`\
 CREATE TABLE IF NOT EXISTS aliases (
   user TEXT NOT NULL,
   alias TEXT NOT NULL,
@@ -414,41 +423,42 @@ CREATE TABLE IF NOT EXISTS aliases (
 );
 `);
 
-    // Load user command aliases
-    const aliasEntries = database!
-      .query<
-        {
-          user: string;
-          alias: string;
-          command: string;
-        },
-        []
-      >("SELECT user, alias, command FROM aliases")
-      .all();
+      // Load user command aliases
+      const aliasEntries = database!
+        .query<
+          {
+            user: string;
+            alias: string;
+            command: string;
+          },
+          []
+        >("SELECT user, alias, command FROM aliases")
+        .all();
 
-    for (const aliasEntry of aliasEntries) {
-      if (!userCommandAliases.has(aliasEntry.user)) {
-        userCommandAliases.set(aliasEntry.user, new Map());
+      for (const aliasEntry of aliasEntries) {
+        if (!userCommandAliases.has(aliasEntry.user)) {
+          userCommandAliases.set(aliasEntry.user, new Map());
+        }
+
+        userCommandAliases
+          .get(aliasEntry.user)!
+          .set(aliasEntry.alias, aliasEntry.command);
       }
+    },
 
-      userCommandAliases
-        .get(aliasEntry.user)!
-        .set(aliasEntry.alias, aliasEntry.command);
-    }
+    async onMessageReaction({ reaction, message, permissionLevel }) {
+      if (
+        reaction.reaction === "\u{1F5D1}\u{FE0F}" &&
+        // Only allow deleting messages from the bot
+        message.fromMe &&
+        // Only trusted users can delete messages
+        permissionLevel >= PermissionLevel.TRUSTED
+      ) {
+        await message.delete(true);
+      }
+    },
   },
-
-  async onMessageReaction({ reaction, message, permissionLevel }) {
-    if (
-      reaction.reaction === "\u{1F5D1}\u{FE0F}" &&
-      // Only allow deleting messages from the bot
-      message.fromMe &&
-      // Only trusted users can delete messages
-      permissionLevel >= PermissionLevel.TRUSTED
-    ) {
-      await message.delete(true);
-    }
-  },
-});
+} satisfies PluginExports<"core">;
 
 // Load plugins
 loadPlugin(corePlugin);
@@ -473,14 +483,6 @@ client.on("qr", (qr) => {
   // TODO: qrcode-terminal not working
 });
 
-async function getMessageById(id: string | MessageId) {
-  if (typeof id !== "string") {
-    id = id._serialized;
-  }
-
-  return await client.getMessageById(id).catch(() => null);
-}
-
 const clientReadyPromise = Promise.withResolvers<void>();
 
 client.on("ready", async () => {
@@ -503,7 +505,7 @@ for (const plugin of Object.values(plugins)) {
     consola.debug("Running plugin onLoad:", plugin.id);
 
     await plugin.onLoad({
-      api: plugin.api || {},
+      api: pluginApis[plugin.id] || {},
       pluginApis,
       client,
       logger: plugin._logger,
@@ -524,7 +526,7 @@ process.on("SIGINT", stopGracefully);
 interface InternalInteraction<Data, PluginId extends string>
   extends Interaction<Data, PluginId> {
   _data: unknown;
-  _plugin: Plugin;
+  _plugin: InternalPlugin;
   _timeout: Timer;
 }
 
@@ -610,7 +612,7 @@ client.on("message", async (message) => {
 
         permissionLevel,
 
-        api: _plugin.api || {},
+        api: pluginApis[_plugin.id] || {},
         pluginApis,
         client,
         logger: _plugin._logger.withDefaults({
@@ -678,7 +680,7 @@ client.on("message", async (message) => {
 
       try {
         const result = await plugin.onMessage({
-          api: plugin.api || {},
+          api: pluginApis[plugin.id] || {},
           pluginApis,
           client,
           logger: plugin._logger,
@@ -730,7 +732,9 @@ client.on("message_reaction", async (reaction) => {
   for (const plugin of Object.values(plugins)) {
     if (plugin.onMessageReaction) {
       if (!message) {
-        message = await getMessageById(reaction.msgId);
+        message = await client
+          .getMessageById(reaction.msgId._serialized)
+          .catch(() => null);
 
         if (!message) {
           consola.error("Message not found for reaction:", reaction);
@@ -745,7 +749,7 @@ client.on("message_reaction", async (reaction) => {
       consola.debug("Running plugin onMessageReaction:", plugin.id);
 
       const result = await plugin.onMessageReaction({
-        api: plugin.api || {},
+        api: pluginApis[plugin.id] || {},
         pluginApis,
         client,
         logger: plugin._logger,
@@ -813,7 +817,7 @@ async function execute(
 
           permissionLevel,
 
-          api: command.plugin.api || {},
+          api: pluginApis[command.plugin.id] || {},
           pluginApis,
           client,
           logger: command._logger,
@@ -868,7 +872,7 @@ function resolveCommand(command: string, user?: string) {
 async function handleInteractionResult(
   result: InteractionResult | InteractionResultGenerator,
   message: Message,
-  plugin: Plugin,
+  plugin: InternalPlugin,
   _editMessage?: Message | null,
 ) {
   if (result instanceof InteractionContinuation) {
@@ -1025,7 +1029,7 @@ async function stopGracefully() {
       consola.debug("Unloading plugin on graceful stop:", plugin.id);
 
       await plugin.onUnload({
-        api: plugin.api || {},
+        api: pluginApis[plugin.id] || {},
         pluginApis,
         client,
         logger: plugin._logger,

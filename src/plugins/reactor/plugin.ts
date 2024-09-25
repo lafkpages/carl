@@ -1,5 +1,8 @@
-import type { PermissionLevel } from "../../perms";
 import type { Plugin } from "./$types";
+
+import { array, enum_, object, optional, string, tuple, union } from "valibot";
+
+import { PermissionLevel } from "../../perms";
 
 let regexes: {
   regex?: RegExp | null;
@@ -8,15 +11,6 @@ let regexes: {
   emoji: string;
 }[] = [];
 
-export interface PluginConfig {
-  reactions: {
-    regex?: string | [string, string];
-    senders?: string[];
-    minLevel?: PermissionLevel;
-    emoji: string;
-  };
-}
-
 export default {
   id: "reactor",
   name: "Reactor",
@@ -24,7 +18,7 @@ export default {
   version: "0.0.1",
 
   onLoad({ config }) {
-    const reactions = config?.reactions;
+    const reactions = config.reactions;
 
     if (!reactions) {
       return;
@@ -63,3 +57,14 @@ export default {
     }
   },
 } satisfies Plugin;
+
+export const config = object({
+  reactions: array(
+    object({
+      regex: optional(union([string(), tuple([string(), string()])])),
+      senders: optional(array(string())),
+      minLevel: optional(enum_(PermissionLevel)),
+      emoji: string(),
+    }),
+  ),
+});
