@@ -638,8 +638,8 @@ async function handleInteractionResult(
     result._plugin = plugin;
 
     // expire continuations after 5 minutes
-    // @ts-expect-error: _timeout is private
-    result._timeout = setTimeout(
+    // @ts-expect-error: _timer is private
+    result._timer = setTimeout(
       async () => {
         await message.react("");
         await message.react("\u231B");
