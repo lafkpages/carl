@@ -102,75 +102,57 @@ class CorePlugin extends Plugin<"core"> {
         description: "Reload plugins",
         minLevel: PermissionLevel.ADMIN,
 
-        async handler() {
-          throw new CommandError("not implemented");
+        async handler({ data }) {
+          data = data.trim().toLowerCase();
 
-          // rest = rest.trim().toLowerCase();
+          const pluginIdsToReload = data ? new Set(data.split(/[,\s]+/)) : null;
 
-          // const pluginIdsToReload = rest ? new Set(rest.split(/[,\s]+/)) : null;
+          if (pluginIdsToReload?.size === 0) {
+            return false;
+          }
 
-          // if (pluginIdsToReload?.size === 0) {
-          //   return false;
-          // }
+          if (pluginIdsToReload?.has("core")) {
+            throw new CommandError("cannot reload core plugin");
+          }
 
-          // if (pluginIdsToReload?.has("core")) {
-          //   throw new CommandError("cannot reload core plugin");
-          // }
+          await pluginsManager.scanPlugins();
 
-          // pluginsDir = await scanPlugins();
+          if (!pluginIdsToReload) {
+            for (const plugin of pluginsManager) {
+              if (plugin.id === "core") {
+                continue;
+              }
 
-          // const pluginsToReload: InternalPlugin[] = pluginIdsToReload
-          //   ? []
-          //   : Object.values(plugins);
+              await pluginsManager.unloadPlugin(plugin.id);
+            }
+            await pluginsManager.loadPlugins(getConfig().plugins);
+            return true;
+          }
 
-          // if (pluginIdsToReload) {
-          //   for (const pluginId of pluginIdsToReload) {
-          //     if (!pluginsDir.has(pluginId)) {
-          //       throw new CommandError(`plugin \`${pluginId}\` not found`);
-          //     }
+          const config = getConfig();
 
-          //     let loaded = false;
-          //     for (const plugin in plugins) {
-          //       if (plugin === pluginId) {
-          //         loaded = true;
-          //         pluginsToReload.push(plugins[plugin]);
-          //         break;
-          //       }
-          //     }
+          // Unload plugins
+          for (const plugin of pluginIdsToReload) {
+            await pluginsManager.unloadPlugin(plugin);
+          }
 
-          //     if (!loaded) {
-          //       throw new CommandError(`plugin \`${pluginId}\` not loaded`);
-          //     }
-          //   }
-          // }
+          // Reload plugins
+          await pluginsManager.loadPlugins(pluginIdsToReload);
 
-          // const config = getConfig();
+          // Fire plugin onLoad events
+          for (const pluginId of pluginIdsToReload) {
+            const plugin = pluginsManager.getPlugin(pluginId);
 
-          // // Unload plugins
-          // for (const plugin of pluginsToReload) {
-          //   await plugin._unload();
-          // }
+            if (!plugin) {
+              throw new Error(`Plugin ${pluginId} not found (unreachable)`);
+            }
 
-          // // Reload plugins
-          // await loadPluginsFromConfig(pluginIdsToReload);
+            await plugin.run("load", {
+              server,
+            });
+          }
 
-          // // Fire plugin onLoad events
-          // for (const plugin of pluginsToReload) {
-          //   await plugin.onLoad?.({
-          //     api: pluginApis[plugin.id] || {},
-          //     pluginApis,
-          //     client,
-          //     logger: plugin._logger,
-          //     config: config.pluginsConfig[plugin.id],
-
-          //     database: plugin._db,
-          //     server,
-
-          //     generateTemporaryShortLink,
-          //   });
-          // }
-
-          // return true;
+          return true;
         },
       },
       {
@@ -332,7 +314,7 @@ const client = new Client({
 const pluginsManager = new PluginsManager(client);
 pluginsManager.registerPlugin(new CorePlugin());
 await pluginsManager.scanPlugins();
-await pluginsManager.loadPluginsFromConfig();
+await pluginsManager.loadPlugins(getConfig().plugins);
 
 client.on("qr", (qr) => {
   consola.info("QR code received", qr);

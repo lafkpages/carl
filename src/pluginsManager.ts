@@ -4,7 +4,7 @@ import type { Command, Plugin } from "./plugins";
 import { consola } from "consola";
 import { DepGraph } from "dependency-graph";
 
-import { getConfig, setPluginConfig } from "./config";
+import { setPluginConfig } from "./config";
 import { scanPlugins } from "./plugins";
 
 export interface InternalCommand extends Command {
@@ -101,12 +101,10 @@ export class PluginsManager implements Iterable<Plugin<string>> {
     return plugin;
   }
 
-  async loadPluginsFromConfig() {
-    const { plugins } = getConfig();
-
+  async loadPlugins(pluginIds: Iterable<string>) {
     const graph = new DepGraph<Plugin<string>>();
 
-    for (const pluginId of plugins) {
+    for (const pluginId of pluginIds) {
       const plugin = await this.loadPlugin(pluginId).catch(consola.error);
 
       if (!plugin) {
@@ -133,6 +131,10 @@ export class PluginsManager implements Iterable<Plugin<string>> {
         consola.error(err);
       }
     }
+  }
+
+  getPlugin(pluginId: string) {
+    return this._loadedPlugins.get(pluginId);
   }
 
   async unloadPlugin(pluginId: string, runUnloadCallback = true) {
