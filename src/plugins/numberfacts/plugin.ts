@@ -1,119 +1,130 @@
-import type { Plugin } from "./$types";
-
 import { parseDate } from "chrono-node";
 
 import { CommandError } from "../../error";
 import { PermissionLevel } from "../../perms";
+import { Plugin } from "../../plugins";
 
 const validFactTypes = new Set(["trivia", "math", "date", "year"] as const);
 type ValidFactType = typeof validFactTypes extends Set<infer T> ? T : never;
 
-async function apiCall(numbers: number[], type: ValidFactType) {
-  let url = `http://numbersapi.com/`;
+export default class extends Plugin {
+  id = "numberfacts";
+  name = "Number facts";
+  description = "Fun facts about numbers!";
+  version = "0.0.1";
 
-  for (const number of numbers) {
-    url += `${encodeURIComponent(number)}/`;
-  }
+  constructor() {
+    super();
 
-  url += `${encodeURIComponent(type)}?default=NOTFOUND`;
+    this.registerCommands([
+      {
+        name: "numberfact",
+        description: "Get a random fact about a number",
+        minLevel: PermissionLevel.NONE,
+        rateLimit: [
+          {
+            duration: 2000,
+            max: 1,
+          },
+        ],
 
-  const resp = await fetch(url);
+        async handler({ data }) {
+          const [, numberArg, typeArg] =
+            data.match(/^\s*(\d+)(?:\s+(.+))?$/) ?? [];
 
-  if (resp.status !== 200) {
-    throw new CommandError(`Failed to fetch fact: \`${resp.statusText}\``);
-  }
+          const number = parseInt(numberArg);
 
-  const fact = (await resp.text()).trim();
-
-  if (fact === "NOTFOUND") {
-    throw new CommandError("No fact found");
-  }
-
-  return fact;
-}
-
-export default {
-  id: "numberfacts",
-  name: "Number facts",
-  description: "Fun facts about numbers!",
-  version: "0.0.1",
-
-  commands: [
-    {
-      name: "numberfact",
-      description: "Get a random fact about a number",
-      minLevel: PermissionLevel.NONE,
-      rateLimit: [
-        {
-          duration: 2000,
-          max: 1,
-        },
-      ],
-
-      async handler({ rest }) {
-        const [, numberArg, typeArg] =
-          rest.match(/^\s*(\d+)(?:\s+(.+))?$/) ?? [];
-
-        const number = parseInt(numberArg);
-
-        if (isNaN(number)) {
-          throw new CommandError("Invalid number");
-        }
-
-        const type = (typeArg || "trivia") as ValidFactType;
-        if (!validFactTypes.has(type)) {
-          let msg = `Invalid fact type.\n\nValid types:`;
-
-          for (const validType of validFactTypes) {
-            msg += `\n* \`${validType}\``;
+          if (isNaN(number)) {
+            throw new CommandError("Invalid number");
           }
 
-          throw new CommandError(msg);
-        }
+          const type = (typeArg || "trivia") as ValidFactType;
+          if (!validFactTypes.has(type)) {
+            let msg = `Invalid fact type.\n\nValid types:`;
 
-        if (type === "date") {
-          throw new CommandError("Use the `/datefact` command for date facts");
-        }
+            for (const validType of validFactTypes) {
+              msg += `\n* \`${validType}\``;
+            }
 
-        return await apiCall([number], type);
-      },
-    },
-    {
-      name: "datefact",
-      description: "Get a random fact about a date",
-      minLevel: PermissionLevel.NONE,
-      rateLimit: [
-        {
-          duration: 2000,
-          max: 1,
+            throw new CommandError(msg);
+          }
+
+          if (type === "date") {
+            throw new CommandError(
+              "Use the `/datefact` command for date facts",
+            );
+          }
+
+          return await this.apiCall([number], type);
         },
-      ],
-
-      async handler({ rest }) {
-        const date = parseDate(rest);
-
-        if (!date) {
-          throw new CommandError("invalid date");
-        }
-
-        return await apiCall([date.getMonth() + 1, date.getDate()], "date");
       },
-    },
-    {
-      name: "todayfact",
-      description: "Get a random fact about today",
-      minLevel: PermissionLevel.NONE,
-      rateLimit: [
-        {
-          duration: 2000,
-          max: 1,
+      {
+        name: "datefact",
+        description: "Get a random fact about a date",
+        minLevel: PermissionLevel.NONE,
+        rateLimit: [
+          {
+            duration: 2000,
+            max: 1,
+          },
+        ],
+
+        async handler({ data }) {
+          const date = parseDate(data);
+
+          if (!date) {
+            throw new CommandError("invalid date");
+          }
+
+          return await this.apiCall(
+            [date.getMonth() + 1, date.getDate()],
+            "date",
+          );
         },
-      ],
-
-      async handler() {
-        const now = new Date();
-        return await apiCall([now.getMonth() + 1, now.getDate()], "date");
       },
-    },
-  ],
-} satisfies Plugin;
+      {
+        name: "todayfact",
+        description: "Get a random fact about today",
+        minLevel: PermissionLevel.NONE,
+        rateLimit: [
+          {
+            duration: 2000,
+            max: 1,
+          },
+        ],
+
+        async handler() {
+          const now = new Date();
+          return await this.apiCall(
+            [now.getMonth() + 1, now.getDate()],
+            "date",
+          );
+        },
+      },
+    ]);
+  }
+
+  async apiCall(numbers: number[], type: ValidFactType) {
+    let url = `http://numbersapi.com/`;
+
+    for (const number of numbers) {
+      url += `${encodeURIComponent(number)}/`;
+    }
+
+    url += `${encodeURIComponent(type)}?default=NOTFOUND`;
+
+    const resp = await fetch(url);
+
+    if (resp.status !== 200) {
+      throw new CommandError(`Failed to fetch fact: \`${resp.statusText}\``);
+    }
+
+    const fact = (await resp.text()).trim();
+
+    if (fact === "NOTFOUND") {
+      throw new CommandError("No fact found");
+    }
+
+    return fact;
+  }
+}

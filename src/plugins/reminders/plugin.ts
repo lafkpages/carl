@@ -1,13 +1,9 @@
-import type { Database } from "bun:sqlite";
-import type { Client } from "whatsapp-web.js";
-import type { PluginApi } from "../../plugins";
-import type { Plugin } from "./$types";
-
 import { prettyDate } from "@based/pretty-date";
 import { parse } from "chrono-node";
 
 import { CommandError } from "../../error";
 import { PermissionLevel } from "../../perms";
+import { Plugin } from "../../plugins";
 
 interface Reminder {
   id?: number;
@@ -25,107 +21,99 @@ interface InternalReminder extends Reminder {
 
 const reminders = new Map<number, InternalReminder>();
 
-export default {
-  id: "reminders",
-  name: "Reminders",
-  description: "Set reminders for yourselfs.",
-  version: "0.0.1",
+export default class extends Plugin {
+  id = "reminders";
+  name = "Reminders";
+  description = "Set reminders for yourselfs.";
+  version = "0.0.1";
+  database = true;
 
-  database: true,
+  constructor() {
+    super();
 
-  commands: [
-    {
-      name: "reminder",
-      description: "Set a reminder.",
-      minLevel: PermissionLevel.NONE,
+    this.registerCommands([
+      {
+        name: "reminder",
+        description: "Set a reminder.",
+        minLevel: PermissionLevel.NONE,
 
-      async handler({ rest, sender, chat, client, database, api }) {
-        const datetimes = parse(rest, undefined, {
-          forwardDate: true,
-        });
+        async handler({ data, sender, chat }) {
+          const datetimes = parse(data, undefined, {
+            forwardDate: true,
+          });
 
-        if (datetimes.length < 1) {
-          throw new CommandError("invalid date/time format");
-        }
+          if (datetimes.length < 1) {
+            throw new CommandError("invalid date/time format");
+          }
 
-        if (datetimes.length > 1) {
-          throw new CommandError(
-            "multiple date/time formats detected. Please specify only one",
-          );
-        }
+          if (datetimes.length > 1) {
+            throw new CommandError(
+              "multiple date/time formats detected. Please specify only one",
+            );
+          }
 
-        const [datetime] = datetimes;
+          const [datetime] = datetimes;
 
-        if (datetime.end) {
-          throw new CommandError("date/time ranges are not supported");
-        }
+          if (datetime.end) {
+            throw new CommandError("date/time ranges are not supported");
+          }
 
-        await api.loadReminder(
-          {
+          await this.loadReminder({
             user: sender,
             channel: chat.id._serialized,
 
-            message: rest,
+            message: data,
             time: datetime.date().getTime(),
-          },
-          client,
-          database!,
-        );
+          });
 
-        return true;
+          return true;
+        },
       },
-    },
-    {
-      name: "reminders",
-      description: "List all reminders.",
-      minLevel: PermissionLevel.NONE,
+      {
+        name: "reminders",
+        description: "List all reminders.",
+        minLevel: PermissionLevel.NONE,
 
-      handler({ sender }) {
-        let reminderList = "*Reminders:*";
+        handler({ sender }) {
+          let reminderList = "*Reminders:*";
 
-        for (const reminder of reminders.values()) {
-          if (reminder.user === sender) {
-            reminderList += `\n* ${prettyDate(reminder.time, "date-time-human")}: ${reminder.message}`;
+          for (const reminder of reminders.values()) {
+            if (reminder.user === sender) {
+              reminderList += `\n* ${prettyDate(reminder.time, "date-time-human")}: ${reminder.message}`;
+            }
           }
-        }
 
-        if (reminderList.length <= 12) {
-          return "No reminders set.";
-        }
+          if (reminderList.length <= 12) {
+            return "No reminders set.";
+          }
 
-        return reminderList;
+          return reminderList;
+        },
       },
-    },
-  ],
+    ]);
 
-  async onLoad({ client, logger, database, api }) {
-    database!.run(`--sql
-      CREATE TABLE IF NOT EXISTS reminders (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        user TEXT NOT NULL,
-        channel TEXT,
-        message TEXT NOT NULL,
-        time INTEGER NOT NULL
-      );
-    `);
+    this.on("load", async () => {
+      this.db.run(`--sql
+        CREATE TABLE IF NOT EXISTS reminders (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          user TEXT NOT NULL,
+          channel TEXT,
+          message TEXT NOT NULL,
+          time INTEGER NOT NULL
+        );
+      `);
 
-    const rows = database!.query<Reminder, []>("SELECT * FROM reminders").all();
+      const rows = this.db.query<Reminder, []>("SELECT * FROM reminders").all();
 
-    for (const row of rows) {
-      await api.loadReminder(row, client, database!, false);
-    }
+      for (const row of rows) {
+        await this.loadReminder(row, false);
+      }
 
-    logger.info("Loaded", reminders.size, "reminders.");
-  },
-} satisfies Plugin;
+      this.logger.info("Loaded", reminders.size, "reminders.");
+    });
+  }
 
-export const api = {
-  async loadReminder(
-    reminder: Reminder,
-    client: Client,
-    database: Database,
-    _new = true,
-  ) {
+  async loadReminder(reminder: Reminder, _new = true) {
     const now = Date.now();
 
     if (reminder.time <= now) {
@@ -133,19 +121,19 @@ export const api = {
         throw new CommandError("reminder time is in the past");
       }
 
-      await api.sendReminder(reminder, client, database);
+      await this.sendReminder(reminder);
       return;
     }
 
     if (_new) {
-      const { lastInsertRowid } = database.run<
+      const { lastInsertRowid } = this.db.run<
         [string, string | null, string, number]
       >(
         "INSERT INTO reminders (user, channel, message, time) VALUES (?, ?, ?, ?)",
         [reminder.user, reminder.channel, reminder.message, reminder.time],
       );
 
-      const { id } = database
+      const { id } = this.db
         .query<
           { id: number },
           [number]
@@ -158,37 +146,34 @@ export const api = {
     }
 
     const timeout = setTimeout(async () => {
-      await api.sendReminder(reminder, client, database);
+      await this.sendReminder(reminder);
 
       reminders.delete(reminder.id!);
     }, reminder.time - now);
 
     reminders.set(reminder.id, { ...reminder, _timeout: timeout });
-  },
-  async sendReminder(
-    reminder: InternalReminder,
-    client: Client,
-    database: Database,
-  ) {
+  }
+
+  async sendReminder(reminder: InternalReminder) {
     if (!reminder.id) {
       throw new Error("reminder.id is not set");
     }
 
     const message =
       reminder.channel && reminder.channel !== reminder.user
-        ? await client.sendMessage(
+        ? await this.client.sendMessage(
             reminder.channel,
             `Reminder for @${reminder.user.slice(0, -5)}: ${reminder.message}`,
             { linkPreview: false, mentions: [reminder.user] },
           )
-        : await client.sendMessage(
+        : await this.client.sendMessage(
             reminder.channel || reminder.user,
             `Reminder: ${reminder.message}`,
             { linkPreview: false },
           );
 
-    database.run<[number]>("DELETE FROM reminders WHERE id = ?", [reminder.id]);
+    this.db.run<[number]>("DELETE FROM reminders WHERE id = ?", [reminder.id]);
 
     return message;
-  },
-} satisfies PluginApi;
+  }
+}

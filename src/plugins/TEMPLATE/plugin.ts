@@ -1,20 +1,23 @@
-import type { Plugin } from "./$types";
-
 import { PermissionLevel } from "../../perms";
+import { Plugin } from "../../plugins";
 
-export default {
-  id: "",
-  name: "",
-  description: "",
-  version: "0.0.1",
+export default class extends Plugin {
+  id = "";
+  name = "";
+  description = "";
+  version = "0.0.1";
 
-  commands: [
-    {
-      name: "",
-      description: "",
-      minLevel: PermissionLevel.ADMIN,
+  constructor() {
+    super();
 
-      handler({ message, rest }) {},
-    },
-  ],
-} satisfies Plugin;
+    this.registerCommands([
+      {
+        name: "",
+        description: "",
+        minLevel: PermissionLevel.ADMIN,
+
+        handler({ message, data }) {},
+      },
+    ]);
+  }
+}

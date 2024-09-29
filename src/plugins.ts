@@ -1,7 +1,7 @@
-import type { Database } from "bun:sqlite";
 import type { ConsolaInstance } from "consola";
+import type { MaybePromise } from "elysia";
 import type { OAuth2Client } from "google-auth-library";
-import type { AnySchema } from "valibot";
+import type { BaseSchema } from "valibot";
 import type {
   Chat,
   Client,
@@ -9,36 +9,17 @@ import type {
   MessageMedia,
   Reaction,
 } from "whatsapp-web.js";
-import type { _PluginsConfig } from "./config";
 import type { PermissionLevel } from "./perms";
 import type { RateLimit } from "./ratelimits";
-import type { generateTemporaryShortLink, server } from "./server";
+import type { server } from "./server";
 
+import { Database } from "bun:sqlite";
 import { consola } from "consola";
 
-export interface Plugins {}
+import { getConfig } from "./config";
+import { AsyncEventEmitter } from "./events";
 
-export interface PluginInteractions {
-  [pluginId: string]: {
-    [interaction: string]: unknown;
-  };
-}
-
-export type PluginApi = Record<string, unknown>;
-
-export interface PluginApis {}
-export type _PluginApis = {
-  [pluginId: string]: PluginApi;
-} & {
-  [PluginId in keyof PluginApis]: PluginApis[PluginId];
-};
-
-export interface PluginDefinition<PluginId extends string = string> {
-  readonly id: PluginId;
-  readonly name: string;
-  readonly description: string;
-  readonly version: string;
-
+export interface Plugin {
   /**
    * Whether this plugin should be hidden from the help command
    */
@@ -50,29 +31,79 @@ export interface PluginDefinition<PluginId extends string = string> {
    */
   readonly database?: boolean;
 
-  readonly commands?: Command<PluginId>[];
-  readonly interactions?: {
-    [interaction in keyof PluginInteractions[PluginId]]: Interaction<
-      PluginInteractions[PluginId][interaction],
-      PluginId
-    >;
-  };
-
-  onLoad?({}: BaseInteractionHandlerArgs<PluginId> & {
-    server: typeof server;
-  }): MaybePromise<void>;
-  onUnload?({}: BaseInteractionHandlerArgs<PluginId>): MaybePromise<void>;
-
-  onMessage?({}: BaseMessageInteractionHandlerArgs<PluginId> & {
-    didHandle: boolean;
-  }): MaybePromise<InteractionResult>;
-  onMessageReaction?({}: BaseMessageInteractionHandlerArgs<PluginId> & {
-    reaction: Reaction;
-  }): MaybePromise<InteractionResult>;
+  readonly configSchema?: BaseSchema<any, any, any>;
 }
 
-export interface Command<PluginId extends string>
-  extends Interaction<never, PluginId> {
+interface PluginEvents {
+  load: [{ server: typeof server }];
+  unload: [];
+
+  message: [
+    BaseMessageInteractionHandlerArgs & {
+      didHandle: boolean;
+    },
+  ];
+  reaction: [
+    BaseMessageInteractionHandlerArgs & {
+      reaction: Reaction;
+    },
+  ];
+}
+
+export abstract class Plugin extends AsyncEventEmitter<PluginEvents> {
+  abstract readonly id: string;
+  abstract readonly name: string;
+  abstract readonly description: string;
+  abstract readonly version: string;
+
+  private _commands: (Command & ThisType<this>)[] = [];
+  /**
+   * Register commands for this plugin.
+   *
+   * This method should only be called in the constructor of the plugin.
+   */
+  protected registerCommands(commands: (Command & ThisType<this>)[]) {
+    this._commands.push(...commands);
+  }
+
+  private _client: Client | null = null;
+  protected get client() {
+    if (!this._client) {
+      throw new Error("Plugin does not have a client");
+    }
+    return this._client;
+  }
+
+  protected get config() {
+    return getConfig().pluginsConfig[this.id];
+  }
+
+  private _db?: Database;
+  protected get db() {
+    if (!this.database) {
+      throw new Error("Plugin does not have a database");
+    }
+
+    if (!this._db) {
+      this._db = new Database(`db/plugins/${this.id}.sqlite`, {
+        strict: true,
+      });
+      this._db.exec("PRAGMA journal_mode = WAL;");
+    }
+
+    return this._db;
+  }
+
+  private _logger?: ConsolaInstance;
+  protected get logger() {
+    if (!this._logger) {
+      this._logger = consola.withTag(this.id);
+    }
+    return this._logger;
+  }
+}
+
+export interface Command extends Interaction<string> {
   name: string;
   description: string;
 
@@ -95,39 +126,28 @@ export interface Command<PluginId extends string>
    * external APIs to prevent abuse.
    */
   rateLimit?: RateLimit[];
+
+  handler({}: BaseMessageInteractionHandlerArgs & {
+    data: string;
+  }): ReturnType<Interaction<string>["handler"]>;
 }
 
-export interface Interaction<Data, PluginId extends string> {
-  handler({}: BaseMessageInteractionHandlerArgs<PluginId> & {
-    rest: string;
+export interface Interaction<T> {
+  handler({}: InteractionArgs<T>):
+    | MaybePromise<InteractionResult>
+    | InteractionResultGenerator;
+}
 
-    permissionLevel: PermissionLevel;
-
-    data: Data;
-
-    getGoogleClient: GetGoogleClient;
-  }): MaybePromise<InteractionResult> | InteractionResultGenerator;
+export interface InteractionArgs<T = unknown>
+  extends BaseMessageInteractionHandlerArgs {
+  data: T;
 }
 
 export interface GetGoogleClient {
   (scope: string | string[]): Promise<OAuth2Client>;
 }
 
-interface BaseInteractionHandlerArgs<PluginId extends string> {
-  api: _PluginApis[PluginId];
-  pluginApis: Partial<_PluginApis>;
-
-  client: Client;
-  logger: ConsolaInstance;
-  config: _PluginsConfig[PluginId];
-
-  database: Database | null;
-
-  generateTemporaryShortLink: typeof generateTemporaryShortLink;
-}
-
-interface BaseMessageInteractionHandlerArgs<PluginId extends string>
-  extends BaseInteractionHandlerArgs<PluginId> {
+interface BaseMessageInteractionHandlerArgs {
   message: Message;
   chat: Chat;
   sender: string;
@@ -138,35 +158,26 @@ type BasicInteractionResult = string | boolean | void | MessageMedia;
 
 export type InteractionResult =
   | BasicInteractionResult
-  | InteractionContinuation;
+  | InteractionContinuation<unknown>;
 
 export type InteractionResultGenerator =
   | Generator<BasicInteractionResult, InteractionResult, unknown>
   | AsyncGenerator<BasicInteractionResult, InteractionResult, unknown>;
 
-export class InteractionContinuation<PluginId extends string = string> {
-  handler;
+export class InteractionContinuation<T> {
   message;
+  handler;
   data;
 
-  constructor(
-    handler: keyof PluginInteractions[PluginId],
-    message: string,
-    data?: PluginInteractions[PluginId][keyof PluginInteractions[PluginId]],
-  ) {
+  private _plugin: Plugin | null = null;
+  private _timer: Timer | null = null;
+
+  constructor(message: string, handler: Interaction<T>["handler"], data?: T) {
     this.handler = handler;
     this.message = message;
     this.data = data;
   }
 }
-
-export interface PluginExports<PluginId extends string> {
-  default: PluginDefinition<PluginId>;
-  config?: AnySchema;
-  api?: _PluginApis[PluginId];
-}
-
-type MaybePromise<T> = T | Promise<T>;
 
 const pluginsGlob = new Bun.Glob("./src/plugins/**/plugin.ts");
 
@@ -174,8 +185,8 @@ export function getPluginIdFromPath(path: string) {
   return path.match(/(?:\/|^)(\w+)\/plugin\.ts$/)?.[1] || null;
 }
 
-export async function scanPlugins() {
-  const plugins = new Map<string, string>();
+export async function scanPlugins(map: Map<string, string>) {
+  map.clear();
 
   for await (const entry of pluginsGlob.scan({
     absolute: true,
@@ -192,12 +203,10 @@ export async function scanPlugins() {
       continue;
     }
 
-    if (plugins.has(pluginId)) {
+    if (map.has(pluginId)) {
       throw new Error(`Duplicate plugin found: ${pluginId}`);
     }
 
-    plugins.set(pluginId, entry);
+    map.set(pluginId, entry);
   }
-
-  return plugins;
 }

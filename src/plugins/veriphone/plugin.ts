@@ -1,9 +1,8 @@
-import type { Plugin } from "./$types";
-
 import { boolean, object, parse, picklist, string } from "valibot";
 
 import { CommandError } from "../../error";
 import { PermissionLevel } from "../../perms";
+import { Plugin } from "../../plugins";
 
 const apiKey = process.env.VERIPHONE_API_KEY;
 
@@ -35,59 +34,63 @@ const schema = object({
   carrier: string(),
 });
 
-export default {
-  id: "veriphone",
-  name: "Veriphone",
-  description: "Verifies and looks up phone numbers using the Veriphone API",
-  version: "0.0.1",
+export default class extends Plugin {
+  id = "veriphone";
+  name = "Veriphone";
+  description = "Verifies and looks up phone numbers using the Veriphone API";
+  version = "0.0.1";
 
-  commands: [
-    {
-      name: "veriphone",
-      description: "Looks up a phone number",
-      minLevel: PermissionLevel.NONE,
-      rateLimit: [
-        {
-          duration: 10000,
-          max: 1,
+  constructor() {
+    super();
+
+    this.registerCommands([
+      {
+        name: "veriphone",
+        description: "Looks up a phone number",
+        minLevel: PermissionLevel.NONE,
+        rateLimit: [
+          {
+            duration: 10000,
+            max: 1,
+          },
+        ],
+
+        async handler({ message, data }) {
+          let phoneNumber = "";
+
+          if (data) {
+            phoneNumber = data;
+          } else {
+            const contact = await message.getContact();
+            phoneNumber = contact.number;
+          }
+
+          const veriphone = parse(
+            schema,
+            await fetch(
+              `https://api.veriphone.io/v2/verify?phone=${encodeURIComponent(phoneNumber)}&key=${encodeURIComponent(apiKey!)}`,
+            ).then((r) => r.json()),
+          );
+
+          if (veriphone.status === "error") {
+            throw new CommandError("failed to look up phone number");
+          }
+
+          if (!veriphone.phone_valid) {
+            throw new CommandError("phone number is not valid");
+          }
+
+          return `\
+*Phone number: ${veriphone.phone}*
+* International number: ${veriphone.international_number}
+* Local number: ${veriphone.local_number}
+* E164 number: ${veriphone.e164}
+* Country: ${veriphone.country} (${veriphone.country_code})
+* Region: ${veriphone.phone_region} (${veriphone.country_prefix})
+* Type: ${veriphone.phone_type}
+* Carrier: ${veriphone.carrier}`;
         },
-      ],
-
-      async handler({ message, rest }) {
-        let phoneNumber = "";
-
-        if (rest) {
-          phoneNumber = rest;
-        } else {
-          const contact = await message.getContact();
-          phoneNumber = contact.number;
-        }
-
-        const data = parse(
-          schema,
-          await fetch(
-            `https://api.veriphone.io/v2/verify?phone=${encodeURIComponent(phoneNumber)}&key=${encodeURIComponent(apiKey!)}`,
-          ).then((r) => r.json()),
-        );
-
-        if (data.status === "error") {
-          throw new CommandError("failed to look up phone number");
-        }
-
-        if (!data.phone_valid) {
-          throw new CommandError("phone number is not valid");
-        }
-
-        return `\
-*Phone number: ${data.phone}*
-* International number: ${data.international_number}
-* Local number: ${data.local_number}
-* E164 number: ${data.e164}
-* Country: ${data.country} (${data.country_code})
-* Region: ${data.phone_region} (${data.country_prefix})
-* Type: ${data.phone_type}
-* Carrier: ${data.carrier}`;
       },
-    },
-  ],
-} satisfies Plugin;
+    ]);
+  }
+}

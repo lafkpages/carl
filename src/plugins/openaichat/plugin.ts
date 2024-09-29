@@ -1,47 +1,52 @@
-import type { Plugin } from "./$types";
-
 import { object, optional, string, tuple, union } from "valibot";
 
 import { getConfig } from "../../config";
+import { Plugin } from "../../plugins";
 
-export default {
-  id: "openaichat",
-  name: "OpenAI Chat",
-  description: "Chat with the bot instead of using commands.",
-  version: "0.0.1",
+export default class extends Plugin {
+  id = "openaichat";
+  name = "OpenAI Chat";
+  description = "Chat with the bot instead of using commands.";
+  version = "0.0.1";
 
-  async onMessage({ message, sender, didHandle, chat, config, pluginApis }) {
-    if (didHandle) {
-      return;
-    }
+  configSchema = optional(
+    object({
+      regex: optional(union([string(), tuple([string(), string()])])),
+    }),
+  );
 
-    let shouldRespond = false;
+  constructor() {
+    super();
 
-    // respond in DMs
-    if (sender === chat.id._serialized) {
-      shouldRespond = true;
-    } else if (config?.regex) {
-      const regex =
-        typeof config?.regex === "string"
-          ? new RegExp(config.regex)
-          : new RegExp(...config.regex);
+    this.on("message", async ({ message, sender, didHandle, chat }) => {
+      if (didHandle) {
+        return;
+      }
 
-      shouldRespond = regex.test(message.body);
-    }
+      let shouldRespond = false;
 
-    if (!shouldRespond) {
-      return;
-    }
+      // respond in DMs
+      if (sender === chat.id._serialized) {
+        shouldRespond = true;
+      } else if (this.config?.regex) {
+        const regex =
+          typeof this.config?.regex === "string"
+            ? new RegExp(this.config.regex)
+            : new RegExp(...this.config.regex);
 
-    return await pluginApis.openai?.askAi(
-      message.body,
-      getConfig().pluginsConfig.openai,
-    );
-  },
-} satisfies Plugin;
+        shouldRespond = regex.test(message.body);
+      }
 
-export const config = optional(
-  object({
-    regex: optional(union([string(), tuple([string(), string()])])),
-  }),
-);
+      if (!shouldRespond) {
+        return;
+      }
+
+      throw new Error("Not implemented");
+
+      return await pluginApis.openai?.askAi(
+        message.body,
+        getConfig().pluginsConfig.openai,
+      );
+    });
+  }
+}

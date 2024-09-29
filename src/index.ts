@@ -1,38 +1,29 @@
-import type { ConsolaInstance } from "consola";
 import type { Chat, Message } from "whatsapp-web.js";
-import type {
-  _PluginApis,
-  Command,
-  GetGoogleClient,
-  Interaction,
-  InteractionResult,
-  InteractionResultGenerator,
-  PluginDefinition,
-  PluginExports,
-} from "./plugins";
+import type { InteractionResult, InteractionResultGenerator } from "./plugins";
+
+import { InteractionContinuation, Plugin } from "./plugins";
 
 import "./sentry";
 
+import type { InternalCommand } from "./pluginsManager";
 import type { RateLimit, RateLimitEvent } from "./ratelimits";
 
 import { captureException } from "@sentry/bun";
-import { Database } from "bun:sqlite";
 import { consola } from "consola";
 import { generate } from "qrcode-terminal";
 import { LocalAuth, MessageMedia } from "whatsapp-web.js";
 
-import { getConfig, initialConfig, setPluginConfig } from "./config";
+import { getConfig, initialConfig } from "./config";
 import { CommandError, CommandPermissionError } from "./error";
-import { getClient } from "./google";
 import { generateHelp, generateHelpPage } from "./help";
 import { getPermissionLevel, PermissionLevel } from "./perms";
-import { InteractionContinuation, scanPlugins } from "./plugins";
+import { PluginsManager } from "./pluginsManager";
 import {
   checkRateLimit,
   getPermissionLevelRateLimits,
   rateLimit,
 } from "./ratelimits";
-import { generateTemporaryShortLink, server } from "./server";
+import { server } from "./server";
 import {
   getMessageSender,
   isInGithubCodespace,
@@ -47,176 +38,41 @@ if (!process.isBun) {
   process.exit(1);
 }
 
-interface InternalPlugin<PluginId extends string = string>
-  extends PluginDefinition<PluginId> {
-  _logger: ConsolaInstance;
-  _db: Database | null;
-
-  _unload(runOnUnload?: boolean): Promise<void>;
-}
-interface InternalCommand<PluginId extends string> extends Command<PluginId> {
-  plugin: InternalPlugin<PluginId>;
-  _logger: ConsolaInstance;
-}
-
-const commands = new Map<string, InternalCommand<string>>();
-const plugins: {
-  [PluginId in string]: InternalPlugin<PluginId>;
-} = {};
-const pluginApis: Partial<_PluginApis> = {};
-let pluginsDir = await scanPlugins();
-
 const userCommandAliases = new Map<string, Map<string, string>>();
 
-function loadPlugin(plugin: PluginExports<string>) {
-  consola.info("Loading plugin:", plugin.default.id);
-  consola.debug("Loading plugin:", plugin);
+class CorePlugin extends Plugin {
+  id = "core";
+  name = "Core";
+  description = "Core commands";
+  version = "1.0.0";
+  database = true;
 
-  if (plugin.config) {
-    // If the plugin has config, it will be declared
-    // on PluginsConfig so the type assertion is safe
-    setPluginConfig(plugin.default.id, plugin.config);
-  }
+  constructor() {
+    super();
 
-  const _logger = consola.withDefaults({
-    tag: plugin.default.id,
-  });
-
-  const _db = plugin.default.database
-    ? new Database(`db/plugins/${plugin.default.id}.sqlite`, { strict: true })
-    : null;
-  _db?.exec("PRAGMA journal_mode = WAL;");
-
-  const _plugin: InternalPlugin = {
-    ...plugin.default,
-    _logger,
-    _db,
-    async _unload(runOnUnload = true) {
-      consola.info("Unloading plugin:", this.id);
-
-      delete plugins[this.id];
-      this._db?.close();
-
-      for (const [commandName, command] of commands) {
-        if (command.plugin === this) {
-          commands.delete(commandName);
-        }
-      }
-
-      if (runOnUnload && this.onUnload) {
-        await this.onUnload({
-          api: pluginApis[this.id] || {},
-          pluginApis,
-          client,
-          logger: this._logger,
-          config: getConfig().pluginsConfig[this.id],
-
-          database: this._db,
-
-          generateTemporaryShortLink,
-        });
-      }
-    },
-  };
-
-  // Set config before storing plugin because setPluginConfig
-  // may throw an error if the config is invalid
-
-  plugins[plugin.default.id] = _plugin;
-  pluginApis[plugin.default.id] = plugin.api;
-
-  if (plugin.default.commands) {
-    for (const cmd of plugin.default.commands) {
-      const existingCommand = commands.get(cmd.name);
-      if (existingCommand) {
-        consola.error("Duplicate command, dupe not loaded", {
-          cmdName: cmd.name,
-          existingPlugin: existingCommand.plugin.id,
-          newPlugin: plugin.default.id,
-        });
-
-        continue;
-      }
-
-      commands.set(cmd.name, {
-        ...cmd,
-        plugin: _plugin,
-        _logger: _logger.withDefaults({
-          tag: `${plugin.default.id}/${cmd.name}`,
-        }),
-      });
-    }
-  }
-}
-
-async function loadPluginsFromConfig(idsToLoad?: Set<string> | null) {
-  const now = Date.now();
-
-  const config = getConfig();
-
-  for (const pluginIdentifier of idsToLoad || config.plugins) {
-    const pluginPath = pluginsDir.get(pluginIdentifier);
-
-    if (!pluginPath) {
-      consola.error("Plugin not found:", pluginIdentifier);
-      continue;
-    }
-
-    consola.info("Importing plugin:", pluginIdentifier, pluginPath);
-
-    // add a cache buster to the import path
-    // so that plugins can be reloaded
-    const plugin: PluginExports<typeof pluginIdentifier> = await import(
-      `${pluginPath}?${now}`
-    );
-
-    if (plugin.default.id !== pluginIdentifier) {
-      consola.error("Plugin ID does not match plugin file name.", {
-        pluginId: plugin.default.id,
-        pluginIdentifier,
-      });
-      continue;
-    }
-
-    try {
-      loadPlugin(plugin);
-    } catch (err) {
-      consola.error(`Error loading plugin "${pluginIdentifier}":`, err);
-    }
-  }
-}
-
-const corePlugin = {
-  default: {
-    id: "core",
-    name: "Core",
-    description: "Core commands",
-    version: "1.0.0",
-    database: true,
-
-    commands: [
+    this.registerCommands([
       {
         name: "help",
         description:
           "Shows this help message (use `/help all` to show hidden commands)",
         minLevel: PermissionLevel.NONE,
 
-        handler({ rest, permissionLevel }) {
-          const numbers = rest.match(/\d+/g);
+        handler({ data, permissionLevel }) {
+          const numbers = data.match(/\d+/g);
 
           if (numbers && numbers.length > 1) {
             throw new CommandError("invalid arguments. Usage: `/help [page]`");
           }
 
           const page = parseInt(numbers?.[0] || "1");
-          const showHidden = rest.includes("all");
+          const showHidden = data.includes("all");
 
           if (page < 1) {
             throw new CommandError("page number must be greater than 0");
           }
 
           return generateHelpPage(
-            generateHelp(Object.values(plugins), permissionLevel, showHidden),
+            generateHelp(pluginsManager, permissionLevel, showHidden),
             page,
           );
         },
@@ -246,73 +102,75 @@ const corePlugin = {
         description: "Reload plugins",
         minLevel: PermissionLevel.ADMIN,
 
-        async handler({ rest, logger }) {
-          rest = rest.trim().toLowerCase();
+        async handler() {
+          throw new CommandError("not implemented");
 
-          const pluginIdsToReload = rest ? new Set(rest.split(/[,\s]+/)) : null;
+          // rest = rest.trim().toLowerCase();
 
-          if (pluginIdsToReload?.size === 0) {
-            return false;
-          }
+          // const pluginIdsToReload = rest ? new Set(rest.split(/[,\s]+/)) : null;
 
-          if (pluginIdsToReload?.has("core")) {
-            throw new CommandError("cannot reload core plugin");
-          }
+          // if (pluginIdsToReload?.size === 0) {
+          //   return false;
+          // }
 
-          pluginsDir = await scanPlugins();
+          // if (pluginIdsToReload?.has("core")) {
+          //   throw new CommandError("cannot reload core plugin");
+          // }
 
-          const pluginsToReload: InternalPlugin[] = pluginIdsToReload
-            ? []
-            : Object.values(plugins);
+          // pluginsDir = await scanPlugins();
 
-          if (pluginIdsToReload) {
-            for (const pluginId of pluginIdsToReload) {
-              if (!pluginsDir.has(pluginId)) {
-                throw new CommandError(`plugin \`${pluginId}\` not found`);
-              }
+          // const pluginsToReload: InternalPlugin[] = pluginIdsToReload
+          //   ? []
+          //   : Object.values(plugins);
 
-              let loaded = false;
-              for (const plugin in plugins) {
-                if (plugin === pluginId) {
-                  loaded = true;
-                  pluginsToReload.push(plugins[plugin]);
-                  break;
-                }
-              }
+          // if (pluginIdsToReload) {
+          //   for (const pluginId of pluginIdsToReload) {
+          //     if (!pluginsDir.has(pluginId)) {
+          //       throw new CommandError(`plugin \`${pluginId}\` not found`);
+          //     }
 
-              if (!loaded) {
-                throw new CommandError(`plugin \`${pluginId}\` not loaded`);
-              }
-            }
-          }
+          //     let loaded = false;
+          //     for (const plugin in plugins) {
+          //       if (plugin === pluginId) {
+          //         loaded = true;
+          //         pluginsToReload.push(plugins[plugin]);
+          //         break;
+          //       }
+          //     }
 
-          const config = getConfig();
+          //     if (!loaded) {
+          //       throw new CommandError(`plugin \`${pluginId}\` not loaded`);
+          //     }
+          //   }
+          // }
 
-          // Unload plugins
-          for (const plugin of pluginsToReload) {
-            await plugin._unload();
-          }
+          // const config = getConfig();
 
-          // Reload plugins
-          await loadPluginsFromConfig(pluginIdsToReload);
+          // // Unload plugins
+          // for (const plugin of pluginsToReload) {
+          //   await plugin._unload();
+          // }
 
-          // Fire plugin onLoad events
-          for (const plugin of pluginsToReload) {
-            await plugin.onLoad?.({
-              api: pluginApis[plugin.id] || {},
-              pluginApis,
-              client,
-              logger: plugin._logger,
-              config: config.pluginsConfig[plugin.id],
+          // // Reload plugins
+          // await loadPluginsFromConfig(pluginIdsToReload);
 
-              database: plugin._db,
-              server,
+          // // Fire plugin onLoad events
+          // for (const plugin of pluginsToReload) {
+          //   await plugin.onLoad?.({
+          //     api: pluginApis[plugin.id] || {},
+          //     pluginApis,
+          //     client,
+          //     logger: plugin._logger,
+          //     config: config.pluginsConfig[plugin.id],
 
-              generateTemporaryShortLink,
-            });
-          }
+          //     database: plugin._db,
+          //     server,
 
-          return true;
+          //     generateTemporaryShortLink,
+          //   });
+          // }
+
+          // return true;
         },
       },
       {
@@ -320,8 +178,8 @@ const corePlugin = {
         description: "Set an alias for a command",
         minLevel: PermissionLevel.NONE,
 
-        handler({ rest, sender, database }) {
-          if (!rest) {
+        handler({ data, sender }) {
+          if (!data) {
             // List user's aliases
             if (!userCommandAliases.has(sender)) {
               return "You have no aliases set";
@@ -336,13 +194,13 @@ const corePlugin = {
             return msg;
           }
 
-          const [, alias, command] = rest.match(/^\/?(.+)\s+\/?(.+)$/) || [];
+          const [, alias, command] = data.match(/^\/?(.+)\s+\/?(.+)$/) || [];
 
           if (!alias) {
             throw new CommandError("Usage: `/alias <alias> <command>`");
           }
 
-          database!.run<[string, string, string]>(
+          this.db.run<[string, string, string]>(
             "INSERT OR REPLACE INTO aliases (user, alias, command) VALUES (?, ?, ?)",
             [sender, alias, command],
           );
@@ -361,8 +219,8 @@ const corePlugin = {
         description: "Remove an alias",
         minLevel: PermissionLevel.NONE,
 
-        handler({ rest, sender, database }) {
-          if (!rest) {
+        handler({ data, sender }) {
+          if (!data) {
             throw new CommandError("Usage: `/unalias <alias>`");
           }
 
@@ -372,16 +230,16 @@ const corePlugin = {
             throw new CommandError("You have no aliases set");
           }
 
-          if (!userAliases.has(rest)) {
-            return `Alias \`${rest}\` not found`;
+          if (!userAliases.has(data)) {
+            return `Alias \`${data}\` not found`;
           }
 
-          database!.run<[string, string]>(
+          this.db.run<[string, string]>(
             "DELETE FROM aliases WHERE user = ? AND alias = ?",
-            [sender, rest],
+            [sender, data],
           );
 
-          userAliases.delete(rest);
+          userAliases.delete(data);
 
           if (userAliases.size === 0) {
             userCommandAliases.delete(sender);
@@ -396,35 +254,35 @@ const corePlugin = {
         minLevel: PermissionLevel.NONE,
         hidden: true,
 
-        handler({ rest }) {
-          if (!rest) {
+        handler({ data }) {
+          if (!data) {
             throw new CommandError("Usage: `/resolvecommand <command>`");
           }
 
-          const cmd = resolveCommand(rest);
+          const cmd = resolveCommand(data);
 
           if (cmd) {
-            return `Command \`${rest}\` resolves to \`${cmd.plugin.id}/${cmd.name}\``;
+            return `Command \`${data}\` resolves to \`${cmd._plugin.id}/${cmd.name}\``;
           } else {
             return false;
           }
         },
       },
-    ],
+    ]);
 
-    onLoad({ database }) {
+    this.on("load", () => {
       // Configure database
-      database!.run(`\
-CREATE TABLE IF NOT EXISTS aliases (
-  user TEXT NOT NULL,
-  alias TEXT NOT NULL,
-  command TEXT NOT NULL,
-  PRIMARY KEY (user, alias)
-);
-`);
+      this.db.run(`--sql
+        CREATE TABLE IF NOT EXISTS aliases (
+          user TEXT NOT NULL,
+          alias TEXT NOT NULL,
+          command TEXT NOT NULL,
+          PRIMARY KEY (user, alias)
+        );
+      `);
 
       // Load user command aliases
-      const aliasEntries = database!
+      const aliasEntries = this.db
         .query<
           {
             user: string;
@@ -444,9 +302,9 @@ CREATE TABLE IF NOT EXISTS aliases (
           .get(aliasEntry.user)!
           .set(aliasEntry.alias, aliasEntry.command);
       }
-    },
+    });
 
-    async onMessageReaction({ reaction, message, permissionLevel }) {
+    this.on("reaction", async ({ reaction, message, permissionLevel }) => {
       if (
         reaction.reaction === "\u{1F5D1}\u{FE0F}" &&
         // Only allow deleting messages from the bot
@@ -456,13 +314,9 @@ CREATE TABLE IF NOT EXISTS aliases (
       ) {
         await message.delete(true);
       }
-    },
-  },
-} satisfies PluginExports<"core">;
-
-// Load plugins
-loadPlugin(corePlugin);
-await loadPluginsFromConfig();
+    });
+  }
+}
 
 const client = new Client({
   authStrategy: new LocalAuth(),
@@ -473,6 +327,12 @@ const client = new Client({
       : undefined,
   },
 });
+
+// Load plugins
+const pluginsManager = new PluginsManager(client);
+pluginsManager.registerPlugin(new CorePlugin());
+await pluginsManager.scanPlugins();
+await pluginsManager.loadPluginsFromConfig();
 
 client.on("qr", (qr) => {
   consola.info("QR code received", qr);
@@ -500,21 +360,12 @@ await client.initialize();
 await clientReadyPromise.promise;
 
 // Fire plugin onLoad events
-for (const plugin of Object.values(plugins)) {
-  if (plugin.onLoad) {
+for (const plugin of pluginsManager) {
+  if (plugin.hasListeners("load")) {
     consola.debug("Running plugin onLoad:", plugin.id);
 
-    await plugin.onLoad({
-      api: pluginApis[plugin.id] || {},
-      pluginApis,
-      client,
-      logger: plugin._logger,
-      config: initialConfig.pluginsConfig[plugin.id],
-
-      database: plugin._db,
+    await plugin.run("load", {
       server,
-
-      generateTemporaryShortLink,
     });
 
     consola.debug("Plugin onLoad done:", plugin.id);
@@ -523,16 +374,9 @@ for (const plugin of Object.values(plugins)) {
 
 process.on("SIGINT", stopGracefully);
 
-interface InternalInteraction<Data, PluginId extends string>
-  extends Interaction<Data, PluginId> {
-  _data: unknown;
-  _plugin: InternalPlugin;
-  _timeout: Timer;
-}
-
 const interactionContinuations = new Map<
   string,
-  InternalInteraction<unknown, string>
+  InteractionContinuation<unknown>
 >();
 
 client.on("message", async (message) => {
@@ -563,28 +407,8 @@ client.on("message", async (message) => {
 
   const rateLimitEvent = rateLimit(sender, { points: 1 });
 
-  let [, command, rest] = message.body.match(/^\/(\w+)\s*(.*)?$/is) || [];
-  rest ||= "";
-
-  async function getGoogleClient(scope: string | string[]) {
-    return (await getClient(sender, scope, (url) => {
-      if (chat.id._serialized === sender) {
-        throw new CommandError(
-          `please login with Google using the link below:\n${url}`,
-        );
-      } else {
-        client.sendMessage(
-          sender,
-          `Please login with Google using the link below:\n${url}`,
-          { linkPreview: false },
-        );
-
-        throw new CommandError(
-          `please login with Google using the link sent to you privately`,
-        );
-      }
-    }))!;
-  }
+  let [, command, data] = message.body.match(/^\/(\w+)\s*(.*)?$/is) || [];
+  data ||= "";
 
   let didHandle = false;
 
@@ -598,34 +422,23 @@ client.on("message", async (message) => {
       await chat.sendSeen();
       await chat.sendStateTyping();
 
-      const {
-        handler: interactionContinuationHandler,
-        _data,
-        _plugin,
-      } = interactionContinuations.get(quotedMsg.id._serialized)!;
+      const interactionContinuation = interactionContinuations.get(
+        quotedMsg.id._serialized,
+      )!;
 
-      const result = await interactionContinuationHandler({
+      // @ts-expect-error: _plugin is private
+      const { handler, _plugin, data } = interactionContinuation;
+
+      if (!_plugin) {
+        throw new Error("Interaction continuation has no associated plugin");
+      }
+
+      const result = await handler({
         message,
-        rest: message.body,
         sender,
-        chat,
-
         permissionLevel,
-
-        api: pluginApis[_plugin.id] || {},
-        pluginApis,
-        client,
-        logger: _plugin._logger.withDefaults({
-          tag: `${_plugin.id}:${interactionContinuationHandler.name}`,
-        }),
-        config: config.pluginsConfig[_plugin.id],
-
-        database: _plugin._db,
-
-        data: _data,
-
-        generateTemporaryShortLink,
-        getGoogleClient,
+        chat,
+        data,
       });
 
       await handleInteractionResult(result, message, _plugin);
@@ -636,20 +449,12 @@ client.on("message", async (message) => {
 
     didHandle = true;
   } else if (command) {
-    consola.info("Command received:", { command, rest, sender });
+    consola.info("Command received:", { command, data, sender });
 
     const cmd = resolveCommand(command, sender);
 
     if (cmd) {
-      await execute(
-        cmd,
-        rest,
-        message,
-        chat,
-        rateLimitEvent,
-        userRateLimits,
-        getGoogleClient,
-      );
+      await execute(cmd, data, message, chat, rateLimitEvent, userRateLimits);
     } else {
       await handleError(
         new CommandError(`unknown command: \`${command}\``),
@@ -660,8 +465,8 @@ client.on("message", async (message) => {
     didHandle = true;
   }
 
-  for (const plugin of Object.values(plugins)) {
-    if (plugin.onMessage) {
+  for (const plugin of pluginsManager) {
+    if (plugin.hasListeners("message")) {
       if (checkRateLimit(sender, userRateLimits)) {
         consola.info("User rate limited at onMessage:", sender);
         return;
@@ -679,23 +484,13 @@ client.on("message", async (message) => {
       consola.debug("Running plugin onMessage:", plugin.id);
 
       try {
-        const result = await plugin.onMessage({
-          api: pluginApis[plugin.id] || {},
-          pluginApis,
-          client,
-          logger: plugin._logger,
-          config: config.pluginsConfig[plugin.id],
-
-          database: plugin._db,
-
+        const result = await plugin.run("message", {
           message,
           chat,
           sender,
           permissionLevel,
 
           didHandle,
-
-          generateTemporaryShortLink,
         });
 
         await handleInteractionResult(result, message, plugin);
@@ -729,8 +524,8 @@ client.on("message_reaction", async (reaction) => {
     permissionLevel,
   });
 
-  for (const plugin of Object.values(plugins)) {
-    if (plugin.onMessageReaction) {
+  for (const plugin of pluginsManager) {
+    if (plugin.hasListeners("reaction")) {
       if (!message) {
         message = await client
           .getMessageById(reaction.msgId._serialized)
@@ -748,23 +543,13 @@ client.on("message_reaction", async (reaction) => {
 
       consola.debug("Running plugin onMessageReaction:", plugin.id);
 
-      const result = await plugin.onMessageReaction({
-        api: pluginApis[plugin.id] || {},
-        pluginApis,
-        client,
-        logger: plugin._logger,
-        config: config.pluginsConfig[plugin.id],
-
-        database: plugin._db,
-
+      const result = await plugin.run("reaction", {
         message,
         chat,
         sender: reaction.senderId,
         permissionLevel,
 
         reaction,
-
-        generateTemporaryShortLink,
       });
 
       consola.debug("Handling interaction result:", {
@@ -780,13 +565,12 @@ client.on("message_reaction", async (reaction) => {
 });
 
 async function execute(
-  command: InternalCommand<string>,
-  rest: string,
+  command: InternalCommand,
+  data: string,
   message: Message,
   chat: Chat,
   rateLimitEvent: RateLimitEvent,
   userRateLimits: RateLimit[],
-  getGoogleClient: GetGoogleClient,
 ) {
   const sender = getMessageSender(message);
   const permissionLevel = getPermissionLevel(sender, chat.id);
@@ -798,11 +582,11 @@ async function execute(
     : userRateLimits;
 
   if (
-    checkRateLimit(sender, commandRateLimits, command.plugin.id, command.name)
+    checkRateLimit(sender, commandRateLimits, command._plugin.id, command.name)
   ) {
     await message.react("\u23F3");
   } else {
-    rateLimitEvent.plugin = command.plugin.id;
+    rateLimitEvent.plugin = command._plugin.id;
     rateLimitEvent.command = command.name;
 
     chat.sendStateTyping();
@@ -811,27 +595,14 @@ async function execute(
       try {
         const result = await command.handler({
           message,
-          rest,
+          data,
           sender,
           chat,
 
           permissionLevel,
-
-          api: pluginApis[command.plugin.id] || {},
-          pluginApis,
-          client,
-          logger: command._logger,
-          config: getConfig().pluginsConfig[command.plugin.id],
-
-          database: command.plugin._db,
-
-          data: null as never,
-
-          generateTemporaryShortLink,
-          getGoogleClient,
         });
 
-        await handleInteractionResult(result, message, command.plugin);
+        await handleInteractionResult(result, message, command._plugin);
       } catch (err) {
         await handleError(err, message, null, command);
       }
@@ -845,7 +616,7 @@ async function execute(
 }
 
 function resolveCommand(command: string, user?: string) {
-  const cmd = commands.get(command);
+  const cmd = pluginsManager.getCommand(command);
   if (cmd) {
     return cmd;
   }
@@ -872,39 +643,29 @@ function resolveCommand(command: string, user?: string) {
 async function handleInteractionResult(
   result: InteractionResult | InteractionResultGenerator,
   message: Message,
-  plugin: InternalPlugin,
+  plugin: Plugin,
   _editMessage?: Message | null,
 ) {
   if (result instanceof InteractionContinuation) {
     const reply = await message.reply(result.message);
     reply.react("\u{1F4AC}");
 
-    const interactionContinuationHandler =
-      plugin.interactions?.[result.handler];
+    // @ts-expect-error: _plugin is private
+    result._plugin = plugin;
 
-    if (interactionContinuationHandler) {
-      // expire continuations after 5 minutes
-      const _timeout = setTimeout(
-        async () => {
-          await message.react("");
-          await message.react("\u231B");
+    // expire continuations after 5 minutes
+    // @ts-expect-error: _timeout is private
+    result._timeout = setTimeout(
+      async () => {
+        await message.react("");
+        await message.react("\u231B");
 
-          interactionContinuations.delete(reply.id._serialized);
-        },
-        5 * 60 * 1000,
-      );
+        interactionContinuations.delete(reply.id._serialized);
+      },
+      5 * 60 * 1000,
+    );
 
-      interactionContinuations.set(reply.id._serialized, {
-        ...interactionContinuationHandler,
-        _data: result.data,
-        _plugin: plugin,
-        _timeout,
-      });
-    } else {
-      throw new Error(
-        `Interaction continuation \`${result.handler}\` handler not found for plugin \`${plugin.id}\``,
-      );
-    }
+    interactionContinuations.set(reply.id._serialized, result);
   } else {
     if (typeof result === "string" || result instanceof MessageMedia) {
       if (_editMessage) {
@@ -951,7 +712,7 @@ async function handleError(
   error: unknown,
   message: Message,
   interactionContinuationMessage?: Message | null,
-  command?: InternalCommand<string> | null,
+  command?: InternalCommand | null,
 ) {
   await message.react("\u274C");
 
@@ -992,7 +753,7 @@ async function handleError(
       await sendMessageToAdmins(
         client,
         `\
-Error while handling command \`${command.plugin.id}\`/\`${command.name}\`:
+Error while handling command \`${command._plugin.id}\`/\`${command.name}\`:
 \`\`\`
 ${Bun.inspect(error, { colors: false })}\`\`\``,
       );
@@ -1009,8 +770,15 @@ async function cleanupInteractionContinuation(message: Message) {
     throw new Error("Interaction continuation not found");
   }
 
+  // @ts-expect-error: _timer is private
+  const { _timer } = interactionContinuation;
+
+  if (!_timer) {
+    throw new Error("Interaction continuation timer not found");
+  }
+
   // prevent the expiration timeout from running
-  clearTimeout(interactionContinuation._timeout);
+  clearTimeout(_timer);
 
   // delete the interaction continuation to prevent it from being used again
   interactionContinuations.delete(message.id._serialized);
@@ -1022,26 +790,8 @@ async function cleanupInteractionContinuation(message: Message) {
 async function stopGracefully() {
   consola.info("Graceful stop triggered");
 
-  const config = getConfig();
-
-  for (const plugin of Object.values(plugins)) {
-    if (plugin.onUnload) {
-      consola.debug("Unloading plugin on graceful stop:", plugin.id);
-
-      await plugin.onUnload({
-        api: pluginApis[plugin.id] || {},
-        pluginApis,
-        client,
-        logger: plugin._logger,
-        config: config.pluginsConfig[plugin.id],
-
-        database: plugin._db,
-
-        generateTemporaryShortLink,
-      });
-
-      consola.debug("Plugin onUnload done:", plugin.id);
-    }
+  for (const plugin of pluginsManager) {
+    await pluginsManager.unloadPlugin(plugin.id);
   }
 
   await stop();
@@ -1060,8 +810,8 @@ async function stop() {
   consola.debug("Stopping server");
   await server.stop();
 
-  consola.debug("Closing plugins' databases");
-  for (const plugin of Object.values(plugins)) {
-    plugin._db?.close();
+  consola.info("Unloading plugins");
+  for (const plugin of pluginsManager) {
+    await pluginsManager.unloadPlugin(plugin.id, false);
   }
 }

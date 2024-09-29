@@ -1,4 +1,4 @@
-import type { AnySchema, InferOutput } from "valibot";
+import type { BaseSchema, InferOutput } from "valibot";
 
 import { EventEmitter } from "node:events";
 
@@ -27,10 +27,7 @@ import { isInGithubCodespace } from "./utils";
 
 const configSchema = object({
   /**
-   * A list of plugins to load.
-   *
-   * Each plugin can either be a path to a plugin file,
-   * or the name of a built-in plugin.
+   * A list of plugin IDs to load.
    */
   plugins: array(pipe(string(), regex(/^[a-z]+$/))),
 
@@ -107,10 +104,13 @@ export type _PluginsConfig = {
 };
 
 const pluginsConfig: {
-  [pluginId: string]: AnySchema | undefined;
+  [pluginId: string]: BaseSchema<any, any, any> | undefined;
 } = {};
 
-export function setPluginConfig(pluginId: string, pluginConfig?: AnySchema) {
+export function setPluginConfig(
+  pluginId: string,
+  pluginConfig?: BaseSchema<any, any, any>,
+) {
   pluginsConfig[pluginId] = pluginConfig;
 
   if (pluginConfig) {

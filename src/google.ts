@@ -1,18 +1,16 @@
 import type { error as ElysiaError } from "elysia/error";
 import type { Credentials, OAuth2Client } from "google-auth-library";
+import type { Chat, Client } from "whatsapp-web.js";
 
 import { Database } from "bun:sqlite";
-
 import { consola } from "consola";
 import { google } from "googleapis";
 import { nanoid } from "nanoid";
 import { decrypt, encrypt, generateKeys } from "paseto-ts/v4";
 
-import {
-  generateTemporaryShortLink,
-  publicUrl,
-  removeTemporaryShortLink,
-} from "./server";
+import { CommandError } from "./error";
+import { generateTemporaryShortLink, removeTemporaryShortLink } from "./server";
+import { publicUrl } from "./server/common";
 
 const db = new Database("db/google.sqlite", { strict: true });
 db.run(`--sql
@@ -99,15 +97,18 @@ function serialiseScope(scope: Set<string>): string {
   return Array.from(scope).join(" ");
 }
 
-const client = createClient();
-const clients = new Map<string, { scope: Set<string>; client: OAuth2Client }>();
+const oauthClient = createClient();
+const oauthClients = new Map<
+  string,
+  { scope: Set<string>; client: OAuth2Client }
+>();
 
 export async function handleOAuthCallback(
   code: string,
   state: string,
   error: typeof ElysiaError,
 ) {
-  const { tokens } = await client.getToken(code);
+  const { tokens } = await oauthClient.getToken(code);
 
   if (!tokens.access_token) {
     error(500);
@@ -121,13 +122,13 @@ export async function handleOAuthCallback(
   }>(pasetoKey, state);
   const scope = parseScope(stateInfo.payload.scope);
 
-  let userClient = clients.get(stateInfo.payload.user);
+  let userClient = oauthClients.get(stateInfo.payload.user);
 
   if (userClient) {
     userClient.scope = scope;
   } else {
     userClient = { scope, client: createClient(stateInfo.payload.user) };
-    clients.set(stateInfo.payload.user, userClient);
+    oauthClients.set(stateInfo.payload.user, userClient);
   }
 
   userClient.client.setCredentials(tokens);
@@ -154,14 +155,15 @@ function hasScopes(currentScopes: Set<string>, requiredScopes: Set<string>) {
   return true;
 }
 
-export async function getClient(
+export async function getGoogleClient(
+  client: Client,
   user: string,
+  chat: Chat,
   _scope: string | string[],
-  onAuthRequired: (url: string) => void,
 ) {
   const scope = parseScope(_scope);
 
-  const cachedClient = clients.get(user);
+  const cachedClient = oauthClients.get(user);
   if (cachedClient) {
     if (hasScopes(cachedClient.scope, scope)) {
       return cachedClient.client;
@@ -193,7 +195,7 @@ export async function getClient(
 
   if (storedToken?.refresh_token) {
     const newClient = createClient(user);
-    clients.set(user, {
+    oauthClients.set(user, {
       scope: parseScope(storedToken.scope),
       client: newClient,
     });
@@ -228,26 +230,39 @@ export async function getClient(
   }
 
   const linkId = nanoid();
-  onAuthRequired(
-    generateTemporaryShortLink(
-      client.generateAuthUrl({
-        access_type: "offline",
-        scope: Array.from(scopesToRequest),
-        state: encrypt(pasetoKey, {
-          user,
-          linkId,
-          scope: serialiseScope(scopesToRequest),
-          exp: "5m",
-        }),
+  const url = generateTemporaryShortLink(
+    oauthClient.generateAuthUrl({
+      access_type: "offline",
+      scope: Array.from(scopesToRequest),
+      state: encrypt(pasetoKey, {
+        user,
+        linkId,
+        scope: serialiseScope(scopesToRequest),
+        exp: "5m",
       }),
-      linkId,
-    ).url,
-  );
-  return null;
+    }),
+    linkId,
+  ).url;
+
+  if (chat.id._serialized === user) {
+    throw new CommandError(
+      `please login with Google using the link below:\n${url}`,
+    );
+  } else {
+    client.sendMessage(
+      user,
+      `Please login with Google using the link below:\n${url}`,
+      { linkPreview: false },
+    );
+
+    throw new CommandError(
+      `please login with Google using the link sent to you privately`,
+    );
+  }
 }
 
 export function getScopes(user: string) {
-  const cachedClient = clients.get(user);
+  const cachedClient = oauthClients.get(user);
   if (cachedClient) {
     return cachedClient.scope;
   }

@@ -1,33 +1,34 @@
 import type { PermissionLevel } from "./perms";
-import type { Plugin } from "./plugins";
+import type { PluginsManager } from "./pluginsManager";
 
 import { getConfig } from "./config";
 
 export function generateHelp(
-  plugins: Iterable<Plugin>,
+  pluginsManager: PluginsManager,
   permissionLevel: PermissionLevel,
   showHidden = false,
 ) {
   let msg = "Plugins:";
 
-  for (const plugin of plugins) {
+  for (const plugin of pluginsManager) {
     if (!showHidden && plugin.hidden) {
       continue;
     }
 
     let commandsMsg = "";
 
-    if (plugin.commands) {
-      for (const command of plugin.commands) {
-        if (
-          (command.hidden || command.minLevel > permissionLevel) &&
-          !showHidden
-        ) {
-          continue;
-        }
+    // @ts-expect-error: _commands is private
+    const { _commands } = plugin;
 
-        commandsMsg += `\n* \`/${command.name}\`: ${command.description}`;
+    for (const command of _commands) {
+      if (
+        (command.hidden || command.minLevel > permissionLevel) &&
+        !showHidden
+      ) {
+        continue;
       }
+
+      commandsMsg += `\n* \`/${command.name}\`: ${command.description}`;
     }
 
     if (commandsMsg) {

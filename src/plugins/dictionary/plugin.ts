@@ -1,9 +1,8 @@
-import type { Plugin } from "./$types";
-
 import { array, nullish, object, parse, string, union } from "valibot";
 
 import { CommandError } from "../../error";
 import { PermissionLevel } from "../../perms";
+import { Plugin } from "../../plugins";
 
 const schema = union([
   array(
@@ -40,63 +39,67 @@ const schema = union([
   }),
 ]);
 
-export default {
-  id: "dictionary",
-  name: "Dictionary",
-  description:
-    "A dictionary plugin for looking up words and their definitions.",
-  version: "0.0.1",
+export default class extends Plugin {
+  id = "dictionary";
+  name = "Dictionary";
+  description =
+    "A dictionary plugin for looking up words and their definitions.";
+  version = "0.0.1";
 
-  commands: [
-    {
-      name: "defineword",
-      description: "Define a word.",
-      minLevel: PermissionLevel.NONE,
-      rateLimit: [
-        {
-          duration: 5000,
-          max: 1,
-        },
-      ],
+  constructor() {
+    super();
 
-      async handler({ rest, logger }) {
-        const resp = await fetch(
-          `https://api.dictionaryapi.dev/api/v2/entries/en/${encodeURIComponent(rest)}`,
-        ).then((r) => r.json());
+    this.registerCommands([
+      {
+        name: "defineword",
+        description: "Define a word.",
+        minLevel: PermissionLevel.NONE,
+        rateLimit: [
+          {
+            duration: 5000,
+            max: 1,
+          },
+        ],
 
-        logger.debug("Dictionary API response:", resp);
+        async handler({ data }) {
+          const resp = await fetch(
+            `https://api.dictionaryapi.dev/api/v2/entries/en/${encodeURIComponent(data)}`,
+          ).then((r) => r.json());
 
-        const data = parse(schema, resp);
+          this.logger.debug("Dictionary API response:", resp);
 
-        if ("message" in data) {
-          throw new CommandError(data.message);
-        }
+          const dictData = parse(schema, resp);
 
-        if (data.length === 0) {
-          throw new CommandError("No definitions found.");
-        }
-
-        let msg = "";
-
-        for (const entry of data) {
-          msg += `*${entry.word}* (${entry.phonetic})\n`;
-
-          for (const meaning of entry.meanings) {
-            msg += `\n${meaning.partOfSpeech}\n`;
-
-            for (const definition of meaning.definitions) {
-              msg += `* ${definition.definition}\n`;
-              if (definition.example) {
-                msg += `    - _${definition.example}_\n`;
-              }
-            }
+          if ("message" in dictData) {
+            throw new CommandError(dictData.message);
           }
 
-          msg += "\n";
-        }
+          if (dictData.length === 0) {
+            throw new CommandError("No definitions found.");
+          }
 
-        return msg.slice(0, -2);
+          let msg = "";
+
+          for (const entry of dictData) {
+            msg += `*${entry.word}* (${entry.phonetic})\n`;
+
+            for (const meaning of entry.meanings) {
+              msg += `\n${meaning.partOfSpeech}\n`;
+
+              for (const definition of meaning.definitions) {
+                msg += `* ${definition.definition}\n`;
+                if (definition.example) {
+                  msg += `    - _${definition.example}_\n`;
+                }
+              }
+            }
+
+            msg += "\n";
+          }
+
+          return msg.slice(0, -2);
+        },
       },
-    },
-  ],
-} satisfies Plugin;
+    ]);
+  }
+}

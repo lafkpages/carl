@@ -1,12 +1,9 @@
-import type { Database } from "bun:sqlite";
-import type { ConsolaInstance } from "consola";
 import type {
   ChatCompletionContentPart,
   ChatCompletionMessageParam,
 } from "openai/resources/index";
 import type { Contact, Message } from "whatsapp-web.js";
-import type { PluginApi } from "../../plugins";
-import type { Plugin } from "./$types";
+import type { InteractionArgs, InteractionResult } from "../../plugins";
 
 import Mime from "mime";
 import objectHash from "object-hash";
@@ -16,7 +13,7 @@ import { MessageMedia, MessageTypes } from "whatsapp-web.js";
 
 import { CommandError } from "../../error";
 import { PermissionLevel } from "../../perms";
-import { InteractionContinuation } from "../../plugins";
+import { InteractionContinuation, Plugin } from "../../plugins";
 
 const openai = new OpenAI();
 
@@ -28,354 +25,235 @@ function returnResponse(response: string | null) {
   }
 }
 
-async function whatsappMessageToChatCompletionMessage(
-  message: Message,
-  database: Database,
-  logger: ConsolaInstance,
-  body?: string | null,
-  includeNames = true,
-): Promise<ChatCompletionMessageParam | null> {
-  let contact: Contact;
-  if (includeNames) {
-    contact = await message.getContact();
-  }
+export default class extends Plugin {
+  id = "openai";
+  name = "OpenAI";
+  description = "Talk to ChatGPT on WhatsApp!";
+  version = "0.0.1";
+  database = true;
 
-  body ||= message.body;
+  configSchema = optional(
+    object({
+      model: optional(string(), "gpt-4o-mini"),
 
-  let content: string | ChatCompletionContentPart[];
-
-  if (message.hasMedia) {
-    const media = await message.downloadMedia();
-
-    if (media.mimetype.startsWith("image")) {
-      content = [
-        {
-          type: "text",
-          text: body,
-        },
-        {
-          type: "image_url",
-          image_url: { url: `data:${media.mimetype};base64,${media.data}` },
-        },
-      ];
-    } else {
-      try {
-        content = await transcribeMessage(message, database);
-      } catch (err) {
-        logger.error(
-          "Error transcribing message in whatsappMessageToChatCompletionMessage:",
-          err,
-        );
-        content = body;
-      }
-    }
-  } else {
-    content = body;
-  }
-
-  if (!content) {
-    return null;
-  }
-
-  return {
-    role: "user",
-    content,
-    name: includeNames
-      ? contact!.pushname?.replace(/[^a-zA-Z0-9_-]/g, "")
-      : undefined,
-  };
-}
-
-async function transcribeMessage(message: Message, database: Database) {
-  if (!message.hasMedia) {
-    throw new CommandError("message does not contain media");
-  }
-
-  if (
-    message.type !== MessageTypes.AUDIO &&
-    message.type !== MessageTypes.VOICE &&
-    message.type !== MessageTypes.VIDEO
-  ) {
-    throw new CommandError("message must be an audio, voice or video message");
-  }
-
-  const media = await message.downloadMedia();
-
-  // underscore to prevent collisions between other type of hash from objectHash
-  const hash = `_${Bun.hash(media.data).toString(36)}`;
-
-  const cached = getCached(hash, database);
-
-  if (cached) {
-    return cached;
-  }
-
-  let filename = media.filename;
-  if (!filename) {
-    const ext = Mime.getExtension(media.mimetype);
-
-    if (ext) {
-      filename = `${hash}.${ext}`;
-    }
-  }
-
-  if (!filename) {
-    throw new CommandError("could not determine file extension");
-  }
-
-  const transcription = await openai.audio.transcriptions.create({
-    file: await toFile(Buffer.from(media.data, "base64"), filename),
-    model: "whisper-1",
-  });
-
-  setCache(hash, transcription.text, database);
-
-  return transcription.text;
-}
-
-function getCached<Bin extends boolean = false>(
-  hash: string,
-  database: Database,
-  bin?: Bin,
-) {
-  return (
-    database!
-      .query<
-        {
-          value: Bin extends true ? Uint8Array : string;
-        },
-        [string]
-      >(`SELECT value FROM ${bin ? "binary_cache" : "cache"} WHERE key = ?`)
-      .get(hash)?.value || null
+      /**
+       * Maximum length of a conversation to summarise.
+       */
+      maxConversationLength: optional(number(), 500),
+    }),
+    {},
   );
-}
 
-function setCache<Bin extends boolean = false>(
-  hash: string,
-  value: Bin extends true ? NodeJS.TypedArray : string,
-  database: Database,
-  bin?: Bin,
-) {
-  database!.run<[string, Bin extends true ? NodeJS.TypedArray : string]>(
-    `INSERT INTO ${bin ? "binary_cache" : "cache"} (key, value) VALUES (?, ?)`,
-    [hash, value],
-  );
-}
+  constructor() {
+    super();
 
-export default {
-  id: "openai",
-  name: "OpenAI",
-  description: "Talk to ChatGPT on WhatsApp!",
-  version: "0.0.1",
-
-  database: true,
-
-  commands: [
-    {
-      name: "ai",
-      description: "Ask a question to AI",
-      minLevel: PermissionLevel.TRUSTED,
-      rateLimit: [
-        {
-          duration: 5000,
-          max: 1,
-        },
-        {
-          // 20 per hour
-          duration: 3_600_000,
-          max: 20,
-        },
-      ],
-
-      async handler({ rest, logger, config, database }) {
-        const messages: ChatCompletionMessageParam[] = [
+    this.registerCommands([
+      {
+        name: "ai",
+        description: "Ask a question to AI",
+        minLevel: PermissionLevel.TRUSTED,
+        rateLimit: [
           {
-            role: "user",
-            content: rest,
+            duration: 5000,
+            max: 1,
           },
-        ];
+          {
+            // 20 per hour
+            duration: 3_600_000,
+            max: 20,
+          },
+        ],
 
-        const hash = objectHash(messages);
+        async handler({ data }) {
+          const messages: ChatCompletionMessageParam[] = [
+            {
+              role: "user",
+              content: data,
+            },
+          ];
 
-        const cached = getCached(hash, database!);
+          const hash = objectHash(messages);
 
-        let response: string;
-        if (cached) {
-          response = cached;
-        } else {
+          const cached = this.getCached(hash);
+
+          let response: string;
+          if (cached) {
+            response = cached;
+          } else {
+            const completion = await openai.chat.completions.create({
+              messages,
+              model: this.config.model,
+            });
+
+            this.logger.debug("AI response:", completion);
+
+            response = returnResponse(completion.choices[0].message.content);
+
+            this.setCache(hash, response);
+          }
+
+          messages.push({
+            role: "assistant",
+            content: response,
+          });
+
+          return new InteractionContinuation(
+            response,
+            this.aiContinuation,
+            messages,
+          );
+        },
+      },
+      {
+        name: "summarise",
+        description: "Summarise a given text or message",
+        minLevel: PermissionLevel.TRUSTED,
+        rateLimit: [
+          {
+            duration: 5000,
+            max: 1,
+          },
+          {
+            // 20 per hour
+            duration: 3_600_000,
+            max: 20,
+          },
+        ],
+
+        async handler({ message, data }) {
+          let messages: ChatCompletionMessageParam[] = [
+            {
+              role: "system",
+              content:
+                "Give a brief summary of the following WhatsApp messages.",
+            },
+          ];
+
+          let quotedMsg: Message | null = null;
+          if (message.hasQuotedMsg) {
+            quotedMsg = await message.getQuotedMessage();
+            const completion =
+              await this.whatsappMessageToChatCompletionMessage(
+                quotedMsg,
+                null,
+                false,
+              );
+
+            if (completion) {
+              messages.push(completion);
+            }
+          }
+
+          if (data || message.hasMedia) {
+            const completion =
+              await this.whatsappMessageToChatCompletionMessage(
+                message,
+                data,
+                false,
+              );
+
+            if (completion) {
+              messages.push(completion);
+            }
+          }
+
+          if (messages.length <= 1) {
+            throw new CommandError("no text provided");
+          }
+
+          const hash = objectHash(messages);
+
+          const cached = this.getCached(hash);
+
+          if (cached) {
+            if (quotedMsg) {
+              await quotedMsg.reply(cached, undefined, {
+                linkPreview: false,
+              });
+              return;
+            }
+            return cached;
+          }
+
           const completion = await openai.chat.completions.create({
             messages,
             model: config.model,
           });
 
-          logger.debug("AI response:", completion);
+          this.logger.debug("AI response:", completion);
 
-          response = returnResponse(completion.choices[0].message.content);
-
-          setCache(hash, response, database!);
-        }
-
-        messages.push({
-          role: "assistant",
-          content: response,
-        });
-
-        return new InteractionContinuation("ai", response, messages);
-      },
-    },
-    {
-      name: "summarise",
-      description: "Summarise a given text or message",
-      minLevel: PermissionLevel.TRUSTED,
-      rateLimit: [
-        {
-          duration: 5000,
-          max: 1,
-        },
-        {
-          // 20 per hour
-          duration: 3_600_000,
-          max: 20,
-        },
-      ],
-
-      async handler({ message, rest, logger, config, database }) {
-        let messages: ChatCompletionMessageParam[] = [
-          {
-            role: "system",
-            content: "Give a brief summary of the following WhatsApp messages.",
-          },
-        ];
-
-        let quotedMsg: Message | null = null;
-        if (message.hasQuotedMsg) {
-          quotedMsg = await message.getQuotedMessage();
-          const completion = await whatsappMessageToChatCompletionMessage(
-            quotedMsg,
-            database!,
-            logger,
-            null,
-            false,
+          const response = returnResponse(
+            completion.choices[0].message.content,
           );
 
-          if (completion) {
-            messages.push(completion);
-          }
-        }
+          this.setCache(hash, response);
 
-        if (rest || message.hasMedia) {
-          const completion = await whatsappMessageToChatCompletionMessage(
-            message,
-            database!,
-            logger,
-            rest,
-            false,
-          );
-
-          if (completion) {
-            messages.push(completion);
-          }
-        }
-
-        if (messages.length <= 1) {
-          throw new CommandError("no text provided");
-        }
-
-        const hash = objectHash(messages);
-
-        const cached = getCached(hash, database!);
-
-        if (cached) {
           if (quotedMsg) {
-            await quotedMsg.reply(cached, undefined, {
-              linkPreview: false,
-            });
+            await quotedMsg.reply(response, undefined, { linkPreview: false });
             return;
           }
-          return cached;
-        }
-
-        const completion = await openai.chat.completions.create({
-          messages,
-          model: config.model,
-        });
-
-        logger.debug("AI response:", completion);
-
-        const response = returnResponse(completion.choices[0].message.content);
-
-        setCache(hash, response, database!);
-
-        if (quotedMsg) {
-          await quotedMsg.reply(response, undefined, { linkPreview: false });
-          return;
-        }
-        return response;
-      },
-    },
-    {
-      name: "summariseconvo",
-      description: "Summarise a conversation",
-      minLevel: PermissionLevel.TRUSTED,
-      rateLimit: [
-        {
-          // once per 10 minutes
-          duration: 600_000,
-          max: 1,
+          return response;
         },
-      ],
+      },
+      {
+        name: "summariseconvo",
+        description: "Summarise a conversation",
+        minLevel: PermissionLevel.TRUSTED,
+        rateLimit: [
+          {
+            // once per 10 minutes
+            duration: 600_000,
+            max: 1,
+          },
+        ],
 
-      async handler({ message, logger, config, database }) {
-        if (!message.hasQuotedMsg) {
-          throw new CommandError(
-            "reply to a message you want to summarise from",
-          );
-        }
-
-        const quotedMsg = await message.getQuotedMessage();
-        const chat = await quotedMsg.getChat();
-
-        const conversation: ChatCompletionMessageParam[] = [];
-
-        const messages = await chat.fetchMessages({
-          limit:
-            config.maxConversationLength === -1
-              ? Infinity
-              : config.maxConversationLength,
-        });
-
-        let found = false;
-        for (let i = messages.length - 1; i >= 0; i--) {
-          const currentMessage = messages[i];
-
-          if (currentMessage.id._serialized === message.id._serialized) {
-            continue;
-          }
-
-          const completionMessage =
-            await whatsappMessageToChatCompletionMessage(
-              currentMessage,
-              database!,
-              logger,
+        async handler({ message }) {
+          if (!message.hasQuotedMsg) {
+            throw new CommandError(
+              "reply to a message you want to summarise from",
             );
-
-          if (completionMessage) {
-            conversation.push(completionMessage);
           }
 
-          if (currentMessage.id._serialized === quotedMsg.id._serialized) {
-            found = true;
-            break;
+          const quotedMsg = await message.getQuotedMessage();
+          const chat = await quotedMsg.getChat();
+
+          const conversation: ChatCompletionMessageParam[] = [];
+
+          const messages = await chat.fetchMessages({
+            limit:
+              this.config.maxConversationLength === -1
+                ? Infinity
+                : this.config.maxConversationLength,
+          });
+
+          let found = false;
+          for (let i = messages.length - 1; i >= 0; i--) {
+            const currentMessage = messages[i];
+
+            if (currentMessage.id._serialized === message.id._serialized) {
+              continue;
+            }
+
+            const completionMessage =
+              await this.whatsappMessageToChatCompletionMessage(currentMessage);
+
+            if (completionMessage) {
+              conversation.push(completionMessage);
+            }
+
+            if (currentMessage.id._serialized === quotedMsg.id._serialized) {
+              found = true;
+              break;
+            }
           }
-        }
 
-        if (!found) {
-          throw new CommandError("quoted message not found in conversation");
-        }
+          if (!found) {
+            throw new CommandError("quoted message not found in conversation");
+          }
 
-        conversation.push({
-          role: "system",
-          content: `\
+          conversation.push({
+            role: "system",
+            content: `\
 Briefly summarise the following WhatsApp conversation. Provide bullet points for each topic that was discussed.
 Follow the format below, and do not include a title.
 
@@ -387,239 +265,348 @@ Follow the format below, and do not include a title.
 
 Brief overall summary
 `,
-        });
-
-        conversation.reverse();
-
-        const hash = objectHash(conversation);
-
-        const cached = getCached(hash, database!);
-
-        if (cached) {
-          return cached;
-        }
-
-        logger.debug("conversation:", conversation);
-
-        const completion = await openai.chat.completions.create({
-          messages: conversation,
-          model: config.model,
-        });
-
-        logger.debug("AI response:", completion);
-
-        const response = returnResponse(
-          completion.choices[0].message.content,
-        ).replace(/^( *[*-] +)\*(\*.+?\*)\*/gm, "$1$2");
-
-        setCache(hash, response, database!);
-
-        return response;
-      },
-    },
-    {
-      name: "transcribe",
-      description: "Transcribe an audio message",
-      minLevel: PermissionLevel.TRUSTED,
-      rateLimit: [
-        {
-          duration: 5000,
-          max: 1,
-        },
-        {
-          // 20 per hour
-          duration: 3_600_000,
-          max: 20,
-        },
-      ],
-
-      async handler({ message, database }) {
-        if (!message.hasQuotedMsg) {
-          throw new CommandError("reply to an audio message");
-        }
-
-        const quotedMsg = await message.getQuotedMessage();
-
-        await quotedMsg.reply(await transcribeMessage(quotedMsg, database!));
-      },
-    },
-    {
-      name: "generate",
-      description: "Generate an image using DALL-E",
-      minLevel: PermissionLevel.TRUSTED,
-      rateLimit: [
-        {
-          // one per minute
-          duration: 60_000,
-          max: 1,
-        },
-      ],
-
-      async handler({ message, rest, sender, database }) {
-        const hash = `image_${Bun.hash(rest).toString(36)}`;
-
-        const cache = getCached(hash, database!, true);
-
-        let imageData: string;
-        let caption: string | undefined;
-
-        if (cache) {
-          imageData = cache.toBase64();
-        } else {
-          const result = await openai.images.generate({
-            model: "dall-e-2",
-            prompt: rest,
-            size: "256x256",
-            quality: "standard",
-            user: sender,
-            response_format: "b64_json",
           });
 
-          const [image] = result.data;
+          conversation.reverse();
 
-          imageData = image.b64_json!;
-          caption = image.revised_prompt;
+          const hash = objectHash(conversation);
 
-          setCache(hash, Buffer.from(imageData, "base64"), database!, true);
-        }
+          const cached = this.getCached(hash);
 
-        await message.reply(
-          new MessageMedia("image/png", imageData),
-          undefined,
-          { caption },
-        );
-      },
-    },
-    {
-      name: "speak",
-      description: "Generate speech from text",
-      minLevel: PermissionLevel.TRUSTED,
-      rateLimit: [
-        {
-          // one per minute
-          duration: 60_000,
-          max: 1,
+          if (cached) {
+            return cached;
+          }
+
+          this.logger.debug("conversation:", conversation);
+
+          const completion = await openai.chat.completions.create({
+            messages: conversation,
+            model: this.config.model,
+          });
+
+          this.logger.debug("AI response:", completion);
+
+          const response = returnResponse(
+            completion.choices[0].message.content,
+          ).replace(/^( *[*-] +)\*(\*.+?\*)\*/gm, "$1$2");
+
+          this.setCache(hash, response);
+
+          return response;
         },
-      ],
+      },
+      {
+        name: "transcribe",
+        description: "Transcribe an audio message",
+        minLevel: PermissionLevel.TRUSTED,
+        rateLimit: [
+          {
+            duration: 5000,
+            max: 1,
+          },
+          {
+            // 20 per hour
+            duration: 3_600_000,
+            max: 20,
+          },
+        ],
 
-      async handler({ message, rest, database }) {
-        let input = rest;
+        async handler({ message }) {
+          if (!message.hasQuotedMsg) {
+            throw new CommandError("reply to an audio message");
+          }
 
-        let quotedMsg: Message | null = null;
-        if (message.hasQuotedMsg) {
-          quotedMsg = await message.getQuotedMessage();
-          input = quotedMsg.body;
-        }
+          const quotedMsg = await message.getQuotedMessage();
 
-        if (!input) {
-          throw new CommandError("no text provided");
-        }
+          await quotedMsg.reply(await this.transcribeMessage(quotedMsg));
+        },
+      },
+      {
+        name: "generate",
+        description: "Generate an image using DALL-E",
+        minLevel: PermissionLevel.TRUSTED,
+        rateLimit: [
+          {
+            // one per minute
+            duration: 60_000,
+            max: 1,
+          },
+        ],
 
-        const hash = `speech_${Bun.hash(input).toString(36)}`;
+        async handler({ message, data, sender }) {
+          const hash = `image_${Bun.hash(data).toString(36)}`;
 
-        const cache = getCached(hash, database!, true);
+          const cache = this.getCached(hash, true);
 
-        if (cache) {
-          const media = new MessageMedia("audio/mpeg", cache.toBase64());
+          let imageData: string;
+          let caption: string | undefined;
+
+          if (cache) {
+            imageData = cache.toBase64();
+          } else {
+            const result = await openai.images.generate({
+              model: "dall-e-2",
+              prompt: data,
+              size: "256x256",
+              quality: "standard",
+              user: sender,
+              response_format: "b64_json",
+            });
+
+            const [image] = result.data;
+
+            imageData = image.b64_json!;
+            caption = image.revised_prompt;
+
+            this.setCache(hash, Buffer.from(imageData, "base64"), true);
+          }
+
+          await message.reply(
+            new MessageMedia("image/png", imageData),
+            undefined,
+            { caption },
+          );
+        },
+      },
+      {
+        name: "speak",
+        description: "Generate speech from text",
+        minLevel: PermissionLevel.TRUSTED,
+        rateLimit: [
+          {
+            // one per minute
+            duration: 60_000,
+            max: 1,
+          },
+        ],
+
+        async handler({ message, data }) {
+          let input = data;
+
+          let quotedMsg: Message | null = null;
+          if (message.hasQuotedMsg) {
+            quotedMsg = await message.getQuotedMessage();
+            input = quotedMsg.body;
+          }
+
+          if (!input) {
+            throw new CommandError("no text provided");
+          }
+
+          const hash = `speech_${Bun.hash(input).toString(36)}`;
+
+          const cache = this.getCached(hash, true);
+
+          if (cache) {
+            const media = new MessageMedia("audio/mpeg", cache.toBase64());
+
+            if (quotedMsg) {
+              await quotedMsg.reply(media);
+              return;
+            }
+            return media;
+          }
+
+          const result = await openai.audio.speech.create({
+            input,
+            model: "tts-1",
+            voice: "fable",
+          });
+          const resultData = new Uint8Array(await result.arrayBuffer());
+
+          this.setCache(hash, resultData, true);
+
+          const media = new MessageMedia("audio/mpeg", resultData.toBase64());
 
           if (quotedMsg) {
             await quotedMsg.reply(media);
             return;
           }
           return media;
-        }
-
-        const result = await openai.audio.speech.create({
-          input,
-          model: "tts-1",
-          voice: "fable",
-        });
-        const resultData = new Uint8Array(await result.arrayBuffer());
-
-        setCache(hash, resultData, database!, true);
-
-        const media = new MessageMedia("audio/mpeg", resultData.toBase64());
-
-        if (quotedMsg) {
-          await quotedMsg.reply(media);
-          return;
-        }
-        return media;
+        },
       },
-    },
-  ],
+    ]);
 
-  interactions: {
-    ai: {
-      async handler({ rest, data, config, database }) {
-        const messages: ChatCompletionMessageParam[] = [
-          ...data,
-          { role: "user", content: rest },
-        ];
-
-        const hash = objectHash(messages);
-
-        const cached = getCached(hash, database!);
-
-        let response: string;
-        if (cached) {
-          response = cached;
-        } else {
-          const completion = await openai.chat.completions.create({
-            messages,
-            model: config.model,
-          });
-
-          response = returnResponse(completion.choices[0].message.content);
-
-          setCache(hash, response, database!);
-        }
-
-        messages.push({
-          role: "assistant",
-          content: response,
-        });
-
-        return new InteractionContinuation("ai", response, messages);
-      },
-    },
-  },
-
-  onLoad({ database }) {
-    database!.run(`--sql
+    this.on("load", () => {
+      this.db.run(`--sql
       CREATE TABLE IF NOT EXISTS cache (
         key TEXT PRIMARY KEY,
         value TEXT NOT NULL
       );
     `);
 
-    database!.run(`--sql
+      this.db.run(`--sql
       CREATE TABLE IF NOT EXISTS binary_cache (
         key TEXT PRIMARY KEY,
         value BLOB NOT NULL
       );
     `);
-  },
-} satisfies Plugin;
+    });
+  }
 
-export const config = optional(
-  object({
-    model: optional(string(), "gpt-4o-mini"),
+  async aiContinuation({
+    message,
+    data,
+  }: InteractionArgs<
+    ChatCompletionMessageParam[]
+  >): Promise<InteractionResult> {
+    const messages: ChatCompletionMessageParam[] = [
+      ...data,
+      { role: "user", content: message.body },
+    ];
 
-    /**
-     * Maximum length of a conversation to summarise.
-     */
-    maxConversationLength: optional(number(), 500),
-  }),
-  {},
-);
+    const hash = objectHash(messages);
 
-export const api = { openai } satisfies PluginApi;
+    const cached = this.getCached(hash);
 
-declare module "../../plugins" {
-  interface PluginInteractions {
-    openai: {
-      ai: ChatCompletionMessageParam[];
+    let response: string;
+    if (cached) {
+      response = cached;
+    } else {
+      const completion = await openai.chat.completions.create({
+        messages,
+        model: this.config.model,
+      });
+
+      response = returnResponse(completion.choices[0].message.content);
+
+      this.setCache(hash, response);
+    }
+
+    messages.push({
+      role: "assistant",
+      content: response,
+    });
+
+    return new InteractionContinuation(response, this.aiContinuation, messages);
+  }
+
+  getCached<Bin extends boolean = false>(hash: string, bin?: Bin) {
+    return (
+      this.db
+        .query<
+          {
+            value: Bin extends true ? Uint8Array : string;
+          },
+          [string]
+        >(`SELECT value FROM ${bin ? "binary_cache" : "cache"} WHERE key = ?`)
+        .get(hash)?.value || null
+    );
+  }
+
+  setCache<Bin extends boolean = false>(
+    hash: string,
+    value: Bin extends true ? NodeJS.TypedArray : string,
+    bin?: Bin,
+  ) {
+    this.db.run<[string, Bin extends true ? NodeJS.TypedArray : string]>(
+      `INSERT INTO ${bin ? "binary_cache" : "cache"} (key, value) VALUES (?, ?)`,
+      [hash, value],
+    );
+  }
+
+  async whatsappMessageToChatCompletionMessage(
+    message: Message,
+    body?: string | null,
+    includeNames = true,
+  ): Promise<ChatCompletionMessageParam | null> {
+    let contact: Contact;
+    if (includeNames) {
+      contact = await message.getContact();
+    }
+
+    body ||= message.body;
+
+    let content: string | ChatCompletionContentPart[];
+
+    if (message.hasMedia) {
+      const media = await message.downloadMedia();
+
+      if (media.mimetype.startsWith("image")) {
+        content = [
+          {
+            type: "text",
+            text: body,
+          },
+          {
+            type: "image_url",
+            image_url: { url: `data:${media.mimetype};base64,${media.data}` },
+          },
+        ];
+      } else {
+        try {
+          content = await this.transcribeMessage(message);
+        } catch (err) {
+          this.logger.error(
+            "Error transcribing message in whatsappMessageToChatCompletionMessage:",
+            err,
+          );
+          content = body;
+        }
+      }
+    } else {
+      content = body;
+    }
+
+    if (!content) {
+      return null;
+    }
+
+    return {
+      role: "user",
+      content,
+      name: includeNames
+        ? contact!.pushname?.replace(/[^a-zA-Z0-9_-]/g, "")
+        : undefined,
     };
+  }
+
+  async transcribeMessage(message: Message) {
+    if (!message.hasMedia) {
+      throw new CommandError("message does not contain media");
+    }
+
+    if (
+      message.type !== MessageTypes.AUDIO &&
+      message.type !== MessageTypes.VOICE &&
+      message.type !== MessageTypes.VIDEO
+    ) {
+      throw new CommandError(
+        "message must be an audio, voice or video message",
+      );
+    }
+
+    const media = await message.downloadMedia();
+
+    // underscore to prevent collisions between other type of hash from objectHash
+    const hash = `_${Bun.hash(media.data).toString(36)}`;
+
+    const cached = this.getCached(hash);
+
+    if (cached) {
+      return cached;
+    }
+
+    let filename = media.filename;
+    if (!filename) {
+      const ext = Mime.getExtension(media.mimetype);
+
+      if (ext) {
+        filename = `${hash}.${ext}`;
+      }
+    }
+
+    if (!filename) {
+      throw new CommandError("could not determine file extension");
+    }
+
+    const transcription = await openai.audio.transcriptions.create({
+      file: await toFile(Buffer.from(media.data, "base64"), filename),
+      model: "whisper-1",
+    });
+
+    this.setCache(hash, transcription.text);
+
+    return transcription.text;
   }
 }

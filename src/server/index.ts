@@ -2,15 +2,9 @@ import { consola } from "consola";
 import { Elysia, t } from "elysia";
 import { nanoid } from "nanoid";
 
-import { initialConfig } from "./config";
-import { handleOAuthCallback } from "./google";
-import { isInGithubCodespace } from "./utils";
-
-export const publicUrl =
-  initialConfig.publicUrl ||
-  (isInGithubCodespace
-    ? `https://${process.env.CODESPACE_NAME}-${initialConfig.port}.${process.env.GITHUB_CODESPACES_PORT_FORWARDING_DOMAIN}`
-    : `http://localhost:${initialConfig.port}`);
+import { initialConfig } from "../config";
+import { handleOAuthCallback } from "../google";
+import { publicUrl } from "./common";
 
 const tempShortLinks = new Map<string, string>();
 

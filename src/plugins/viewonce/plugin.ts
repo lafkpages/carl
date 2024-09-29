@@ -1,80 +1,82 @@
-import type { Client, Message } from "whatsapp-web.js";
-import type { Plugin } from "./$types";
+import type { Message } from "whatsapp-web.js";
 
 import { CommandError } from "../../error";
 import { PermissionLevel } from "../../perms";
+import { Plugin } from "../../plugins";
 
-async function handleKeep(message: Message, client: Client, sender: string) {
-  const media = await message.downloadMedia();
+export default class extends Plugin {
+  id = "viewonce";
+  name = "View Once";
+  description = "Allows saving view-once media";
+  version = "0.0.1";
 
-  await client.sendMessage(sender, "View-once media saved!", {
-    media,
-    quotedMessageId: message.id._serialized,
-  });
-}
+  constructor() {
+    super();
 
-export default {
-  id: "viewonce",
-  name: "View Once",
-  description: "Allows saving view-once media",
-  version: "0.0.1",
+    this.registerCommands([
+      {
+        name: "keep",
+        description: "Save a view-once media",
+        minLevel: PermissionLevel.TRUSTED,
 
-  commands: [
-    {
-      name: "keep",
-      description: "Save a view-once media",
-      minLevel: PermissionLevel.TRUSTED,
+        async handler({ message, data, sender }) {
+          let quotedMsg: Message | undefined;
 
-      async handler({ message, rest, sender, client }) {
-        let quotedMsg: Message | undefined;
+          if (data) {
+            quotedMsg = await this.client.getMessageById(data);
 
-        if (rest) {
-          quotedMsg = await client.getMessageById(rest);
+            if (!quotedMsg) {
+              return false;
+            }
+          } else if (!message.hasQuotedMsg) {
+            throw new CommandError(
+              "you need to reply to a view-once message to save it",
+            );
+          }
 
           if (!quotedMsg) {
-            return false;
+            quotedMsg = await message.getQuotedMessage();
           }
-        } else if (!message.hasQuotedMsg) {
-          throw new CommandError(
-            "you need to reply to a view-once message to save it",
-          );
-        }
 
-        if (!quotedMsg) {
-          quotedMsg = await message.getQuotedMessage();
-        }
+          if (!quotedMsg.hasMedia) {
+            throw new CommandError("the replied message doesn't have media");
+          }
 
-        if (!quotedMsg.hasMedia) {
-          throw new CommandError("the replied message doesn't have media");
-        }
+          await this.handleKeep(quotedMsg, sender);
 
-        await handleKeep(quotedMsg, client, sender);
-
-        return true;
+          return true;
+        },
       },
-    },
-  ],
+    ]);
 
-  async onMessageReaction({
-    reaction,
-    message,
-    sender,
-    permissionLevel,
-    client,
-  }) {
-    if (reaction.reaction !== "\u267E\uFE0F") {
-      return;
-    }
+    this.on(
+      "reaction",
 
-    // Only allow trusted users to save view-once media
-    if (permissionLevel < PermissionLevel.TRUSTED) {
-      return;
-    }
+      async ({ reaction, message, sender, permissionLevel }) => {
+        if (reaction.reaction !== "\u267E\uFE0F") {
+          return;
+        }
 
-    if (!message.hasMedia) {
-      return;
-    }
+        // Only allow trusted users to save view-once media
+        if (permissionLevel < PermissionLevel.TRUSTED) {
+          return;
+        }
 
-    await handleKeep(message, client, sender);
-  },
-} satisfies Plugin;
+        if (!message.hasMedia) {
+          return;
+        }
+
+        await this.handleKeep(message, sender);
+      },
+    );
+  }
+
+  async handleKeep(message: Message, sender: string) {
+    const media = await message.downloadMedia();
+
+    await this.client.sendMessage(sender, "View-once media saved!", {
+      media,
+      quotedMessageId: message.id._serialized,
+    });
+  }
+}
