@@ -11,8 +11,12 @@ export default class extends Plugin<"openaichat"> {
 
   readonly configSchema = optional(
     object({
-      regex: optional(union([string(), tuple([string(), string()])])),
+      regex: optional(union([string(), tuple([string(), string()])]), [
+        String.raw`(.*\bcarl\b.+|.+\bcarl\b.*)`,
+        "i",
+      ]),
     }),
+    {},
   );
 
   constructor() {
@@ -30,9 +34,9 @@ export default class extends Plugin<"openaichat"> {
         // respond in DMs
         if (sender === chat.id._serialized) {
           shouldRespond = true;
-        } else if (this.config?.regex) {
+        } else if (this.config.regex) {
           const regex =
-            typeof this.config?.regex === "string"
+            typeof this.config.regex === "string"
               ? new RegExp(this.config.regex)
               : new RegExp(...this.config.regex);
 
