@@ -155,6 +155,8 @@ export class PluginsManager implements Iterable<Plugin<string>> {
     const { _db } = plugin;
 
     _db?.close();
+    // @ts-expect-error
+    plugin._db = null;
 
     this._loadedPlugins.delete(pluginId);
   }

@@ -91,7 +91,7 @@ export abstract class Plugin<
     return getConfig().pluginsConfig[this.id];
   }
 
-  private _db?: Database;
+  private _db?: Database | null;
   protected get db() {
     if (!this.database) {
       throw new Error("Plugin does not have a database");
