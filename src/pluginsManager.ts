@@ -2,6 +2,7 @@ import type { Client } from "whatsapp-web.js";
 import type { Command, Plugin } from "./plugins";
 
 import { consola } from "consola";
+import { DepGraph } from "dependency-graph";
 
 import { getConfig, setPluginConfig } from "./config";
 import { scanPlugins } from "./plugins";
@@ -29,6 +30,23 @@ export class PluginsManager implements Iterable<Plugin<string>> {
 
     if (this._loadedPlugins.has(plugin.id)) {
       throw new Error(`Tried to load duplicate plugin: ${plugin.id}`);
+    }
+
+    if (plugin.depends) {
+      for (const dependency of plugin.depends) {
+        const dependencyPlugin = this._loadedPlugins.get(dependency);
+
+        if (!dependencyPlugin) {
+          throw new Error(
+            `Plugin ${plugin.id} depends on plugin ${dependency} which is not loaded`,
+          );
+        }
+
+        // @ts-expect-error - dependencies is private
+        if (!plugin.dependencies) plugin.dependencies = {};
+        // @ts-expect-error
+        plugin.dependencies[dependency] = dependencyPlugin;
+      }
     }
 
     // Set config before storing plugin because setPluginConfig
@@ -72,7 +90,7 @@ export class PluginsManager implements Iterable<Plugin<string>> {
 
     const plugin: Plugin<string> = new (
       await import(`${path}?${Date.now()}`)
-    ).default();
+    ).default(this.client);
 
     if (plugin.id !== pluginId) {
       throw new Error(
@@ -80,14 +98,40 @@ export class PluginsManager implements Iterable<Plugin<string>> {
       );
     }
 
-    this.registerPlugin(plugin);
+    return plugin;
   }
 
   async loadPluginsFromConfig() {
     const { plugins } = getConfig();
 
+    const graph = new DepGraph<Plugin<string>>();
+
     for (const pluginId of plugins) {
-      await this.loadPlugin(pluginId).catch(consola.error);
+      const plugin = await this.loadPlugin(pluginId).catch(consola.error);
+
+      if (!plugin) {
+        continue;
+      }
+
+      graph.addNode(pluginId);
+      graph.setNodeData(pluginId, plugin);
+
+      if (plugin.depends) {
+        for (const dependency of plugin.depends) {
+          graph.addNode(dependency);
+          graph.addDependency(pluginId, dependency);
+        }
+      }
+    }
+
+    for (const pluginId of graph.overallOrder()) {
+      const plugin = graph.getNodeData(pluginId);
+
+      try {
+        this.registerPlugin(plugin);
+      } catch (err) {
+        consola.error(err);
+      }
     }
   }
 
@@ -99,8 +143,6 @@ export class PluginsManager implements Iterable<Plugin<string>> {
     if (!plugin) {
       throw new Error(`Plugin not loaded: ${pluginId}`);
     }
-
-    consola.info("Unloading plugin:", pluginId);
 
     if (runUnloadCallback) {
       await plugin.run("unload").catch(consola.error);

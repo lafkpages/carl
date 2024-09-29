@@ -1,6 +1,5 @@
 import { object, optional, string, tuple, union } from "valibot";
 
-import { getConfig } from "../../config";
 import { Plugin } from "../../plugins";
 
 export default class extends Plugin<"openaichat"> {
@@ -8,8 +7,9 @@ export default class extends Plugin<"openaichat"> {
   readonly name = "OpenAI Chat";
   readonly description = "Chat with the bot instead of using commands.";
   readonly version = "0.0.1";
+  readonly depends = ["openai"] as const;
 
-  configSchema = optional(
+  readonly configSchema = optional(
     object({
       regex: optional(union([string(), tuple([string(), string()])])),
     }),
@@ -18,35 +18,31 @@ export default class extends Plugin<"openaichat"> {
   constructor() {
     super();
 
-    this.on("message", async ({ message, sender, didHandle, chat }) => {
-      if (didHandle) {
-        return;
-      }
+    this.on(
+      "message",
+      async ({ message, sender, didHandle, chat, respond }) => {
+        if (didHandle) {
+          return;
+        }
 
-      let shouldRespond = false;
+        let shouldRespond = false;
 
-      // respond in DMs
-      if (sender === chat.id._serialized) {
-        shouldRespond = true;
-      } else if (this.config?.regex) {
-        const regex =
-          typeof this.config?.regex === "string"
-            ? new RegExp(this.config.regex)
-            : new RegExp(...this.config.regex);
+        // respond in DMs
+        if (sender === chat.id._serialized) {
+          shouldRespond = true;
+        } else if (this.config?.regex) {
+          const regex =
+            typeof this.config?.regex === "string"
+              ? new RegExp(this.config.regex)
+              : new RegExp(...this.config.regex);
 
-        shouldRespond = regex.test(message.body);
-      }
+          shouldRespond = regex.test(message.body);
+        }
 
-      if (!shouldRespond) {
-        return;
-      }
-
-      throw new Error("Not implemented");
-
-      return await pluginApis.openai?.askAi(
-        message.body,
-        getConfig().pluginsConfig.openai,
-      );
-    });
+        if (shouldRespond) {
+          await respond(await this.dependencies.openai.askAi(message.body));
+        }
+      },
+    );
   }
 }

@@ -22,6 +22,14 @@ import { AsyncEventEmitter } from "./events";
 
 export interface Plugin<PluginId extends string> {
   /**
+   * Plugin IDs that this plugin depends on.
+   *
+   * Make sure to mark this property as `readonly` and use
+   * `as const` to get proper types for `this.dependencies`.
+   */
+  readonly depends?: readonly string[];
+
+  /**
    * Whether this plugin should be hidden from the help command
    */
   readonly hidden?: boolean;
@@ -40,14 +48,16 @@ interface PluginEvents {
   unload: [];
 
   message: [
-    BaseMessageInteractionHandlerArgs & {
-      didHandle: boolean;
-    },
+    BaseMessageInteractionHandlerArgs &
+      BaseRespondableInteractionHandlerArgs & {
+        didHandle: boolean;
+      },
   ];
   reaction: [
-    BaseMessageInteractionHandlerArgs & {
-      reaction: Reaction;
-    },
+    BaseMessageInteractionHandlerArgs &
+      BaseRespondableInteractionHandlerArgs & {
+        reaction: Reaction;
+      },
   ];
 }
 
@@ -104,6 +114,17 @@ export abstract class Plugin<
     }
     return this._logger;
   }
+
+  protected dependencies: PluginId extends keyof Plugins
+    ? Plugins[PluginId]["depends"] extends readonly string[] // ensure dependencies are defined
+      ? string[] extends Plugins[PluginId]["depends"] // ensure dependencies are marked with `as const`
+        ? null
+        : {
+            [SubPluginId in Plugins[PluginId]["depends"][number] &
+              keyof Plugins]: Plugins[SubPluginId];
+          }
+      : null
+    : null = null as any;
 }
 
 export interface Command extends Interaction<string> {
@@ -121,9 +142,7 @@ export interface Command extends Interaction<string> {
   hidden?: boolean;
 
   /**
-   * Optional rate limit for this command in milliseconds. If set
-   * to 0 or omitted, the command will not be rate limited. Note
-   * that rate limiting is per user, per plugin, per command.
+   * Optional rate limits for this command.
    *
    * It is a good idea to rate limit commands that interact with
    * external APIs to prevent abuse.
@@ -155,6 +174,10 @@ interface BaseMessageInteractionHandlerArgs {
   chat: Chat;
   sender: string;
   permissionLevel: PermissionLevel;
+}
+
+interface BaseRespondableInteractionHandlerArgs {
+  respond(result: InteractionResult): Promise<Message | null>;
 }
 
 type BasicInteractionResult = string | boolean | void | MessageMedia;

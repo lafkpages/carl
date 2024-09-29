@@ -39,7 +39,7 @@ import type ${importSpecifier} from "${path}";
 `;
 
     declaration += `\
-    ${pluginId}: InstanceType<${importSpecifier}>;
+    ${pluginId}: InstanceType<typeof ${importSpecifier}>;
 `;
   }
 

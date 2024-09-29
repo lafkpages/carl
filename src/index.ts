@@ -484,16 +484,17 @@ client.on("message", async (message) => {
       consola.debug("Running plugin onMessage:", plugin.id);
 
       try {
-        const result = await plugin.run("message", {
+        await plugin.run("message", {
           message,
           chat,
           sender,
           permissionLevel,
 
           didHandle,
+          async respond(result) {
+            return await handleInteractionResult(result, message, plugin);
+          },
         });
-
-        await handleInteractionResult(result, message, plugin);
       } catch (err) {
         await handleError(err, message);
       }
@@ -543,21 +544,22 @@ client.on("message_reaction", async (reaction) => {
 
       consola.debug("Running plugin onMessageReaction:", plugin.id);
 
-      const result = await plugin.run("reaction", {
+      await plugin.run("reaction", {
         message,
         chat,
         sender: reaction.senderId,
         permissionLevel,
 
         reaction,
-      });
+        async respond(result) {
+          consola.debug("Handling interaction result:", {
+            pluginId: plugin.id,
+            result,
+          });
 
-      consola.debug("Handling interaction result:", {
-        pluginId: plugin.id,
-        result,
+          return await handleInteractionResult(result, message!, plugin);
+        },
       });
-
-      await handleInteractionResult(result, message, plugin);
 
       consola.debug("Interaction result handled:", plugin.id);
     }
@@ -706,6 +708,8 @@ async function handleInteractionResult(
       }
     }
   }
+
+  return null;
 }
 
 async function handleError(

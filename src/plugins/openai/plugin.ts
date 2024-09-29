@@ -65,43 +65,7 @@ export default class extends Plugin<"openai"> {
         ],
 
         async handler({ data }) {
-          const messages: ChatCompletionMessageParam[] = [
-            {
-              role: "user",
-              content: data,
-            },
-          ];
-
-          const hash = objectHash(messages);
-
-          const cached = this.getCached(hash);
-
-          let response: string;
-          if (cached) {
-            response = cached;
-          } else {
-            const completion = await openai.chat.completions.create({
-              messages,
-              model: this.config.model,
-            });
-
-            this.logger.debug("AI response:", completion);
-
-            response = returnResponse(completion.choices[0].message.content);
-
-            this.setCache(hash, response);
-          }
-
-          messages.push({
-            role: "assistant",
-            content: response,
-          });
-
-          return new InteractionContinuation(
-            response,
-            this.aiContinuation,
-            messages,
-          );
+          return await this.askAi(data);
         },
       },
       {
@@ -442,6 +406,44 @@ Brief overall summary
       );
     `);
     });
+  }
+
+  async askAi(message: string) {
+    this.logger.debug(this.config);
+
+    const messages: ChatCompletionMessageParam[] = [
+      {
+        role: "user",
+        content: message,
+      },
+    ];
+
+    const hash = objectHash(messages);
+
+    const cached = this.getCached(hash);
+
+    let response: string;
+    if (cached) {
+      response = cached;
+    } else {
+      const completion = await openai.chat.completions.create({
+        messages,
+        model: this.config.model,
+      });
+
+      this.logger.debug("AI response:", completion);
+
+      response = returnResponse(completion.choices[0].message.content);
+
+      this.setCache(hash, response);
+    }
+
+    messages.push({
+      role: "assistant",
+      content: response,
+    });
+
+    return new InteractionContinuation(response, this.aiContinuation, messages);
   }
 
   async aiContinuation({
