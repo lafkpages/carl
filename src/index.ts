@@ -408,14 +408,13 @@ client.on("message", async (message) => {
         quotedMsg.id._serialized,
       )!;
 
-      // @ts-expect-error: _plugin is private
-      const { handler, _plugin, data } = interactionContinuation;
+      const { handler, plugin, data } = interactionContinuation;
 
-      if (!_plugin) {
+      if (!plugin) {
         throw new Error("Interaction continuation has no associated plugin");
       }
 
-      const result = await handler.call(_plugin, {
+      const result = await handler.call(plugin, {
         message,
         sender,
         permissionLevel,
@@ -423,7 +422,7 @@ client.on("message", async (message) => {
         data,
       });
 
-      await handleInteractionResult(result, message, _plugin);
+      await handleInteractionResult(result, message, plugin);
       await cleanupInteractionContinuation(quotedMsg);
     } catch (err) {
       await handleError(err, message, quotedMsg);
@@ -633,9 +632,6 @@ async function handleInteractionResult(
   if (result instanceof InteractionContinuation) {
     const reply = await message.reply(result.message);
     reply.react("\u{1F4AC}");
-
-    // @ts-expect-error: _plugin is private
-    result._plugin = plugin;
 
     // expire continuations after 5 minutes
     // @ts-expect-error: _timer is private

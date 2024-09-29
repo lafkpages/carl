@@ -588,6 +588,7 @@ Stderr:
         handler() {
           return new InteractionContinuation(
             "Hello, what's your name?",
+            this,
             this.testinteractioncontinuation,
           );
         },
@@ -605,6 +606,7 @@ Stderr:
 
     return new InteractionContinuation(
       "How old are you?",
+      this,
       this.testinteractioncontinuation,
       message.body,
     );

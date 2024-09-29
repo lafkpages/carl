@@ -192,15 +192,21 @@ export type InteractionResultGenerator =
 
 export class InteractionContinuation<T> {
   message;
+  plugin: Plugin<string> | null = null;
   handler;
   data;
 
-  private _plugin: Plugin<string> | null = null;
   private _timer: Timer | null = null;
 
-  constructor(message: string, handler: Interaction<T>["handler"], data?: T) {
-    this.handler = handler;
+  constructor(
+    message: string,
+    plugin: Plugin<string>,
+    handler: Interaction<T>["handler"],
+    data?: T,
+  ) {
     this.message = message;
+    this.plugin = plugin;
+    this.handler = handler;
     this.data = data;
   }
 }

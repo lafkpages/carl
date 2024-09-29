@@ -409,8 +409,6 @@ Brief overall summary
   }
 
   async askAi(message: string) {
-    this.logger.debug(this.config);
-
     const messages: ChatCompletionMessageParam[] = [
       {
         role: "user",
@@ -443,7 +441,12 @@ Brief overall summary
       content: response,
     });
 
-    return new InteractionContinuation(response, this.aiContinuation, messages);
+    return new InteractionContinuation(
+      response,
+      this,
+      this.aiContinuation,
+      messages,
+    );
   }
 
   async aiContinuation({
@@ -480,7 +483,12 @@ Brief overall summary
       content: response,
     });
 
-    return new InteractionContinuation(response, this.aiContinuation, messages);
+    return new InteractionContinuation(
+      response,
+      this,
+      this.aiContinuation,
+      messages,
+    );
   }
 
   getCached<Bin extends boolean = false>(hash: string, bin?: Bin) {

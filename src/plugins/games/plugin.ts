@@ -28,6 +28,7 @@ export default class extends Plugin<"games"> {
 
           return new InteractionContinuation(
             game.hiddenWord.join(" "),
+            this,
             this.hangmanContinuation,
             game,
           );
@@ -52,7 +53,12 @@ ${game.hiddenWord.join(" ")}
 Failed guesses: ${game.failedGuesses}/${game.totalGuesses}
 * ${game.failedLetters.join(", ") || "None"}`;
 
-        return new InteractionContinuation(msg, this.hangmanContinuation, game);
+        return new InteractionContinuation(
+          msg,
+          this,
+          this.hangmanContinuation,
+          game,
+        );
       }
 
       case "WON": {
