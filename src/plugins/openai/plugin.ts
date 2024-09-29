@@ -17,14 +17,6 @@ import { InteractionContinuation, Plugin } from "../../plugins";
 
 const openai = new OpenAI();
 
-function returnResponse(response: string | null) {
-  if (response) {
-    return response;
-  } else {
-    throw new CommandError("no response from AI");
-  }
-}
-
 export default class extends Plugin<"openai"> {
   readonly id = "openai";
   readonly name = "OpenAI";
@@ -40,6 +32,11 @@ export default class extends Plugin<"openai"> {
        * Maximum length of a conversation to summarise.
        */
       maxConversationLength: optional(number(), 500),
+
+      systemPrompt: optional(
+        string(),
+        "You are a WhatsApp assistant called Carl. Do not use markdown in responses, instead use WhatsApp formatting.",
+      ),
     }),
     {},
   );
@@ -86,6 +83,7 @@ export default class extends Plugin<"openai"> {
 
         async handler({ message, data }) {
           let messages: ChatCompletionMessageParam[] = [
+            { role: "system", content: this.config.systemPrompt },
             {
               role: "system",
               content:
@@ -146,7 +144,7 @@ export default class extends Plugin<"openai"> {
 
           this.logger.debug("AI response:", completion);
 
-          const response = returnResponse(
+          const response = this.returnResponse(
             completion.choices[0].message.content,
           );
 
@@ -215,9 +213,11 @@ export default class extends Plugin<"openai"> {
             throw new CommandError("quoted message not found in conversation");
           }
 
-          conversation.push({
-            role: "system",
-            content: `\
+          conversation.push(
+            { role: "system", content: this.config.systemPrompt },
+            {
+              role: "system",
+              content: `\
 Briefly summarise the following WhatsApp conversation. Provide bullet points for each topic that was discussed.
 Follow the format below, and do not include a title.
 
@@ -229,7 +229,8 @@ Follow the format below, and do not include a title.
 
 Brief overall summary
 `,
-          });
+            },
+          );
 
           conversation.reverse();
 
@@ -250,7 +251,7 @@ Brief overall summary
 
           this.logger.debug("AI response:", completion);
 
-          const response = returnResponse(
+          const response = this.returnResponse(
             completion.choices[0].message.content,
           ).replace(/^( *[*-] +)\*(\*.+?\*)\*/gm, "$1$2");
 
@@ -408,8 +409,17 @@ Brief overall summary
     });
   }
 
+  returnResponse(response: string | null) {
+    if (response) {
+      return response;
+    } else {
+      throw new CommandError("no response from AI");
+    }
+  }
+
   async askAi(message: string) {
     const messages: ChatCompletionMessageParam[] = [
+      { role: "system", content: this.config.systemPrompt },
       {
         role: "user",
         content: message,
@@ -431,7 +441,7 @@ Brief overall summary
 
       this.logger.debug("AI response:", completion);
 
-      response = returnResponse(completion.choices[0].message.content);
+      response = this.returnResponse(completion.choices[0].message.content);
 
       this.setCache(hash, response);
     }
@@ -473,7 +483,7 @@ Brief overall summary
         model: this.config.model,
       });
 
-      response = returnResponse(completion.choices[0].message.content);
+      response = this.returnResponse(completion.choices[0].message.content);
 
       this.setCache(hash, response);
     }
