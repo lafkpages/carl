@@ -4,11 +4,11 @@ import { CommandError } from "../../error";
 import { PermissionLevel } from "../../perms";
 import { Plugin } from "../../plugins";
 
-export default class extends Plugin {
-  id = "viewonce";
-  name = "View Once";
-  description = "Allows saving view-once media";
-  version = "0.0.1";
+export default class extends Plugin<"viewonce"> {
+  readonly id = "viewonce";
+  readonly name = "View Once";
+  readonly description = "Allows saving view-once media";
+  readonly version = "0.0.1";
 
   constructor() {
     super();

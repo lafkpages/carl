@@ -15,14 +15,14 @@ function checkLanguageCode(code: string) {
   }
 }
 
-export default class extends Plugin {
-  id = "translate";
-  name = "Translate";
-  description = "Text language translation and detection";
-  version = "0.0.1";
-  database = true;
+export default class extends Plugin<"translate"> {
+  readonly id = "translate";
+  readonly name = "Translate";
+  readonly description = "Text language translation and detection";
+  readonly version = "0.0.1";
+  readonly database = true;
 
-  configSchema = optional(
+  readonly configSchema = optional(
     object({
       defaultLanguage: optional(
         picklist(Object.keys(languages) as (keyof typeof languages)[]),

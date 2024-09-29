@@ -39,12 +39,12 @@ const schema = union([
   }),
 ]);
 
-export default class extends Plugin {
-  id = "dictionary";
-  name = "Dictionary";
-  description =
+export default class extends Plugin<"dictionary"> {
+  readonly id = "dictionary";
+  readonly name = "Dictionary";
+  readonly description =
     "A dictionary plugin for looking up words and their definitions.";
-  version = "0.0.1";
+  readonly version = "0.0.1";
 
   constructor() {
     super();

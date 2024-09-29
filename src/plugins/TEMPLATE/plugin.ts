@@ -1,11 +1,11 @@
 import { PermissionLevel } from "../../perms";
 import { Plugin } from "../../plugins";
 
-export default class extends Plugin {
-  id = "";
-  name = "";
-  description = "";
-  version = "0.0.1";
+export default class extends Plugin<""> {
+  readonly id = "";
+  readonly name = "";
+  readonly description = "";
+  readonly version = "0.0.1";
 
   constructor() {
     super();

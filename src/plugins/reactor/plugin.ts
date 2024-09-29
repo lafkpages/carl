@@ -10,32 +10,34 @@ let regexes: {
   emoji: string;
 }[] = [];
 
-export default class extends Plugin {
-  id = "reactor";
-  name = "Reactor";
-  description = "React to messages with emojis.";
-  version = "0.0.1";
+export default class extends Plugin<"reactor"> {
+  readonly id = "reactor";
+  readonly name = "Reactor";
+  readonly description = "React to messages with emojis.";
+  readonly version = "0.0.1";
 
-  configSchema = object({
-    reactions: array(
-      object({
-        regex: optional(union([string(), tuple([string(), string()])])),
-        senders: optional(array(string())),
-        minLevel: optional(enum_(PermissionLevel)),
-        emoji: string(),
-      }),
-    ),
-  });
+  readonly configSchema = optional(
+    object({
+      reactions: optional(
+        array(
+          object({
+            regex: optional(union([string(), tuple([string(), string()])])),
+            senders: optional(array(string())),
+            minLevel: optional(enum_(PermissionLevel)),
+            emoji: string(),
+          }),
+        ),
+        [],
+      ),
+    }),
+    {},
+  );
 
   constructor() {
     super();
 
     this.on("load", () => {
       const reactions = this.config.reactions;
-
-      if (!reactions) {
-        return;
-      }
 
       for (const { regex, senders, minLevel, emoji } of reactions) {
         regexes.push({

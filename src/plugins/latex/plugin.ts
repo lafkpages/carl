@@ -7,11 +7,11 @@ import { Plugin } from "../../plugins";
 
 let latex2imageEndpoint: string;
 
-export default class extends Plugin {
-  id = "latex";
-  name = "LaTeX";
-  description = "Plugin for rendering LaTeX equations";
-  version = "0.0.1";
+export default class extends Plugin<"latex"> {
+  readonly id = "latex";
+  readonly name = "LaTeX";
+  readonly description = "Plugin for rendering LaTeX equations";
+  readonly version = "0.0.1";
 
   constructor() {
     super();

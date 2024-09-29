@@ -9,6 +9,7 @@ import type {
   MessageMedia,
   Reaction,
 } from "whatsapp-web.js";
+import type { PluginsConfig } from "./config";
 import type { PermissionLevel } from "./perms";
 import type { RateLimit } from "./ratelimits";
 import type { server } from "./server";
@@ -19,7 +20,7 @@ import { consola } from "consola";
 import { getConfig } from "./config";
 import { AsyncEventEmitter } from "./events";
 
-export interface Plugin {
+export interface Plugin<PluginId extends string> {
   /**
    * Whether this plugin should be hidden from the help command
    */
@@ -50,8 +51,10 @@ interface PluginEvents {
   ];
 }
 
-export abstract class Plugin extends AsyncEventEmitter<PluginEvents> {
-  abstract readonly id: string;
+export abstract class Plugin<
+  PluginId extends string,
+> extends AsyncEventEmitter<PluginEvents> {
+  abstract readonly id: PluginId;
   abstract readonly name: string;
   abstract readonly description: string;
   abstract readonly version: string;
@@ -74,7 +77,7 @@ export abstract class Plugin extends AsyncEventEmitter<PluginEvents> {
     return this._client;
   }
 
-  protected get config() {
+  protected get config(): PluginsConfig[PluginId] {
     return getConfig().pluginsConfig[this.id];
   }
 
@@ -169,7 +172,7 @@ export class InteractionContinuation<T> {
   handler;
   data;
 
-  private _plugin: Plugin | null = null;
+  private _plugin: Plugin<string> | null = null;
   private _timer: Timer | null = null;
 
   constructor(message: string, handler: Interaction<T>["handler"], data?: T) {
@@ -191,15 +194,14 @@ export async function scanPlugins(map: Map<string, string>) {
   for await (const entry of pluginsGlob.scan({
     absolute: true,
   })) {
-    if (entry.includes(".types/")) {
-      consola.debug(`Ignoring type declaration file in plugins scan: ${entry}`);
-      continue;
-    }
-
     const pluginId = getPluginIdFromPath(entry);
 
     if (!pluginId) {
       consola.debug(`Ignoring non-plugin file in plugins scan: ${entry}`);
+      continue;
+    }
+
+    if (pluginId === "TEMPLATE") {
       continue;
     }
 

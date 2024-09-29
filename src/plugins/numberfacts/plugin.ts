@@ -7,11 +7,11 @@ import { Plugin } from "../../plugins";
 const validFactTypes = new Set(["trivia", "math", "date", "year"] as const);
 type ValidFactType = typeof validFactTypes extends Set<infer T> ? T : never;
 
-export default class extends Plugin {
-  id = "numberfacts";
-  name = "Number facts";
-  description = "Fun facts about numbers!";
-  version = "0.0.1";
+export default class extends Plugin<"numberfacts"> {
+  readonly id = "numberfacts";
+  readonly name = "Number facts";
+  readonly description = "Fun facts about numbers!";
+  readonly version = "0.0.1";
 
   constructor() {
     super();

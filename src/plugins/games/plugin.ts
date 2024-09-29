@@ -7,11 +7,11 @@ import { CommandError } from "../../error";
 import { PermissionLevel } from "../../perms";
 import { InteractionContinuation, Plugin } from "../../plugins";
 
-export default class extends Plugin {
-  id = "games";
-  name = "Games";
-  description = "A collection of fun games to play with friends";
-  version = "0.0.1";
+export default class extends Plugin<"games"> {
+  readonly id = "games";
+  readonly name = "Games";
+  readonly description = "A collection of fun games to play with friends";
+  readonly version = "0.0.1";
 
   constructor() {
     super();

@@ -34,11 +34,12 @@ const schema = object({
   carrier: string(),
 });
 
-export default class extends Plugin {
-  id = "veriphone";
-  name = "Veriphone";
-  description = "Verifies and looks up phone numbers using the Veriphone API";
-  version = "0.0.1";
+export default class extends Plugin<"veriphone"> {
+  readonly id = "veriphone";
+  readonly name = "Veriphone";
+  readonly description =
+    "Verifies and looks up phone numbers using the Veriphone API";
+  readonly version = "0.0.1";
 
   constructor() {
     super();

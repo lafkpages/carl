@@ -7,11 +7,11 @@ import { sendMessageToAdmins } from "../../utils";
 
 const pendingPermissionRequests: Record<string, PermissionLevel> = {};
 
-export default class extends Plugin {
-  id = "adminutils";
-  name = "Admin utilities";
-  description = "Commands for administration.";
-  version = "0.0.1";
+export default class extends Plugin<"adminutils"> {
+  readonly id = "adminutils";
+  readonly name = "Admin utilities";
+  readonly description = "Commands for administration.";
+  readonly version = "0.0.1";
 
   constructor() {
     super();

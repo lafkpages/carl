@@ -7,11 +7,11 @@ import { getGoogleClient } from "../../google";
 import { PermissionLevel } from "../../perms";
 import { Plugin } from "../../plugins";
 
-export default class extends Plugin {
-  id = "gcal";
-  name = "Google Calendar";
-  description = "Google Calendar integration";
-  version = "0.0.1";
+export default class extends Plugin<"gcal"> {
+  readonly id = "gcal";
+  readonly name = "Google Calendar";
+  readonly description = "Google Calendar integration";
+  readonly version = "0.0.1";
 
   constructor() {
     super();

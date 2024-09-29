@@ -21,12 +21,12 @@ interface InternalReminder extends Reminder {
 
 const reminders = new Map<number, InternalReminder>();
 
-export default class extends Plugin {
-  id = "reminders";
-  name = "Reminders";
-  description = "Set reminders for yourselfs.";
-  version = "0.0.1";
-  database = true;
+export default class extends Plugin<"reminders"> {
+  readonly id = "reminders";
+  readonly name = "Reminders";
+  readonly description = "Set reminders for yourselfs.";
+  readonly version = "0.0.1";
+  readonly database = true;
 
   constructor() {
     super();

@@ -7,11 +7,11 @@ import { getConfig, setPluginConfig } from "./config";
 import { scanPlugins } from "./plugins";
 
 export interface InternalCommand extends Command {
-  _plugin: Plugin;
+  _plugin: Plugin<string>;
 }
 
-export class PluginsManager implements Iterable<Plugin> {
-  private _loadedPlugins = new Map<string, Plugin>();
+export class PluginsManager implements Iterable<Plugin<string>> {
+  private _loadedPlugins = new Map<string, Plugin<string>>();
   private _scannedPlugins = new Map<string, string>();
   private _commands = new Map<string, InternalCommand>();
   private client;
@@ -24,7 +24,7 @@ export class PluginsManager implements Iterable<Plugin> {
     await scanPlugins(this._scannedPlugins);
   }
 
-  registerPlugin(plugin: Plugin) {
+  registerPlugin(plugin: Plugin<string>) {
     consola.debug("Registering plugin:", plugin.id);
 
     if (this._loadedPlugins.has(plugin.id)) {
@@ -70,7 +70,7 @@ export class PluginsManager implements Iterable<Plugin> {
       throw new Error(`Plugin not found: ${pluginId}`);
     }
 
-    const plugin: Plugin = new (
+    const plugin: Plugin<string> = new (
       await import(`${path}?${Date.now()}`)
     ).default();
 

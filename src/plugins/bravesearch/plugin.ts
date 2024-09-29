@@ -12,11 +12,11 @@ if (!apiKey) {
 
 const braveSearch = new BraveSearch(apiKey);
 
-export default class extends Plugin {
-  id = "bravesearch";
-  name = "Brave Search";
-  description = "Search the web with Brave Search";
-  version = "0.0.1";
+export default class extends Plugin<"bravesearch"> {
+  readonly id = "bravesearch";
+  readonly name = "Brave Search";
+  readonly description = "Search the web with Brave Search";
+  readonly version = "0.0.1";
 
   constructor() {
     super();

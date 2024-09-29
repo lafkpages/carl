@@ -3,11 +3,11 @@ import { object, optional, string, tuple, union } from "valibot";
 import { getConfig } from "../../config";
 import { Plugin } from "../../plugins";
 
-export default class extends Plugin {
-  id = "openaichat";
-  name = "OpenAI Chat";
-  description = "Chat with the bot instead of using commands.";
-  version = "0.0.1";
+export default class extends Plugin<"openaichat"> {
+  readonly id = "openaichat";
+  readonly name = "OpenAI Chat";
+  readonly description = "Chat with the bot instead of using commands.";
+  readonly version = "0.0.1";
 
   configSchema = optional(
     object({

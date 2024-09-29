@@ -13,11 +13,11 @@ import { CommandError } from "../../error";
 import { PermissionLevel } from "../../perms";
 import { Plugin } from "../../plugins";
 
-export default class extends Plugin {
-  id = "math";
-  name = "Math";
-  description = "Plugin for useful mathematical operations.";
-  version = "0.0.1";
+export default class extends Plugin<"math"> {
+  readonly id = "math";
+  readonly name = "Math";
+  readonly description = "Plugin for useful mathematical operations.";
+  readonly version = "0.0.1";
 
   constructor() {
     super();

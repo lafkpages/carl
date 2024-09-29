@@ -25,14 +25,14 @@ function returnResponse(response: string | null) {
   }
 }
 
-export default class extends Plugin {
-  id = "openai";
-  name = "OpenAI";
-  description = "Talk to ChatGPT on WhatsApp!";
-  version = "0.0.1";
-  database = true;
+export default class extends Plugin<"openai"> {
+  readonly id = "openai";
+  readonly name = "OpenAI";
+  readonly description = "Talk to ChatGPT on WhatsApp!";
+  readonly version = "0.0.1";
+  readonly database = true;
 
-  configSchema = optional(
+  readonly configSchema = optional(
     object({
       model: optional(string(), "gpt-4o-mini"),
 
@@ -177,7 +177,7 @@ export default class extends Plugin {
 
           const completion = await openai.chat.completions.create({
             messages,
-            model: config.model,
+            model: this.config.model,
           });
 
           this.logger.debug("AI response:", completion);

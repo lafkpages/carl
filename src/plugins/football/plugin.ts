@@ -70,13 +70,13 @@ function parseCompetitionsList(data: string) {
   return data ? data.toUpperCase().split(/[,\s]+/) : null;
 }
 
-export default class extends Plugin {
-  id = "football";
-  name = "Football";
-  description = "Commands related to football";
-  version = "0.0.1";
+export default class extends Plugin<"football"> {
+  readonly id = "football";
+  readonly name = "Football";
+  readonly description = "Commands related to football";
+  readonly version = "0.0.1";
 
-  subscribedChatIds = new Map<string, string[] | null>();
+  readonly subscribedChatIds = new Map<string, string[] | null>();
   checkInterval: Timer | null = null;
 
   constructor() {

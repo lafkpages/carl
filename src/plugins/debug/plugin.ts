@@ -21,12 +21,12 @@ import { pingCheck } from "../../server";
 import { isInDevelopment } from "../../utils";
 import { dbsGlob } from "./dbs";
 
-export default class extends Plugin {
-  id = "debug";
-  name = "Debug tools";
-  description = "Helps debug WhatsApp PA core and plugins";
-  version = "0.0.2";
-  hidden = true;
+export default class extends Plugin<"debug"> {
+  readonly id = "debug";
+  readonly name = "Debug tools";
+  readonly description = "Helps debug WhatsApp PA core and plugins";
+  readonly version = "0.0.2";
+  readonly hidden = true;
 
   configSchema = optional(
     object({
@@ -161,12 +161,10 @@ Exit code: ${proc.exitCode}`;
 Signal code: ${proc.signalCode}`;
           }
 
-          const trimOutput = this.config.evalShellTrimOutput ?? true;
-
           if (proc.stdout.length) {
             let stdout = proc.stdout.toString("utf-8");
 
-            if (trimOutput) {
+            if (this.config.evalShellTrimOutput) {
               stdout = stdout.trim();
             }
 
@@ -179,7 +177,7 @@ Stdout:
           if (proc.stderr.length) {
             let stderr = proc.stderr.toString("utf-8");
 
-            if (trimOutput) {
+            if (this.config.evalShellTrimOutput) {
               stderr = stderr.trim();
             }
 

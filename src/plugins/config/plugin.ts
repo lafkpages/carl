@@ -13,11 +13,11 @@ import { CommandError } from "../../error";
 import { PermissionLevel } from "../../perms";
 import { Plugin } from "../../plugins";
 
-export default class extends Plugin {
-  id = "config";
-  name = "Config";
-  description = "Bot configuration commands.";
-  version = "0.0.1";
+export default class extends Plugin<"config"> {
+  readonly id = "config";
+  readonly name = "Config";
+  readonly description = "Bot configuration commands.";
+  readonly version = "0.0.1";
 
   constructor() {
     super();

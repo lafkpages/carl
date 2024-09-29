@@ -1,81 +1,58 @@
 import { rm, watch } from "node:fs/promises";
-import { join, relative } from "node:path";
+import { join } from "node:path";
 
 import consola from "consola";
 
 import { getPluginIdFromPath, scanPlugins } from "../plugins";
 
-await rm("./src/plugins/.types", { recursive: true, force: true });
+const typesFile = "./src/plugins/types.d.ts";
 
-const shouldWatch = process.argv.includes("--watch");
+await rm(typesFile, { force: true });
+
+const shouldWatch =
+  process.argv.includes("--watch") && !process.argv.includes("--no-watch");
 
 async function generateAllPluginTypes() {
-  const plugins = await scanPlugins();
+  const plugins = new Map<string, string>();
+  await scanPlugins(plugins);
 
-  for (const [pluginId, path] of plugins) {
-    await generatePluginTypes(pluginId, path);
+  if (!plugins.size) {
+    await rm(typesFile, { force: true });
+    return;
   }
-}
 
-async function generatePluginTypes(pluginId: string, path: string) {
-  consola.debug("Generating types for plugin:", pluginId, path);
-
-  const pluginIdString =
-    pluginId === "TEMPLATE" ? '""' : JSON.stringify(pluginId);
-
-  const srcDir = join("../..", relative(path, join(process.cwd(), "src")));
-  const pluginsPath = JSON.stringify(join(srcDir, "plugins.ts"));
-  const configPath = JSON.stringify(join(srcDir, "config.ts"));
-
-  const file = Bun.file(path);
-  const source = await file.text();
-
-  const transpiler = new Bun.Transpiler({ loader: "ts" });
-  const { exports } = transpiler.scan(source);
-
-  let types = `\
-import type { PluginDefinition } from ${pluginsPath};
-export type Plugin = PluginDefinition<${pluginIdString}>;
-
-import type _plugin from "./plugin";
-
-declare module ${pluginsPath} {
+  let imports = "";
+  let declaration = `\
+declare module "../plugins" {
   interface Plugins {
-    ${pluginIdString}: typeof _plugin;
-  }
-}
 `;
 
-  if (exports.includes("config")) {
-    types += `
-import type { config } from "./plugin";
-import type { InferOutput } from "valibot";
-
-declare module ${configPath} {
-  interface PluginsConfig {
-    ${pluginIdString}: InferOutput<typeof config>;
-  }
-}
-`;
-  }
-
-  if (exports.includes("api")) {
-    types += `
-import type { api } from "./plugin";
-
-declare module ${pluginsPath} {
-  interface PluginApis {
-    ${pluginIdString}: typeof api;
-  }
-}
-`;
-  }
-
-  await Bun.write(
-    join("./src/plugins/.types", relative(process.cwd(), path)).slice(0, -9) +
-      "$types.ts",
-    types,
+  const sortedPlugins = Array.from(plugins.entries()).sort((a, b) =>
+    a[0].localeCompare(b[0]),
   );
+
+  for (const [pluginId, path] of sortedPlugins) {
+    const importSpecifier = `Plugin_${pluginId}`;
+
+    imports += `\
+import type ${importSpecifier} from "${path}";
+`;
+
+    declaration += `\
+    ${pluginId}: InstanceType<${importSpecifier}>;
+`;
+  }
+
+  declaration += `\
+  }
+}`;
+
+  const contents = `\
+${imports}
+${declaration}
+`;
+
+  await Bun.write(typesFile, contents);
 }
 
 await generateAllPluginTypes();
@@ -99,6 +76,6 @@ if (shouldWatch) {
 
     consola.debug("File", eventType, "detected:", pluginId, path);
 
-    await generatePluginTypes(pluginId, path);
+    await generateAllPluginTypes();
   }
 }

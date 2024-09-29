@@ -40,8 +40,8 @@ if (!process.isBun) {
 
 const userCommandAliases = new Map<string, Map<string, string>>();
 
-class CorePlugin extends Plugin {
-  id = "core";
+class CorePlugin extends Plugin<"core"> {
+  id = "core" as const;
   name = "Core";
   description = "Core commands";
   version = "1.0.0";
@@ -643,7 +643,7 @@ function resolveCommand(command: string, user?: string) {
 async function handleInteractionResult(
   result: InteractionResult | InteractionResultGenerator,
   message: Message,
-  plugin: Plugin,
+  plugin: Plugin<string>,
   _editMessage?: Message | null,
 ) {
   if (result instanceof InteractionContinuation) {

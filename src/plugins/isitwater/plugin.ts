@@ -14,11 +14,12 @@ if (!apiKey) {
   throw new Error("$ISITWATER_API_KEY is not set");
 }
 
-export default class extends Plugin {
-  id = "isitwater";
-  name = "Is It Water?";
-  description = "A plugin to check if a given location is on water or not.";
-  version = "0.0.1";
+export default class extends Plugin<"isitwater"> {
+  readonly id = "isitwater";
+  readonly name = "Is It Water?";
+  readonly description =
+    "A plugin to check if a given location is on water or not.";
+  readonly version = "0.0.1";
 
   constructor() {
     super();

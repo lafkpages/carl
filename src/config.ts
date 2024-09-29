@@ -1,4 +1,5 @@
 import type { BaseSchema, InferOutput } from "valibot";
+import type { Plugins } from "./plugins";
 
 import { EventEmitter } from "node:events";
 
@@ -96,11 +97,16 @@ export type Config = RawConfig & {
   pluginsConfig?: PluginsConfig;
 };
 
-export interface PluginsConfig {}
-export type _PluginsConfig = {
+export type PluginsConfig = {
   [pluginId: string]: unknown;
 } & {
-  [PluginId in keyof PluginsConfig]: PluginsConfig[PluginId];
+  [PluginId in keyof Plugins]: Plugins[PluginId]["configSchema"] extends BaseSchema<
+    any,
+    any,
+    any
+  >
+    ? InferOutput<Plugins[PluginId]["configSchema"]>
+    : unknown;
 };
 
 const pluginsConfig: {

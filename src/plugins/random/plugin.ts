@@ -19,11 +19,11 @@ const geekJokesFiltered = geekJokes.filter(
   (joke) => !/chuck\s*norris/i.test(joke),
 );
 
-export default class extends Plugin {
-  id = "random";
-  name = "Random";
-  description = "Utilities for generating random data";
-  version = "1.0.0";
+export default class extends Plugin<"random"> {
+  readonly id = "random";
+  readonly name = "Random";
+  readonly description = "Utilities for generating random data";
+  readonly version = "1.0.0";
 
   constructor() {
     super();
