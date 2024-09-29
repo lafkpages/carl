@@ -415,7 +415,7 @@ client.on("message", async (message) => {
         throw new Error("Interaction continuation has no associated plugin");
       }
 
-      const result = await handler({
+      const result = await handler.call(_plugin, {
         message,
         sender,
         permissionLevel,
