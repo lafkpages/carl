@@ -35,7 +35,7 @@ export default class extends Plugin<"openai"> {
 
       systemPrompt: optional(
         string(),
-        "You are a WhatsApp assistant called Carl. Do not use markdown in responses, instead use WhatsApp formatting.",
+        "You are Carl, a helpful WhatsApp AI assistant. Do not use markdown in responses, instead use WhatsApp formatting.",
       ),
     }),
     {},
