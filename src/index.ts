@@ -737,6 +737,7 @@ async function handleError(
 Error while handling command \`${command._plugin.id}\`/\`${command.name}\`:
 \`\`\`
 ${Bun.inspect(error, { colors: false })}\`\`\``,
+        { linkPreview: false },
       );
     }
   }
