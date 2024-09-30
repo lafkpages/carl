@@ -637,8 +637,7 @@ async function handleInteractionResult(
     // @ts-expect-error: _timer is private
     result._timer = setTimeout(
       async () => {
-        await message.react("");
-        await message.react("\u231B");
+        await reply.react("\u231B");
 
         interactionContinuations.delete(reply.id._serialized);
       },
