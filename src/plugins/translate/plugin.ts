@@ -1,6 +1,6 @@
 import type { Message } from "whatsapp-web.js";
 
-import translate, { languages } from "google-translate-api-x";
+import { languages, translate } from "google-translate-api-x";
 import { object, optional, picklist } from "valibot";
 
 import { CommandError } from "../../error";
