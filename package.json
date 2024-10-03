@@ -17,6 +17,7 @@
   "dependencies": {
     "@based/pretty-date": "^1.0.4",
     "@metadelta/core": "^1.1.2",
+    "@nlpjs/basic": "^4.27.0",
     "brave-search": "^0.6.5",
     "chrono-node": "^2.7.7",
     "consola": "^3.2.3",

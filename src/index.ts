@@ -16,6 +16,7 @@ import { LocalAuth, MessageMedia } from "whatsapp-web.js";
 import { getConfig, initialConfig } from "./config";
 import { CommandError, CommandPermissionError } from "./error";
 import { generateHelp, generateHelpPage } from "./help";
+import { nlp } from "./nlp";
 import { getPermissionLevel, PermissionLevel } from "./perms";
 import { PluginsManager } from "./pluginsManager";
 import {
@@ -337,6 +338,7 @@ client.on("auth_failure", (message) => {
   clientReadyPromise.reject(new Error(message));
 });
 
+await nlp.train();
 await client.initialize();
 
 await clientReadyPromise.promise;

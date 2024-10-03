@@ -20,6 +20,14 @@ import { consola } from "consola";
 import { getConfig } from "./config";
 import { AsyncEventEmitter } from "./events";
 
+export interface PluginNlpConfig {
+  [language: string]: {
+    intent: string;
+    utterances: string[];
+    answers?: string[];
+  }[];
+}
+
 export interface Plugin<PluginId extends string> {
   /**
    * Plugin IDs that this plugin depends on.
@@ -41,6 +49,8 @@ export interface Plugin<PluginId extends string> {
   readonly database?: boolean;
 
   readonly configSchema?: BaseSchema<any, any, any>;
+
+  readonly nlp?: PluginNlpConfig;
 }
 
 interface PluginEvents {

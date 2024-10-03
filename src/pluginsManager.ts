@@ -5,6 +5,7 @@ import { consola } from "consola";
 import { DepGraph } from "dependency-graph";
 
 import { setPluginConfig } from "./config";
+import { nlp } from "./nlp";
 import { scanPlugins } from "./plugins";
 
 export interface InternalCommand extends Command {
@@ -56,6 +57,24 @@ export class PluginsManager implements Iterable<Plugin<string>> {
     }
 
     this._loadedPlugins.set(plugin.id, plugin);
+
+    if (plugin.nlp) {
+      for (const [language, intents] of Object.entries(plugin.nlp)) {
+        nlp.addLanguage(language);
+
+        for (const intent of intents) {
+          for (const utterance of intent.utterances) {
+            nlp.addDocument(language, utterance, intent.intent);
+          }
+
+          if (intent.answers) {
+            for (const answer of intent.answers) {
+              nlp.addAnswer(language, intent.intent, answer);
+            }
+          }
+        }
+      }
+    }
 
     // @ts-expect-error - _commands is private so plugins don't access
     // each other's commands, but we need to access it here
@@ -157,6 +176,22 @@ export class PluginsManager implements Iterable<Plugin<string>> {
     _db?.close();
     // @ts-expect-error
     plugin._db = null;
+
+    if (plugin.nlp) {
+      for (const [language, intents] of Object.entries(plugin.nlp)) {
+        for (const intent of intents) {
+          for (const utterance of intent.utterances) {
+            nlp.removeDocument(language, utterance, intent.intent);
+          }
+
+          if (intent.answers) {
+            for (const answer of intent.answers) {
+              nlp.removeAnswer(language, intent.intent, answer);
+            }
+          }
+        }
+      }
+    }
 
     this._loadedPlugins.delete(pluginId);
   }
