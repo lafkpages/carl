@@ -36,190 +36,182 @@ export default new Plugin("openai", "OpenAI", "Talk to ChatGPT on WhatsApp!")
     ),
   )
   .registerApi({
-    api: {
-      returnResponse(response: string | null) {
-        if (response) {
-          return response;
-        } else {
-          throw new CommandError("no response from AI");
-        }
-      },
+    returnResponse(response: string | null) {
+      if (response) {
+        return response;
+      } else {
+        throw new CommandError("no response from AI");
+      }
+    },
 
-      async askAi(message: string) {
-        const messages: ChatCompletionMessageParam[] = [
-          { role: "system", content: this.config.systemPrompt },
-          {
-            role: "user",
-            content: message,
-          },
-        ];
+    async askAi(message: string) {
+      const messages: ChatCompletionMessageParam[] = [
+        { role: "system", content: this.config.systemPrompt },
+        {
+          role: "user",
+          content: message,
+        },
+      ];
 
-        const hash = objectHash(messages);
+      const hash = objectHash(messages);
 
-        const cached = this.api.getCached(hash);
+      const cached = this.api.getCached(hash);
 
-        let response: string;
-        if (cached) {
-          response = cached;
-        } else {
-          const completion = await openai.chat.completions.create({
-            messages,
-            model: this.config.model,
-          });
-
-          this.logger.debug("AI response:", completion);
-
-          response = this.api.returnResponse(
-            completion.choices[0].message.content,
-          );
-
-          this.api.setCache(hash, response);
-        }
-
-        messages.push({
-          role: "assistant",
-          content: response,
+      let response: string;
+      if (cached) {
+        response = cached;
+      } else {
+        const completion = await openai.chat.completions.create({
+          messages,
+          model: this.config.model,
         });
 
-        return this.interactionContinuation(
-          "aiContinuation",
-          response,
-          messages,
+        this.logger.debug("AI response:", completion);
+
+        response = this.api.returnResponse(
+          completion.choices[0].message.content,
         );
-      },
 
-      getCached<Bin extends boolean = false>(hash: string, bin?: Bin) {
-        return (
-          this.db
-            .query<
-              {
-                value: Bin extends true ? Uint8Array : string;
-              },
-              [string]
-            >(
-              `SELECT value FROM ${bin ? "binary_cache" : "cache"} WHERE key = ?`,
-            )
-            .get(hash)?.value || null
-        );
-      },
+        this.api.setCache(hash, response);
+      }
 
-      setCache<Bin extends boolean = false>(
-        hash: string,
-        value: Bin extends true ? NodeJS.TypedArray : string,
-        bin?: Bin,
-      ) {
-        this.db.run<[string, Bin extends true ? NodeJS.TypedArray : string]>(
-          `INSERT INTO ${bin ? "binary_cache" : "cache"} (key, value) VALUES (?, ?)`,
-          [hash, value],
-        );
-      },
+      messages.push({
+        role: "assistant",
+        content: response,
+      });
 
-      async whatsappMessageToChatCompletionMessage(
-        message: Message,
-        body?: string | null,
-        includeNames = true,
-      ): Promise<ChatCompletionMessageParam | null> {
-        let contact: Contact;
-        if (includeNames) {
-          contact = await message.getContact();
-        }
+      return this.interactionContinuation("aiContinuation", response, messages);
+    },
 
-        body ||= message.body;
+    getCached<Bin extends boolean = false>(hash: string, bin?: Bin) {
+      return (
+        this.db
+          .query<
+            {
+              value: Bin extends true ? Uint8Array : string;
+            },
+            [string]
+          >(`SELECT value FROM ${bin ? "binary_cache" : "cache"} WHERE key = ?`)
+          .get(hash)?.value || null
+      );
+    },
 
-        let content: string | ChatCompletionContentPart[];
+    setCache<Bin extends boolean = false>(
+      hash: string,
+      value: Bin extends true ? NodeJS.TypedArray : string,
+      bin?: Bin,
+    ) {
+      this.db.run<[string, Bin extends true ? NodeJS.TypedArray : string]>(
+        `INSERT INTO ${bin ? "binary_cache" : "cache"} (key, value) VALUES (?, ?)`,
+        [hash, value],
+      );
+    },
 
-        if (message.hasMedia) {
-          const media = await message.downloadMedia();
+    async whatsappMessageToChatCompletionMessage(
+      message: Message,
+      body?: string | null,
+      includeNames = true,
+    ): Promise<ChatCompletionMessageParam | null> {
+      let contact: Contact;
+      if (includeNames) {
+        contact = await message.getContact();
+      }
 
-          if (media.mimetype.startsWith("image")) {
-            content = [
-              {
-                type: "text",
-                text: body,
-              },
-              {
-                type: "image_url",
-                image_url: {
-                  url: `data:${media.mimetype};base64,${media.data}`,
-                },
-              },
-            ];
-          } else {
-            try {
-              content = await this.api.transcribeMessage(message);
-            } catch (err) {
-              this.logger.error(
-                "Error transcribing message in whatsappMessageToChatCompletionMessage:",
-                err,
-              );
-              content = body;
-            }
-          }
-        } else {
-          content = body;
-        }
+      body ||= message.body;
 
-        if (!content) {
-          return null;
-        }
+      let content: string | ChatCompletionContentPart[];
 
-        return {
-          role: "user",
-          content,
-          name: includeNames
-            ? contact!.pushname?.replace(/[^a-zA-Z0-9_-]/g, "")
-            : undefined,
-        };
-      },
-
-      async transcribeMessage(message: Message) {
-        if (!message.hasMedia) {
-          throw new CommandError("message does not contain media");
-        }
-
-        if (
-          message.type !== MessageTypes.AUDIO &&
-          message.type !== MessageTypes.VOICE &&
-          message.type !== MessageTypes.VIDEO
-        ) {
-          throw new CommandError(
-            "message must be an audio, voice or video message",
-          );
-        }
-
+      if (message.hasMedia) {
         const media = await message.downloadMedia();
 
-        // underscore to prevent collisions between other type of hash from objectHash
-        const hash = `_${Bun.hash(media.data).toString(36)}`;
-
-        const cached = this.api.getCached(hash);
-
-        if (cached) {
-          return cached;
-        }
-
-        let filename = media.filename;
-        if (!filename) {
-          const ext = Mime.getExtension(media.mimetype);
-
-          if (ext) {
-            filename = `${hash}.${ext}`;
+        if (media.mimetype.startsWith("image")) {
+          content = [
+            {
+              type: "text",
+              text: body,
+            },
+            {
+              type: "image_url",
+              image_url: {
+                url: `data:${media.mimetype};base64,${media.data}`,
+              },
+            },
+          ];
+        } else {
+          try {
+            content = await this.api.transcribeMessage(message);
+          } catch (err) {
+            this.logger.error(
+              "Error transcribing message in whatsappMessageToChatCompletionMessage:",
+              err,
+            );
+            content = body;
           }
         }
+      } else {
+        content = body;
+      }
 
-        if (!filename) {
-          throw new CommandError("could not determine file extension");
+      if (!content) {
+        return null;
+      }
+
+      return {
+        role: "user",
+        content,
+        name: includeNames
+          ? contact!.pushname?.replace(/[^a-zA-Z0-9_-]/g, "")
+          : undefined,
+      };
+    },
+
+    async transcribeMessage(message: Message) {
+      if (!message.hasMedia) {
+        throw new CommandError("message does not contain media");
+      }
+
+      if (
+        message.type !== MessageTypes.AUDIO &&
+        message.type !== MessageTypes.VOICE &&
+        message.type !== MessageTypes.VIDEO
+      ) {
+        throw new CommandError(
+          "message must be an audio, voice or video message",
+        );
+      }
+
+      const media = await message.downloadMedia();
+
+      // underscore to prevent collisions between other type of hash from objectHash
+      const hash = `_${Bun.hash(media.data).toString(36)}`;
+
+      const cached = this.api.getCached(hash);
+
+      if (cached) {
+        return cached;
+      }
+
+      let filename = media.filename;
+      if (!filename) {
+        const ext = Mime.getExtension(media.mimetype);
+
+        if (ext) {
+          filename = `${hash}.${ext}`;
         }
+      }
 
-        const transcription = await openai.audio.transcriptions.create({
-          file: await toFile(Buffer.from(media.data, "base64"), filename),
-          model: "whisper-1",
-        });
+      if (!filename) {
+        throw new CommandError("could not determine file extension");
+      }
 
-        this.api.setCache(hash, transcription.text);
+      const transcription = await openai.audio.transcriptions.create({
+        file: await toFile(Buffer.from(media.data, "base64"), filename),
+        model: "whisper-1",
+      });
 
-        return transcription.text;
-      },
+      this.api.setCache(hash, transcription.text);
+
+      return transcription.text;
     },
   })
   .registerInteraction({

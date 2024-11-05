@@ -20,50 +20,48 @@ export default new Plugin(
   "A plugin to check if a given location is on water or not.",
 )
   .registerApi({
-    api: {
-      async handleMessage(
-        message: Message,
-        latitude?: string,
-        longitude?: string,
-      ) {
-        assert(apiKey);
+    async handleMessage(
+      message: Message,
+      latitude?: string,
+      longitude?: string,
+    ) {
+      assert(apiKey);
 
-        if (!latitude) {
-          latitude = message.location.latitude;
-        }
-        if (!longitude) {
-          longitude = message.location.longitude;
-        }
+      if (!latitude) {
+        latitude = message.location.latitude;
+      }
+      if (!longitude) {
+        longitude = message.location.longitude;
+      }
 
-        assert(latitude);
-        assert(longitude);
+      assert(latitude);
+      assert(longitude);
 
-        const resp = await fetch(
-          `https://isitwater-com.p.rapidapi.com/?latitude=${encodeURIComponent(latitude)}&longitude=${encodeURIComponent(longitude)}&rapidapi-key=${encodeURIComponent(apiKey)}`,
+      const resp = await fetch(
+        `https://isitwater-com.p.rapidapi.com/?latitude=${encodeURIComponent(latitude)}&longitude=${encodeURIComponent(longitude)}&rapidapi-key=${encodeURIComponent(apiKey)}`,
+      );
+
+      if (!resp.ok) {
+        this.logger.error(
+          "Failed to fetch IsItWater API:",
+          resp.status,
+          resp.statusText,
         );
+        return;
+      }
 
-        if (!resp.ok) {
-          this.logger.error(
-            "Failed to fetch IsItWater API:",
-            resp.status,
-            resp.statusText,
-          );
-          return;
-        }
+      const { water } = await resp.json();
 
-        const { water } = await resp.json();
+      if (typeof water !== "boolean") {
+        this.logger.error(
+          "Invalid response from IsItWater API:",
+          typeof water,
+          water,
+        );
+        return;
+      }
 
-        if (typeof water !== "boolean") {
-          this.logger.error(
-            "Invalid response from IsItWater API:",
-            typeof water,
-            water,
-          );
-          return;
-        }
-
-        await message.react(water ? "\u{1F30A}" : "\u26F0\uFE0F");
-      },
+      await message.react(water ? "\u{1F30A}" : "\u26F0\uFE0F");
     },
   })
   .registerCommand({

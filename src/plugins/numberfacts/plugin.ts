@@ -13,32 +13,28 @@ export default new Plugin(
   "Fun facts about numbers!",
 )
   .registerApi({
-    api: {
-      async apiCall(numbers: number[], type: ValidFactType) {
-        let url = `http://numbersapi.com/`;
+    async apiCall(numbers: number[], type: ValidFactType) {
+      let url = `http://numbersapi.com/`;
 
-        for (const number of numbers) {
-          url += `${encodeURIComponent(number)}/`;
-        }
+      for (const number of numbers) {
+        url += `${encodeURIComponent(number)}/`;
+      }
 
-        url += `${encodeURIComponent(type)}?default=NOTFOUND`;
+      url += `${encodeURIComponent(type)}?default=NOTFOUND`;
 
-        const resp = await fetch(url);
+      const resp = await fetch(url);
 
-        if (resp.status !== 200) {
-          throw new CommandError(
-            `Failed to fetch fact: \`${resp.statusText}\``,
-          );
-        }
+      if (resp.status !== 200) {
+        throw new CommandError(`Failed to fetch fact: \`${resp.statusText}\``);
+      }
 
-        const fact = (await resp.text()).trim();
+      const fact = (await resp.text()).trim();
 
-        if (fact === "NOTFOUND") {
-          throw new CommandError("No fact found");
-        }
+      if (fact === "NOTFOUND") {
+        throw new CommandError("No fact found");
+      }
 
-        return fact;
-      },
+      return fact;
     },
   })
   .registerCommand({

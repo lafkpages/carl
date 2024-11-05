@@ -13,17 +13,15 @@ export default new Plugin(
   "Google Calendar integration",
 )
   .registerApi({
-    api: {
-      async cal(sender: string, chat: Chat) {
-        const client = await getGoogleClient(
-          this.client,
-          sender,
-          chat,
-          "https://www.googleapis.com/auth/calendar.readonly",
-        );
+    async cal(sender: string, chat: Chat) {
+      const client = await getGoogleClient(
+        this.client,
+        sender,
+        chat,
+        "https://www.googleapis.com/auth/calendar.readonly",
+      );
 
-        return google.calendar({ version: "v3", auth: client });
-      },
+      return google.calendar({ version: "v3", auth: client });
     },
   })
   .registerCommand({

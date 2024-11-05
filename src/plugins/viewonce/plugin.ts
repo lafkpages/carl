@@ -10,15 +10,13 @@ export default new Plugin(
   "Allows saving view-once media",
 )
   .registerApi({
-    api: {
-      async handleKeep(message: Message, sender: string) {
-        const media = await message.downloadMedia();
+    async handleKeep(message: Message, sender: string) {
+      const media = await message.downloadMedia();
 
-        await this.client.sendMessage(sender, "View-once media saved!", {
-          media,
-          quotedMessageId: message.id._serialized,
-        });
-      },
+      await this.client.sendMessage(sender, "View-once media saved!", {
+        media,
+        quotedMessageId: message.id._serialized,
+      });
     },
   })
   .registerCommand({
