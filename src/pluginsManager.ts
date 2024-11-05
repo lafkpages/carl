@@ -164,6 +164,11 @@ export class PluginsManager implements Iterable<Plugin<string>> {
       await plugin.run("unload").catch(consola.error);
     }
 
+    // @ts-expect-error: _commands is private
+    for (const command of plugin._commands) {
+      this._commands.delete(command.name);
+    }
+
     // @ts-expect-error: _db is private so plugins don't access
     // each other's databases, but we need to access it here
     const { _db } = plugin;
