@@ -7,83 +7,73 @@ import { Plugin } from "../../plugins";
 
 let latex2imageEndpoint: string;
 
-export default class extends Plugin<"latex"> {
-  readonly id = "latex";
-  readonly name = "LaTeX";
-  readonly description = "Plugin for rendering LaTeX equations";
-  readonly version = "0.0.1";
-
-  constructor() {
-    super();
-
-    this.registerCommands([
+export default new Plugin(
+  "latex",
+  "LaTeX",
+  "Plugin for rendering LaTeX equations",
+)
+  .registerCommand({
+    name: "latex",
+    description: "Render a LaTeX equation",
+    minLevel: PermissionLevel.TRUSTED,
+    rateLimit: [
       {
-        name: "latex",
-        description: "Render a LaTeX equation",
-        minLevel: PermissionLevel.TRUSTED,
-        rateLimit: [
-          {
-            // 5 times per minute
-            duration: 1000 * 60,
-            max: 5,
-          },
-        ],
-
-        async handler({ message, data }) {
-          data = data.trim();
-
-          if (!data) {
-            throw new CommandError(
-              "you must provide a LaTeX equation to render",
-            );
-          }
-
-          const latexInput = `\\begin{align*}\n${data}\n\\end{align*}\n`;
-
-          const { imageUrl, error } = parse(
-            object({
-              imageUrl: nullable(string()),
-              error: nullable(string()),
-            }),
-            await fetch(latex2imageEndpoint, {
-              body: JSON.stringify({
-                latexInput,
-                outputFormat: "JPG",
-                outputScale: "100%",
-              }),
-              method: "POST",
-            }).then((res) => res.json()),
-          );
-
-          if (error) {
-            throw new CommandError(
-              `failed to render LaTeX:\n\`\`\`\n${error}\n\`\`\``,
-            );
-          }
-
-          if (!imageUrl) {
-            throw new CommandError(
-              "failed to render LaTeX: no image URL returned",
-            );
-          }
-
-          this.logger.info("Rendered LaTeX equation:", imageUrl);
-
-          // TODO: why is the image so massive?
-          await this.client.sendMessage(
-            message.from,
-            `Rendered LaTeX equation:\n\`\`\`\n${latexInput}\n\`\`\``,
-            {
-              media: await MessageMedia.fromUrl(imageUrl),
-            },
-          );
-
-          return true;
-        },
+        // 5 times per minute
+        duration: 1000 * 60,
+        max: 5,
       },
-    ]);
+    ],
 
-    this.on("load", async () => {
+    async handler({ message, data }) {
+      data = data.trim();
+
+      if (!data) {
+        throw new CommandError("you must provide a LaTeX equation to render");
+      }
+
+      const latexInput = `\\begin{align*}\n${data}\n\\end{align*}\n`;
+
+      const { imageUrl, error } = parse(
+        object({
+          imageUrl: nullable(string()),
+          error: nullable(string()),
+        }),
+        await fetch(latex2imageEndpoint, {
+          body: JSON.stringify({
+            latexInput,
+            outputFormat: "JPG",
+            outputScale: "100%",
+          }),
+          method: "POST",
+        }).then((res) => res.json()),
+      );
+
+      if (error) {
+        throw new CommandError(
+          `failed to render LaTeX:\n\`\`\`\n${error}\n\`\`\``,
+        );
+      }
+
+      if (!imageUrl) {
+        throw new CommandError("failed to render LaTeX: no image URL returned");
+      }
+
+      this.logger.info("Rendered LaTeX equation:", imageUrl);
+
+      // TODO: why is the image so massive?
+      await this.client.sendMessage(
+        message.from,
+        `Rendered LaTeX equation:\n\`\`\`\n${latexInput}\n\`\`\``,
+        {
+          media: await MessageMedia.fromUrl(imageUrl),
+        },
+      );
+
+      return true;
+    },
+  })
+  .on({
+    async load() {
       this.logger.debug("Fetching latex2image endpoint");
 
       [, , latex2imageEndpoint] =
@@ -98,6 +88,5 @@ export default class extends Plugin<"latex"> {
       }
 
       this.logger.debug("Fetched latex2image endpoint:", latex2imageEndpoint);
-    });
-  }
-}
+    },
+  });

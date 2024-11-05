@@ -4,79 +4,71 @@ import { CommandError } from "../../error";
 import { PermissionLevel } from "../../perms";
 import { Plugin } from "../../plugins";
 
-export default class extends Plugin<"viewonce"> {
-  readonly id = "viewonce";
-  readonly name = "View Once";
-  readonly description = "Allows saving view-once media";
-  readonly version = "0.0.1";
+export default new Plugin(
+  "viewonce",
+  "View Once",
+  "Allows saving view-once media",
+)
+  .registerApi({
+    api: {
+      async handleKeep(message: Message, sender: string) {
+        const media = await message.downloadMedia();
 
-  constructor() {
-    super();
-
-    this.registerCommands([
-      {
-        name: "keep",
-        description: "Save a view-once media",
-        minLevel: PermissionLevel.TRUSTED,
-
-        async handler({ message, data, sender }) {
-          let quotedMsg: Message | undefined;
-
-          if (data) {
-            quotedMsg = await this.client.getMessageById(data);
-
-            if (!quotedMsg) {
-              return false;
-            }
-          } else if (!message.hasQuotedMsg) {
-            throw new CommandError(
-              "you need to reply to a view-once message to save it",
-            );
-          }
-
-          if (!quotedMsg) {
-            quotedMsg = await message.getQuotedMessage();
-          }
-
-          if (!quotedMsg.hasMedia) {
-            throw new CommandError("the replied message doesn't have media");
-          }
-
-          await this.handleKeep(quotedMsg, sender);
-
-          return true;
-        },
+        await this.client.sendMessage(sender, "View-once media saved!", {
+          media,
+          quotedMessageId: message.id._serialized,
+        });
       },
-    ]);
+    },
+  })
+  .registerCommand({
+    name: "keep",
+    description: "Save a view-once media",
+    minLevel: PermissionLevel.TRUSTED,
 
-    this.on(
-      "reaction",
+    async handler({ message, data, sender }) {
+      let quotedMsg: Message | undefined;
 
-      async ({ reaction, message, sender, permissionLevel }) => {
-        if (reaction.reaction !== "\u267E\uFE0F") {
-          return;
+      if (data) {
+        quotedMsg = await this.client.getMessageById(data);
+
+        if (!quotedMsg) {
+          return false;
         }
+      } else if (!message.hasQuotedMsg) {
+        throw new CommandError(
+          "you need to reply to a view-once message to save it",
+        );
+      }
 
-        // Only allow trusted users to save view-once media
-        if (permissionLevel < PermissionLevel.TRUSTED) {
-          return;
-        }
+      if (!quotedMsg) {
+        quotedMsg = await message.getQuotedMessage();
+      }
 
-        if (!message.hasMedia) {
-          return;
-        }
+      if (!quotedMsg.hasMedia) {
+        throw new CommandError("the replied message doesn't have media");
+      }
 
-        await this.handleKeep(message, sender);
-      },
-    );
-  }
+      await this.api.handleKeep(quotedMsg, sender);
 
-  async handleKeep(message: Message, sender: string) {
-    const media = await message.downloadMedia();
+      return true;
+    },
+  })
+  .on({
+    async reaction({ reaction, message, sender, permissionLevel }) {
+      if (reaction.reaction !== "\u267E\uFE0F") {
+        return;
+      }
 
-    await this.client.sendMessage(sender, "View-once media saved!", {
-      media,
-      quotedMessageId: message.id._serialized,
-    });
-  }
-}
+      // Only allow trusted users to save view-once media
+      if (permissionLevel < PermissionLevel.TRUSTED) {
+        return;
+      }
+
+      if (!message.hasMedia) {
+        return;
+      }
+
+      await this.api.handleKeep(message, sender);
+    },
+  });

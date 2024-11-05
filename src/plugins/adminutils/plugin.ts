@@ -7,64 +7,55 @@ import { sendMessageToAdmins } from "../../utils";
 
 const pendingPermissionRequests: Record<string, PermissionLevel> = {};
 
-export default class extends Plugin<"adminutils"> {
-  readonly id = "adminutils";
-  readonly name = "Admin utilities";
-  readonly description = "Commands for administration.";
-  readonly version = "0.0.1";
+export default new Plugin(
+  "adminutils",
+  "Admin utilities",
+  "Commands for administration.",
+).registerCommand({
+  name: "requestpermission",
+  description: "Request an admin a certain permission level",
+  minLevel: PermissionLevel.NONE,
+  rateLimit: [
+    {
+      // Once per hour
+      duration: 1000 * 60 * 60,
+      max: 1,
+    },
+  ],
 
-  constructor() {
-    super();
+  async handler({ message, data, sender }) {
+    if (sender in pendingPermissionRequests) {
+      throw new CommandError(
+        `you already have a pending permission request for permission level \`${PermissionLevel[pendingPermissionRequests[sender]]}\``,
+      );
+    }
 
-    this.registerCommands([
-      {
-        name: "requestpermission",
-        description: "Request an admin a certain permission level",
-        minLevel: PermissionLevel.NONE,
-        rateLimit: [
-          {
-            // Once per hour
-            duration: 1000 * 60 * 60,
-            max: 1,
-          },
-        ],
+    if (!data) {
+      throw new CommandError(
+        "you must specify a permission level to request. For example, `/requestpermission trusted`",
+      );
+    }
 
-        async handler({ message, data, sender }) {
-          if (sender in pendingPermissionRequests) {
-            throw new CommandError(
-              `you already have a pending permission request for permission level \`${PermissionLevel[pendingPermissionRequests[sender]]}\``,
-            );
-          }
+    data = data.trim().toUpperCase();
 
-          if (!data) {
-            throw new CommandError(
-              "you must specify a permission level to request. For example, `/requestpermission trusted`",
-            );
-          }
+    if (!(data in PermissionLevel)) {
+      throw new CommandError(
+        `invalid permission level \`${data}\`. Valid permission levels are:\n* trusted\n* admin`,
+      );
+    }
 
-          data = data.trim().toUpperCase();
+    const contact = await message.getContact();
 
-          if (!(data in PermissionLevel)) {
-            throw new CommandError(
-              `invalid permission level \`${data}\`. Valid permission levels are:\n* trusted\n* admin`,
-            );
-          }
+    const requestedPermissionLevel =
+      PermissionLevel[data as keyof typeof PermissionLevel];
 
-          const contact = await message.getContact();
+    pendingPermissionRequests[sender] = requestedPermissionLevel;
 
-          const requestedPermissionLevel =
-            PermissionLevel[data as keyof typeof PermissionLevel];
+    await sendMessageToAdmins(
+      this.client,
+      `User \`${sender}\` (\`${contact.pushname}\`) has requested permission level \`${PermissionLevel[requestedPermissionLevel]}\` (\`${requestedPermissionLevel}\`). To grant this permission, edit the config file and restart the bot.`,
+    );
 
-          pendingPermissionRequests[sender] = requestedPermissionLevel;
-
-          await sendMessageToAdmins(
-            this.client,
-            `User \`${sender}\` (\`${contact.pushname}\`) has requested permission level \`${PermissionLevel[requestedPermissionLevel]}\` (\`${requestedPermissionLevel}\`). To grant this permission, edit the config file and restart the bot.`,
-          );
-
-          return true;
-        },
-      },
-    ]);
-  }
-}
+    return true;
+  },
+});

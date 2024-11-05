@@ -19,151 +19,145 @@ const geekJokesFiltered = geekJokes.filter(
   (joke) => !/chuck\s*norris/i.test(joke),
 );
 
-export default class extends Plugin<"random"> {
-  readonly id = "random";
-  readonly name = "Random";
-  readonly description = "Utilities for generating random data";
-  readonly version = "1.0.0";
+export default new Plugin(
+  "random",
+  "Random",
+  "Utilities for generating random data",
+).registerCommand({
+  name: "random",
+  description: "Generates random data",
+  minLevel: PermissionLevel.NONE,
 
-  constructor() {
-    super();
+  async handler({ message, data }) {
+    const [, min, max] = data.match(/^(\d+) (\d+)$/) || [];
 
-    this.registerCommands([
-      {
-        name: "random",
-        description: "Generates random data",
-        minLevel: PermissionLevel.NONE,
+    if (min && max) {
+      const minNum = parseInt(min);
+      const maxNum = parseInt(max);
 
-        async handler({ message, data }) {
-          const [, min, max] = data.match(/^(\d+) (\d+)$/) || [];
+      if (isNaN(minNum) || isNaN(maxNum)) {
+        throw new CommandError(
+          "Invalid minimum or maximum. Please provide two numbers. For example: `/random 1 5`",
+        );
+      }
 
-          if (min && max) {
-            const minNum = parseInt(min);
-            const maxNum = parseInt(max);
+      if (minNum > maxNum) {
+        throw new CommandError(
+          "The minimum number must be less than the maximum number",
+        );
+      } else if (minNum === maxNum) {
+        throw new CommandError(
+          "The minimum and maximum numbers must be different",
+        );
+      } else if (minNum % 1 !== 0 || maxNum % 1 !== 0) {
+        throw new CommandError(
+          "The minimum and maximum numbers must be integers",
+        );
+      } else {
+        const randomNum =
+          Math.floor(Math.random() * (maxNum - minNum + 1)) + minNum;
 
-            if (isNaN(minNum) || isNaN(maxNum)) {
-              throw new CommandError(
-                "Invalid minimum or maximum. Please provide two numbers. For example: `/random 1 5`",
-              );
-            }
+        if (randomNum >= 0 && randomNum <= 10) {
+          const emoji =
+            randomNum === 10
+              ? "\u{1F51F}"
+              : `${String.fromCharCode(48 + randomNum)}\uFE0F\u20E3`;
 
-            if (minNum > maxNum) {
-              throw new CommandError(
-                "The minimum number must be less than the maximum number",
-              );
-            } else if (minNum === maxNum) {
-              throw new CommandError(
-                "The minimum and maximum numbers must be different",
-              );
-            } else if (minNum % 1 !== 0 || maxNum % 1 !== 0) {
-              throw new CommandError(
-                "The minimum and maximum numbers must be integers",
-              );
-            } else {
-              const randomNum =
-                Math.floor(Math.random() * (maxNum - minNum + 1)) + minNum;
+          await message.react(emoji);
 
-              if (randomNum >= 0 && randomNum <= 10) {
-                const emoji =
-                  randomNum === 10
-                    ? "\u{1F51F}"
-                    : `${String.fromCharCode(48 + randomNum)}\uFE0F\u20E3`;
+          return;
+        } else {
+          return `Random number between ${minNum} and ${maxNum}: ${randomNum}`;
+        }
+      }
+    }
 
-                await message.react(emoji);
+    switch (data.toLowerCase()) {
+      case "uuid":
+        return randomUUID();
 
-                return;
-              } else {
-                return `Random number between ${minNum} and ${maxNum}: ${randomNum}`;
-              }
-            }
-          }
+      case "letter":
+      case "alphabet":
+      case "alpha":
+      case "l":
+        return String.fromCharCode(65 + Math.floor(Math.random() * 26));
 
-          switch (data.toLowerCase()) {
-            case "uuid":
-              return randomUUID();
+      case "number":
+      case "num":
+      case "n":
+        return `Random number between 0 and 1: ${Math.random()}`;
 
-            case "letter":
-            case "alphabet":
-            case "alpha":
-            case "l":
-              return String.fromCharCode(65 + Math.floor(Math.random() * 26));
+      case "boolean":
+      case "bool":
+      case "b":
+        return Math.random() < 0.5;
 
-            case "number":
-            case "num":
-            case "n":
-              return `Random number between 0 and 1: ${Math.random()}`;
+      case "coinflip":
+      case "coin":
+      case "c":
+      case "flip": {
+        await message.react(Math.random() < 0.5 ? "🪙" : "👑");
+        return;
+      }
 
-            case "boolean":
-            case "bool":
-            case "b":
-              return Math.random() < 0.5;
+      case "git-commit":
+      case "gitcommit":
+      case "commit":
+      case "git":
+      case "gc": {
+        const resp = await fetch("https://whatthecommit.com/index.txt");
 
-            case "coinflip":
-            case "coin":
-            case "c":
-            case "flip": {
-              await message.react(Math.random() < 0.5 ? "🪙" : "👑");
-              return;
-            }
+        if (!resp.ok) {
+          throw new CommandError("Failed to fetch random commit message");
+        }
 
-            case "git-commit":
-            case "gitcommit":
-            case "commit":
-            case "git":
-            case "gc": {
-              const resp = await fetch("https://whatthecommit.com/index.txt");
+        const commitMsg = (await resp.text()).trim();
 
-              if (!resp.ok) {
-                throw new CommandError("Failed to fetch random commit message");
-              }
+        if (!commitMsg) {
+          throw new CommandError("Failed to fetch random commit message");
+        }
 
-              const commitMsg = (await resp.text()).trim();
+        return commitMsg;
+      }
 
-              if (!commitMsg) {
-                throw new CommandError("Failed to fetch random commit message");
-              }
+      case "metaphor":
+      case "met":
+      case "m": {
+        const resp = await fetch("http://metaphorpsum.com/sentences/1");
 
-              return commitMsg;
-            }
+        if (!resp.ok) {
+          throw new CommandError("Failed to fetch random metaphor");
+        }
 
-            case "metaphor":
-            case "met":
-            case "m": {
-              const resp = await fetch("http://metaphorpsum.com/sentences/1");
+        const metaphor = (await resp.text()).trim();
 
-              if (!resp.ok) {
-                throw new CommandError("Failed to fetch random metaphor");
-              }
+        if (!metaphor) {
+          throw new CommandError("Failed to fetch random metaphor");
+        }
 
-              const metaphor = (await resp.text()).trim();
+        return metaphor;
+      }
 
-              if (!metaphor) {
-                throw new CommandError("Failed to fetch random metaphor");
-              }
+      case "geek-joke":
+      case "geekjoke":
+      case "nerd-joke":
+      case "nerdjoke": {
+        const joke =
+          geekJokesFiltered[
+            Math.floor(Math.random() * geekJokesFiltered.length)
+          ];
 
-              return metaphor;
-            }
+        return joke;
+      }
 
-            case "geek-joke":
-            case "geekjoke":
-            case "nerd-joke":
-            case "nerdjoke": {
-              const joke =
-                geekJokesFiltered[
-                  Math.floor(Math.random() * geekJokesFiltered.length)
-                ];
+      case "mime":
+      case "mimetype":
+      case "mime-type": {
+        return `\`${mimeTypes[Math.floor(Math.random() * mimeTypes.length)]}\``;
+      }
 
-              return joke;
-            }
-
-            case "mime":
-            case "mimetype":
-            case "mime-type": {
-              return `\`${mimeTypes[Math.floor(Math.random() * mimeTypes.length)]}\``;
-            }
-
-            default:
-              throw new CommandError(`\
+      default:
+        throw new CommandError(`\
 Invalid arguments. Please either provide two numbers, or a data type. For example:
 * \`/random 1 5\`
 * \`/random uuid\`
@@ -179,9 +173,6 @@ Valid data types:
 * \`geek-joke\`
 * \"mime-type\`"
 `);
-          }
-        },
-      },
-    ]);
-  }
-}
+    }
+  },
+});

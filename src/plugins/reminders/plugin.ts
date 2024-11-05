@@ -27,70 +27,72 @@ export default new Plugin(
   "Set reminders for yourselfs.",
 )
   .registerApi({
-    async loadReminder(reminder: Reminder, _new = true) {
-      const now = Date.now();
+    api: {
+      async loadReminder(reminder: Reminder, _new = true) {
+        const now = Date.now();
 
-      if (reminder.time <= now) {
-        if (_new) {
-          throw new CommandError("reminder time is in the past");
+        if (reminder.time <= now) {
+          if (_new) {
+            throw new CommandError("reminder time is in the past");
+          }
+
+          await this.api.sendReminder(reminder);
+          return;
         }
 
-        await this.api.sendReminder(reminder);
-        return;
-      }
+        if (_new) {
+          const { lastInsertRowid } = this.db.run<
+            [string, string | null, string, number]
+          >(
+            "INSERT INTO reminders (user, channel, message, time) VALUES (?, ?, ?, ?)",
+            [reminder.user, reminder.channel, reminder.message, reminder.time],
+          );
 
-      if (_new) {
-        const { lastInsertRowid } = this.db.run<
-          [string, string | null, string, number]
-        >(
-          "INSERT INTO reminders (user, channel, message, time) VALUES (?, ?, ?, ?)",
-          [reminder.user, reminder.channel, reminder.message, reminder.time],
-        );
+          const { id } = this.db
+            .query<
+              { id: number },
+              [number]
+            >("SELECT id FROM reminders WHERE rowid = ?")
+            .get(lastInsertRowid as number)!;
 
-        const { id } = this.db
-          .query<
-            { id: number },
-            [number]
-          >("SELECT id FROM reminders WHERE rowid = ?")
-          .get(lastInsertRowid as number)!;
+          reminder.id = id;
+        } else if (reminder.id === undefined) {
+          throw new Error("reminder.id is not set");
+        }
 
-        reminder.id = id;
-      } else if (reminder.id === undefined) {
-        throw new Error("reminder.id is not set");
-      }
+        const timeout = setTimeout(async () => {
+          await this.api.sendReminder(reminder);
 
-      const timeout = setTimeout(async () => {
-        await this.api.sendReminder(reminder);
+          reminders.delete(reminder.id!);
+        }, reminder.time - now).unref();
 
-        reminders.delete(reminder.id!);
-      }, reminder.time - now).unref();
+        reminders.set(reminder.id, { ...reminder, _timeout: timeout });
+      },
 
-      reminders.set(reminder.id, { ...reminder, _timeout: timeout });
-    },
+      async sendReminder(reminder: InternalReminder) {
+        if (!reminder.id) {
+          throw new Error("reminder.id is not set");
+        }
 
-    async sendReminder(reminder: InternalReminder) {
-      if (!reminder.id) {
-        throw new Error("reminder.id is not set");
-      }
+        const message =
+          reminder.channel && reminder.channel !== reminder.user
+            ? await this.client.sendMessage(
+                reminder.channel,
+                `Reminder for @${reminder.user.slice(0, -5)}: ${reminder.message}`,
+                { linkPreview: false, mentions: [reminder.user] },
+              )
+            : await this.client.sendMessage(
+                reminder.channel || reminder.user,
+                `Reminder: ${reminder.message}`,
+                { linkPreview: false },
+              );
 
-      const message =
-        reminder.channel && reminder.channel !== reminder.user
-          ? await this.client.sendMessage(
-              reminder.channel,
-              `Reminder for @${reminder.user.slice(0, -5)}: ${reminder.message}`,
-              { linkPreview: false, mentions: [reminder.user] },
-            )
-          : await this.client.sendMessage(
-              reminder.channel || reminder.user,
-              `Reminder: ${reminder.message}`,
-              { linkPreview: false },
-            );
+        this.db.run<[number]>("DELETE FROM reminders WHERE id = ?", [
+          reminder.id,
+        ]);
 
-      this.db.run<[number]>("DELETE FROM reminders WHERE id = ?", [
-        reminder.id,
-      ]);
-
-      return message;
+        return message;
+      },
     },
   })
   .registerCommand({

@@ -10,33 +10,31 @@ let regexes: {
   emoji: string;
 }[] = [];
 
-export default class extends Plugin<"reactor"> {
-  readonly id = "reactor";
-  readonly name = "Reactor";
-  readonly description = "React to messages with emojis.";
-  readonly version = "0.0.1";
-
-  readonly configSchema = optional(
-    object({
-      reactions: optional(
-        array(
-          object({
-            regex: optional(union([string(), tuple([string(), string()])])),
-            senders: optional(array(string())),
-            minLevel: optional(enum_(PermissionLevel)),
-            emoji: string(),
-          }),
+export default new Plugin(
+  "reactor",
+  "Reactor",
+  "React to messages with emojis.",
+)
+  .configSchema(
+    optional(
+      object({
+        reactions: optional(
+          array(
+            object({
+              regex: optional(union([string(), tuple([string(), string()])])),
+              senders: optional(array(string())),
+              minLevel: optional(enum_(PermissionLevel)),
+              emoji: string(),
+            }),
+          ),
+          [],
         ),
-        [],
-      ),
-    }),
-    {},
-  );
-
-  constructor() {
-    super();
-
-    this.on("load", () => {
+      }),
+      {},
+    ),
+  )
+  .on({
+    load() {
       const reactions = this.config.reactions;
 
       for (const { regex, senders, minLevel, emoji } of reactions) {
@@ -52,9 +50,8 @@ export default class extends Plugin<"reactor"> {
           emoji,
         });
       }
-    });
-
-    this.on("message", async ({ message, sender, permissionLevel }) => {
+    },
+    async message({ message, sender, permissionLevel }) {
       for (const { regex, senders, minLevel, emoji } of regexes) {
         if (minLevel !== undefined && permissionLevel < minLevel) {
           continue;
@@ -70,6 +67,5 @@ export default class extends Plugin<"reactor"> {
 
         await message.react(emoji);
       }
-    });
-  }
-}
+    },
+  });

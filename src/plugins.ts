@@ -178,22 +178,26 @@ export class Plugin<
 
   // @ts-expect-error
   api: Api = null;
-  registerApi<
-    TApi extends { [key: string]: unknown },
-    TThis extends Plugin<
-      PluginId,
-      Depends,
-      Interactions,
-      ConfigSchema,
-      Api & TApi
-    >,
-  >(api: TApi & ThisType<TThis>): TThis {
+  registerApi<TApi extends { [key: string]: unknown }>(
+    api: TApi &
+      ThisType<
+        Plugin<PluginId, Depends, Interactions, ConfigSchema, Api & TApi>
+      >,
+  ): Plugin<PluginId, Depends, Interactions, ConfigSchema, Api & TApi> {
     if (!this.api) {
       // @ts-expect-error
       this.api = {};
     }
 
-    Object.assign(this.api!, api);
+    for (const key in api) {
+      const value = api[key];
+
+      if (typeof value === "function") {
+        this.api[key] = value.bind(this);
+      } else {
+        this.api[key] = value;
+      }
+    }
 
     // @ts-expect-error
     return this;
@@ -311,10 +315,7 @@ export function getPluginIdFromPath(path: string) {
   return path.match(/(?:\/|^)(\w+)\/plugin\.ts$/)?.[1] || null;
 }
 
-export async function scanPlugins(
-  map: Map<string, string>,
-  ignoreTemplate = true,
-) {
+export async function scanPlugins(map: Map<string, string>) {
   map.clear();
 
   for await (const entry of pluginsGlob.scan({
@@ -327,7 +328,7 @@ export async function scanPlugins(
       continue;
     }
 
-    if (ignoreTemplate && pluginId === "TEMPLATE") {
+    if (pluginId === "TEMPLATE") {
       continue;
     }
 
