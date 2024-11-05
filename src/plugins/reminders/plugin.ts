@@ -21,78 +21,138 @@ interface InternalReminder extends Reminder {
 
 const reminders = new Map<number, InternalReminder>();
 
-export default class extends Plugin<"reminders"> {
-  readonly id = "reminders";
-  readonly name = "Reminders";
-  readonly description = "Set reminders for yourselfs.";
-  readonly version = "0.0.1";
-  readonly database = true;
+export default new Plugin(
+  "reminders",
+  "Reminders",
+  "Set reminders for yourselfs.",
+)
+  .registerApi({
+    async loadReminder(reminder: Reminder, _new = true) {
+      const now = Date.now();
 
-  constructor() {
-    super();
+      if (reminder.time <= now) {
+        if (_new) {
+          throw new CommandError("reminder time is in the past");
+        }
 
-    this.registerCommands([
-      {
-        name: "reminder",
-        description: "Set a reminder.",
-        minLevel: PermissionLevel.NONE,
+        await this.api.sendReminder(reminder);
+        return;
+      }
 
-        async handler({ data, sender, chat }) {
-          const datetimes = parse(data, undefined, {
-            forwardDate: true,
-          });
+      if (_new) {
+        const { lastInsertRowid } = this.db.run<
+          [string, string | null, string, number]
+        >(
+          "INSERT INTO reminders (user, channel, message, time) VALUES (?, ?, ?, ?)",
+          [reminder.user, reminder.channel, reminder.message, reminder.time],
+        );
 
-          if (datetimes.length < 1) {
-            throw new CommandError("invalid date/time format");
-          }
+        const { id } = this.db
+          .query<
+            { id: number },
+            [number]
+          >("SELECT id FROM reminders WHERE rowid = ?")
+          .get(lastInsertRowid as number)!;
 
-          if (datetimes.length > 1) {
-            throw new CommandError(
-              "multiple date/time formats detected. Please specify only one",
+        reminder.id = id;
+      } else if (reminder.id === undefined) {
+        throw new Error("reminder.id is not set");
+      }
+
+      const timeout = setTimeout(async () => {
+        await this.api.sendReminder(reminder);
+
+        reminders.delete(reminder.id!);
+      }, reminder.time - now).unref();
+
+      reminders.set(reminder.id, { ...reminder, _timeout: timeout });
+    },
+
+    async sendReminder(reminder: InternalReminder) {
+      if (!reminder.id) {
+        throw new Error("reminder.id is not set");
+      }
+
+      const message =
+        reminder.channel && reminder.channel !== reminder.user
+          ? await this.client.sendMessage(
+              reminder.channel,
+              `Reminder for @${reminder.user.slice(0, -5)}: ${reminder.message}`,
+              { linkPreview: false, mentions: [reminder.user] },
+            )
+          : await this.client.sendMessage(
+              reminder.channel || reminder.user,
+              `Reminder: ${reminder.message}`,
+              { linkPreview: false },
             );
-          }
 
-          const [datetime] = datetimes;
+      this.db.run<[number]>("DELETE FROM reminders WHERE id = ?", [
+        reminder.id,
+      ]);
 
-          if (datetime.end) {
-            throw new CommandError("date/time ranges are not supported");
-          }
+      return message;
+    },
+  })
+  .registerCommand({
+    name: "reminder",
+    description: "Set a reminder.",
+    minLevel: PermissionLevel.NONE,
 
-          await this.loadReminder({
-            user: sender,
-            channel: chat.id._serialized,
+    async handler({ data, sender, chat }) {
+      const datetimes = parse(data, undefined, {
+        forwardDate: true,
+      });
 
-            message: data,
-            time: datetime.date().getTime(),
-          });
+      if (datetimes.length < 1) {
+        throw new CommandError("invalid date/time format");
+      }
 
-          return true;
-        },
-      },
-      {
-        name: "reminders",
-        description: "List all reminders.",
-        minLevel: PermissionLevel.NONE,
+      if (datetimes.length > 1) {
+        throw new CommandError(
+          "multiple date/time formats detected. Please specify only one",
+        );
+      }
 
-        handler({ sender }) {
-          let reminderList = "*Reminders:*";
+      const [datetime] = datetimes;
 
-          for (const reminder of reminders.values()) {
-            if (reminder.user === sender) {
-              reminderList += `\n* ${prettyDate(reminder.time, "date-time-human")}: ${reminder.message}`;
-            }
-          }
+      if (datetime.end) {
+        throw new CommandError("date/time ranges are not supported");
+      }
 
-          if (reminderList.length <= 12) {
-            return "No reminders set.";
-          }
+      await this.api.loadReminder({
+        user: sender,
+        channel: chat.id._serialized,
 
-          return reminderList;
-        },
-      },
-    ]);
+        message: data,
+        time: datetime.date().getTime(),
+      });
 
-    this.on("load", async () => {
+      return true;
+    },
+  })
+  .registerCommand({
+    name: "reminders",
+    description: "List all reminders.",
+    minLevel: PermissionLevel.NONE,
+
+    handler({ sender }) {
+      let reminderList = "*Reminders:*";
+
+      for (const reminder of reminders.values()) {
+        if (reminder.user === sender) {
+          reminderList += `\n* ${prettyDate(reminder.time, "date-time-human")}: ${reminder.message}`;
+        }
+      }
+
+      if (reminderList.length <= 12) {
+        return "No reminders set.";
+      }
+
+      return reminderList;
+    },
+  })
+  .on({
+    async load() {
       this.db.run(`--sql
         CREATE TABLE IF NOT EXISTS reminders (
           id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -106,74 +166,9 @@ export default class extends Plugin<"reminders"> {
       const rows = this.db.query<Reminder, []>("SELECT * FROM reminders").all();
 
       for (const row of rows) {
-        await this.loadReminder(row, false);
+        await this.api.loadReminder(row, false);
       }
 
       this.logger.info("Loaded", reminders.size, "reminders.");
-    });
-  }
-
-  async loadReminder(reminder: Reminder, _new = true) {
-    const now = Date.now();
-
-    if (reminder.time <= now) {
-      if (_new) {
-        throw new CommandError("reminder time is in the past");
-      }
-
-      await this.sendReminder(reminder);
-      return;
-    }
-
-    if (_new) {
-      const { lastInsertRowid } = this.db.run<
-        [string, string | null, string, number]
-      >(
-        "INSERT INTO reminders (user, channel, message, time) VALUES (?, ?, ?, ?)",
-        [reminder.user, reminder.channel, reminder.message, reminder.time],
-      );
-
-      const { id } = this.db
-        .query<
-          { id: number },
-          [number]
-        >("SELECT id FROM reminders WHERE rowid = ?")
-        .get(lastInsertRowid as number)!;
-
-      reminder.id = id;
-    } else if (reminder.id === undefined) {
-      throw new Error("reminder.id is not set");
-    }
-
-    const timeout = setTimeout(async () => {
-      await this.sendReminder(reminder);
-
-      reminders.delete(reminder.id!);
-    }, reminder.time - now).unref();
-
-    reminders.set(reminder.id, { ...reminder, _timeout: timeout });
-  }
-
-  async sendReminder(reminder: InternalReminder) {
-    if (!reminder.id) {
-      throw new Error("reminder.id is not set");
-    }
-
-    const message =
-      reminder.channel && reminder.channel !== reminder.user
-        ? await this.client.sendMessage(
-            reminder.channel,
-            `Reminder for @${reminder.user.slice(0, -5)}: ${reminder.message}`,
-            { linkPreview: false, mentions: [reminder.user] },
-          )
-        : await this.client.sendMessage(
-            reminder.channel || reminder.user,
-            `Reminder: ${reminder.message}`,
-            { linkPreview: false },
-          );
-
-    this.db.run<[number]>("DELETE FROM reminders WHERE id = ?", [reminder.id]);
-
-    return message;
-  }
-}
+    },
+  });

@@ -42,6 +42,7 @@ export class Plugin<
   Depends extends string[] = [],
   Interactions extends { [key: string]: unknown } = {},
   ConfigSchema extends BaseSchema<any, any, any> = BaseSchema<any, any, any>,
+  Api extends { [key: string]: unknown } | null = {},
 > extends AsyncEventEmitter<PluginEvents> {
   readonly id: PluginId;
   readonly name;
@@ -53,14 +54,6 @@ export class Plugin<
       throw new Error(`Plugin already marked as loaded: ${this.id}`);
     }
   }
-
-  /**
-   * Plugin IDs that this plugin depends on.
-   *
-   * Make sure to mark this property as `readonly` and use
-   * `as const` to get proper types for `this.dependencies`.
-   */
-  private _depends?: Depends;
 
   private _hidden = false;
   /**
@@ -81,7 +74,7 @@ export class Plugin<
    */
   configSchema<TConfigSchema extends BaseSchema<any, any, any>>(
     schema: TConfigSchema,
-  ): Plugin<PluginId, Depends, Interactions, TConfigSchema> {
+  ): Plugin<PluginId, Depends, Interactions, TConfigSchema, Api> {
     this._ensureNotLoaded();
 
     // @ts-expect-error
@@ -102,18 +95,7 @@ export class Plugin<
     this.description = description;
   }
 
-  depends<Depends extends string[]>(
-    ...depends: Depends
-  ): Plugin<PluginId, Depends, Interactions, ConfigSchema> {
-    this._ensureNotLoaded();
-
-    // @ts-expect-error
-    this._depends = depends;
-
-    // @ts-expect-error
-    return this;
-  }
-
+  private _depends?: Depends;
   dependencies: PluginId extends keyof Plugins
     ? Depends extends readonly string[] // ensure dependencies are defined
       ? string[] extends Depends // ensure dependencies are marked with `as const`
@@ -124,6 +106,22 @@ export class Plugin<
           }
       : null
     : null = null as any;
+
+  /**
+   * Plugin IDs that this plugin depends on. They will be loaded before
+   * this plugin, and accessible via `this.dependencies`.
+   */
+  depends<Depends extends string[]>(
+    ...depends: Depends
+  ): Plugin<PluginId, Depends, Interactions, ConfigSchema, Api> {
+    this._ensureNotLoaded();
+
+    // @ts-expect-error
+    this._depends = depends;
+
+    // @ts-expect-error
+    return this;
+  }
 
   private _commands: (Command & ThisType<this>)[] = [];
   /**
@@ -147,7 +145,8 @@ export class Plugin<
       PluginId,
       Depends,
       Interactions & { [key in TKey]: T },
-      ConfigSchema
+      ConfigSchema,
+      Api
     >,
   >({
     name,
@@ -175,6 +174,29 @@ export class Plugin<
     T extends Interactions[THandler],
   >(handler: THandler, message: string, data?: T) {
     return new InteractionContinuation(this, handler, message, data);
+  }
+
+  // @ts-expect-error
+  api: Api = null;
+  registerApi<
+    TApi extends { [key: string]: unknown },
+    TThis extends Plugin<
+      PluginId,
+      Depends,
+      Interactions,
+      ConfigSchema,
+      Api & TApi
+    >,
+  >(api: TApi & ThisType<TThis>): TThis {
+    if (!this.api) {
+      // @ts-expect-error
+      this.api = {};
+    }
+
+    Object.assign(this.api!, api);
+
+    // @ts-expect-error
+    return this;
   }
 
   private _client: Client | null = null;
