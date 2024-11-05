@@ -104,7 +104,7 @@ export class Plugin<
 
   depends<Depends extends string[]>(
     ...depends: Depends
-  ): Plugin<PluginId, Depends, Interactions> {
+  ): Plugin<PluginId, Depends, Interactions, ConfigSchema> {
     this._ensureNotLoaded();
 
     // @ts-expect-error
@@ -146,7 +146,8 @@ export class Plugin<
     TThis extends Plugin<
       PluginId,
       Depends,
-      Interactions & { [key in TKey]: T }
+      Interactions & { [key in TKey]: T },
+      ConfigSchema
     >,
   >({
     name,
