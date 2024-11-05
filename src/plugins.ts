@@ -309,10 +309,10 @@ export class InteractionContinuation {
   }
 }
 
-const pluginsGlob = new Bun.Glob("./src/plugins/**/plugin.ts");
+const pluginsGlob = new Bun.Glob("./src/plugins/**/index.ts");
 
 export function getPluginIdFromPath(path: string) {
-  return path.match(/(?:\/|^)(\w+)\/plugin\.ts$/)?.[1] || null;
+  return path.match(/(?:\/|^)(\w+)\/index\.ts$/)?.[1] || null;
 }
 
 export async function scanPlugins(map: Map<string, string>) {
