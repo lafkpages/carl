@@ -297,7 +297,7 @@ export class InteractionContinuation {
   _timer: Timer | null = null;
 
   constructor(
-    plugin: Plugin<string, any, any>,
+    plugin: Plugin<string, any, any, any, any>,
     handler: string,
     message: string,
     data?: unknown,
