@@ -187,13 +187,25 @@ Stderr:
   })
   .registerCommand({
     name: "say",
-    description: "Send a message, optionally to a specific chat",
+    description: "Send a message to the current chat.",
     minLevel: PermissionLevel.TRUSTED,
 
-    async handler({ message, data, permissionLevel }) {
+    async handler({ message, data }) {
+      await this.client.sendMessage(message.from, data);
+
+      return true;
+    },
+  })
+  .registerCommand({
+    name: "sayto",
+    description: "Send a message to a given user or chat.",
+    minLevel: PermissionLevel.ADMIN,
+
+    async handler({ message, data, sender }) {
       if (message.mentionedIds.length) {
         for (const id of message.mentionedIds) {
-          await this.client.sendMessage(id._serialized, data);
+          this.logger.info("/sayto", id, "from", sender);
+          await this.client.sendMessage(id as unknown as string, data);
         }
 
         return true;
@@ -202,22 +214,14 @@ Stderr:
       const [, to, msg] = data.match(/^(\S+) (.+)$/s) || [];
 
       if (to && msg) {
-        if (permissionLevel < PermissionLevel.ADMIN) {
-          throw new CommandPermissionError(
-            "say",
-            PermissionLevel.ADMIN,
-            "with a chat specifier",
-          );
+        for (const id of to.split(/[,|]/)) {
+          await this.client.sendMessage(to, msg);
         }
-
-        await this.client.sendMessage(to, msg);
-
-        return true;
-      } else {
-        await this.client.sendMessage(message.from, data);
 
         return true;
       }
+
+      throw new CommandError("invalid arguments");
     },
   })
   .registerCommand({
