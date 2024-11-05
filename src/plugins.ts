@@ -1,7 +1,7 @@
 import type { ConsolaInstance } from "consola";
 import type { MaybePromise } from "elysia";
 import type { OAuth2Client } from "google-auth-library";
-import type { BaseSchema } from "valibot";
+import type { BaseSchema, InferOutput } from "valibot";
 import type {
   Chat,
   Client,
@@ -9,7 +9,6 @@ import type {
   MessageMedia,
   Reaction,
 } from "whatsapp-web.js";
-import type { PluginsConfig } from "./config";
 import type { PermissionLevel } from "./perms";
 import type { RateLimit } from "./ratelimits";
 import type { server } from "./server";
@@ -19,29 +18,6 @@ import { consola } from "consola";
 
 import { getConfig } from "./config";
 import { AsyncEventEmitter } from "./events";
-
-export interface Plugin<PluginId extends string> {
-  /**
-   * Plugin IDs that this plugin depends on.
-   *
-   * Make sure to mark this property as `readonly` and use
-   * `as const` to get proper types for `this.dependencies`.
-   */
-  readonly depends?: readonly string[];
-
-  /**
-   * Whether this plugin should be hidden from the help command
-   */
-  readonly hidden?: boolean;
-
-  /**
-   * Whether this plugin requires an isolated SQLite database for
-   * persistent storage of plugin-specific data
-   */
-  readonly database?: boolean;
-
-  readonly configSchema?: BaseSchema<any, any, any>;
-}
 
 interface PluginEvents {
   load: [{ server: typeof server }];
@@ -61,42 +37,155 @@ interface PluginEvents {
   ];
 }
 
-export abstract class Plugin<
+export class Plugin<
   PluginId extends string,
+  Depends extends string[] = [],
+  Interactions extends { [key: string]: unknown } = {},
+  ConfigSchema extends BaseSchema<any, any, any> = BaseSchema<any, any, any>,
 > extends AsyncEventEmitter<PluginEvents> {
-  abstract readonly id: PluginId;
-  abstract readonly name: string;
-  abstract readonly description: string;
-  abstract readonly version: string;
+  readonly id: PluginId;
+  readonly name;
+  readonly description;
+
+  private _loaded = false;
+  private _ensureNotLoaded() {
+    if (this._loaded) {
+      throw new Error(`Plugin already marked as loaded: ${this.id}`);
+    }
+  }
+
+  /**
+   * Plugin IDs that this plugin depends on.
+   *
+   * Make sure to mark this property as `readonly` and use
+   * `as const` to get proper types for `this.dependencies`.
+   */
+  private _depends?: Depends;
+
+  private _hidden = false;
+  /**
+   * Whether this plugin should be hidden from the help command
+   */
+  hidden(hidden = true) {
+    this._ensureNotLoaded();
+
+    this._hidden = hidden;
+    return this;
+  }
+
+  private _configSchema?: ConfigSchema;
+  /**
+   * Define a schema for this plugin's configuration.
+   *
+   * The schema is used to validate the configuration set for this plugin.
+   */
+  configSchema<TConfigSchema extends BaseSchema<any, any, any>>(
+    schema: TConfigSchema,
+  ): Plugin<PluginId, Depends, Interactions, TConfigSchema> {
+    this._ensureNotLoaded();
+
+    // @ts-expect-error
+    this._configSchema = schema;
+    // @ts-expect-error
+    return this;
+  }
+
+  get config(): InferOutput<ConfigSchema> {
+    return getConfig().pluginsConfig[this.id];
+  }
+
+  constructor(id: PluginId, name: string, description: string) {
+    super();
+
+    this.id = id;
+    this.name = name;
+    this.description = description;
+  }
+
+  depends<Depends extends string[]>(
+    ...depends: Depends
+  ): Plugin<PluginId, Depends, Interactions> {
+    this._ensureNotLoaded();
+
+    // @ts-expect-error
+    this._depends = depends;
+
+    // @ts-expect-error
+    return this;
+  }
+
+  dependencies: PluginId extends keyof Plugins
+    ? Depends extends readonly string[] // ensure dependencies are defined
+      ? string[] extends Depends // ensure dependencies are marked with `as const`
+        ? null
+        : {
+            [SubPluginId in Depends[number] &
+              keyof Plugins]: Plugins[SubPluginId];
+          }
+      : null
+    : null = null as any;
 
   private _commands: (Command & ThisType<this>)[] = [];
   /**
-   * Register commands for this plugin.
-   *
-   * This method should only be called in the constructor of the plugin.
+   * Register a command for this plugin.
    */
-  protected registerCommands(commands: (Command & ThisType<this>)[]) {
-    this._commands.push(...commands);
+  registerCommand(command: Command & ThisType<this>) {
+    this._ensureNotLoaded();
+
+    this._commands.push(command);
+    return this;
+  }
+
+  private _interactions?: Interactions;
+  /**
+   * Register an interaction for this plugin.
+   */
+  registerInteraction<
+    TKey extends string,
+    T,
+    TThis extends Plugin<
+      PluginId,
+      Depends,
+      Interactions & { [key in TKey]: T }
+    >,
+  >({
+    name,
+    handler,
+  }: {
+    name: TKey;
+    handler: Interaction<T>;
+  } & ThisType<TThis>): TThis {
+    this._ensureNotLoaded();
+
+    if (!this._interactions) {
+      // @ts-expect-error
+      this._interactions = {};
+    }
+
+    // @ts-expect-error
+    this._interactions[name] = handler;
+
+    // @ts-expect-error
+    return this;
+  }
+
+  interactionContinuation<
+    THandler extends keyof Interactions & string,
+    T extends Interactions[THandler],
+  >(handler: THandler, message: string, data?: T) {
+    return new InteractionContinuation(this, handler, message, data);
   }
 
   private _client: Client | null = null;
-  protected get client() {
+  get client() {
     if (!this._client) {
       throw new Error("Plugin does not have a client");
     }
     return this._client;
   }
 
-  protected get config(): PluginsConfig[PluginId] {
-    return getConfig().pluginsConfig[this.id];
-  }
-
   private _db?: Database | null;
-  protected get db() {
-    if (!this.database) {
-      throw new Error("Plugin does not have a database");
-    }
-
+  get db() {
     if (!this._db) {
       this._db = new Database(`db/plugins/${this.id}.sqlite`, {
         strict: true,
@@ -108,26 +197,15 @@ export abstract class Plugin<
   }
 
   private _logger?: ConsolaInstance;
-  protected get logger() {
+  get logger() {
     if (!this._logger) {
       this._logger = consola.withTag(this.id);
     }
     return this._logger;
   }
-
-  protected dependencies: PluginId extends keyof Plugins
-    ? Plugins[PluginId]["depends"] extends readonly string[] // ensure dependencies are defined
-      ? string[] extends Plugins[PluginId]["depends"] // ensure dependencies are marked with `as const`
-        ? null
-        : {
-            [SubPluginId in Plugins[PluginId]["depends"][number] &
-              keyof Plugins]: Plugins[SubPluginId];
-          }
-      : null
-    : null = null as any;
 }
 
-export interface Command extends Interaction<string> {
+export interface Command {
   name: string;
   description: string;
 
@@ -149,20 +227,13 @@ export interface Command extends Interaction<string> {
    */
   rateLimit?: RateLimit[];
 
-  handler({}: BaseMessageInteractionHandlerArgs & {
-    data: string;
-  }): ReturnType<Interaction<string>["handler"]>;
+  handler: Interaction<string>;
 }
 
 export interface Interaction<T> {
-  handler({}: InteractionArgs<T>):
-    | MaybePromise<InteractionResult>
-    | InteractionResultGenerator;
-}
-
-export interface InteractionArgs<T = unknown>
-  extends BaseMessageInteractionHandlerArgs {
-  data: T;
+  ({}: BaseMessageInteractionHandlerArgs & {
+    data: T;
+  }): MaybePromise<InteractionResult> | InteractionResultGenerator;
 }
 
 export interface GetGoogleClient {
@@ -184,28 +255,28 @@ type BasicInteractionResult = string | boolean | void | MessageMedia;
 
 export type InteractionResult =
   | BasicInteractionResult
-  | InteractionContinuation<unknown>;
+  | InteractionContinuation;
 
 export type InteractionResultGenerator =
   | Generator<BasicInteractionResult, InteractionResult, unknown>
   | AsyncGenerator<BasicInteractionResult, InteractionResult, unknown>;
 
-export class InteractionContinuation<T> {
-  message;
-  plugin: Plugin<string> | null = null;
+export class InteractionContinuation {
+  plugin;
   handler;
+  message;
   data;
 
-  private _timer: Timer | null = null;
+  _timer: Timer | null = null;
 
   constructor(
+    plugin: Plugin<string, any, any>,
+    handler: string,
     message: string,
-    plugin: Plugin<string>,
-    handler: Interaction<T>["handler"],
-    data?: T,
+    data?: unknown,
   ) {
-    this.message = message;
     this.plugin = plugin;
+    this.message = message;
     this.handler = handler;
     this.data = data;
   }
@@ -217,7 +288,10 @@ export function getPluginIdFromPath(path: string) {
   return path.match(/(?:\/|^)(\w+)\/plugin\.ts$/)?.[1] || null;
 }
 
-export async function scanPlugins(map: Map<string, string>) {
+export async function scanPlugins(
+  map: Map<string, string>,
+  ignoreTemplate = true,
+) {
   map.clear();
 
   for await (const entry of pluginsGlob.scan({
@@ -230,7 +304,7 @@ export async function scanPlugins(map: Map<string, string>) {
       continue;
     }
 
-    if (pluginId === "TEMPLATE") {
+    if (ignoreTemplate && pluginId === "TEMPLATE") {
       continue;
     }
 

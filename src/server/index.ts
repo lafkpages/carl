@@ -51,8 +51,7 @@ export async function pingCheck() {
     throw new Error("Invalid ping response");
   }
 
-  pingCheckTimeout = setTimeout(pingCheck, publicUrlPingCheckFrequency);
-  pingCheckTimeout.unref();
+  pingCheckTimeout = setTimeout(pingCheck, publicUrlPingCheckFrequency).unref();
 }
 
 export const server = new Elysia()

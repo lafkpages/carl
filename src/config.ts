@@ -1,5 +1,5 @@
 import type { BaseSchema, InferOutput } from "valibot";
-import type { Plugins } from "./plugins";
+import type { Plugin, Plugins } from "./plugins";
 
 import { EventEmitter } from "node:events";
 
@@ -98,16 +98,13 @@ export type Config = InferOutput<ReturnType<typeof configSchema>> & {
   pluginsConfig?: PluginsConfig;
 };
 
+type InferPluginConfig<TPlugin, TFallback = never> =
+  TPlugin extends Plugin<string, any, any, infer T> ? T : TFallback;
+
 export type PluginsConfig = {
   [pluginId: string]: unknown;
 } & {
-  [PluginId in keyof Plugins]: Plugins[PluginId]["configSchema"] extends BaseSchema<
-    any,
-    any,
-    any
-  >
-    ? InferOutput<Plugins[PluginId]["configSchema"]>
-    : unknown;
+  [PluginId in keyof Plugins]: InferPluginConfig<Plugins[PluginId], unknown>;
 };
 
 const pluginsConfig: {

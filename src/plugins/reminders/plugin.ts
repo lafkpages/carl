@@ -149,7 +149,7 @@ export default class extends Plugin<"reminders"> {
       await this.sendReminder(reminder);
 
       reminders.delete(reminder.id!);
-    }, reminder.time - now);
+    }, reminder.time - now).unref();
 
     reminders.set(reminder.id, { ...reminder, _timeout: timeout });
   }

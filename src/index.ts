@@ -1,5 +1,9 @@
 import type { Chat, Message } from "whatsapp-web.js";
-import type { InteractionResult, InteractionResultGenerator } from "./plugins";
+import type {
+  Interaction,
+  InteractionResult,
+  InteractionResultGenerator,
+} from "./plugins";
 
 import { InteractionContinuation, Plugin } from "./plugins";
 
@@ -40,219 +44,208 @@ if (!process.isBun) {
 
 const userCommandAliases = new Map<string, Map<string, string>>();
 
-class CorePlugin extends Plugin<"core"> {
-  id = "core" as const;
-  name = "Core";
-  description = "Core commands";
-  version = "1.0.0";
-  database = true;
+const corePlugin = new Plugin("core", "Core", "Core commands")
+  .registerCommand({
+    name: "help",
+    description:
+      "Shows this help message (use `/help all` to show hidden commands)",
+    minLevel: PermissionLevel.NONE,
 
-  constructor() {
-    super();
+    handler({ data, permissionLevel }) {
+      const numbers = data.match(/\d+/g);
 
-    this.registerCommands([
-      {
-        name: "help",
-        description:
-          "Shows this help message (use `/help all` to show hidden commands)",
-        minLevel: PermissionLevel.NONE,
+      if (numbers && numbers.length > 1) {
+        throw new CommandError("invalid arguments. Usage: `/help [page]`");
+      }
 
-        handler({ data, permissionLevel }) {
-          const numbers = data.match(/\d+/g);
+      const page = parseInt(numbers?.[0] || "1");
+      const showHidden = data.includes("all");
 
-          if (numbers && numbers.length > 1) {
-            throw new CommandError("invalid arguments. Usage: `/help [page]`");
+      if (page < 1) {
+        throw new CommandError("page number must be greater than 0");
+      }
+
+      return generateHelpPage(
+        generateHelp(pluginsManager, permissionLevel, showHidden),
+        page,
+      );
+    },
+  })
+  .registerCommand({
+    name: "stop",
+    description: "Stop the bot gracefully",
+    minLevel: PermissionLevel.ADMIN,
+
+    handler() {
+      stopGracefully();
+      return true;
+    },
+  })
+  .registerCommand({
+    name: "forcestop",
+    description: "Stop the bot without unloading plugins",
+    minLevel: PermissionLevel.ADMIN,
+
+    handler() {
+      stop();
+      return true;
+    },
+  })
+  .registerCommand({
+    name: "reload",
+    description: "Reload plugins",
+    minLevel: PermissionLevel.ADMIN,
+
+    async handler({ data }) {
+      data = data.trim().toLowerCase();
+
+      const pluginIdsToReload = data ? new Set(data.split(/[,\s]+/)) : null;
+
+      if (pluginIdsToReload?.size === 0) {
+        return false;
+      }
+
+      if (pluginIdsToReload?.has("core")) {
+        throw new CommandError("cannot reload core plugin");
+      }
+
+      await pluginsManager.scanPlugins();
+
+      if (!pluginIdsToReload) {
+        for (const plugin of pluginsManager) {
+          if (plugin.id === "core") {
+            continue;
           }
 
-          const page = parseInt(numbers?.[0] || "1");
-          const showHidden = data.includes("all");
+          await pluginsManager.unloadPlugin(plugin.id);
+        }
+        await pluginsManager.loadPlugins(getConfig().plugins);
+        return true;
+      }
 
-          if (page < 1) {
-            throw new CommandError("page number must be greater than 0");
-          }
+      const config = getConfig();
 
-          return generateHelpPage(
-            generateHelp(pluginsManager, permissionLevel, showHidden),
-            page,
-          );
-        },
-      },
-      {
-        name: "stop",
-        description: "Stop the bot gracefully",
-        minLevel: PermissionLevel.ADMIN,
+      // Unload plugins
+      for (const plugin of pluginIdsToReload) {
+        await pluginsManager.unloadPlugin(plugin);
+      }
 
-        handler() {
-          stopGracefully();
-          return true;
-        },
-      },
-      {
-        name: "forcestop",
-        description: "Stop the bot without unloading plugins",
-        minLevel: PermissionLevel.ADMIN,
+      // Reload plugins
+      await pluginsManager.loadPlugins(pluginIdsToReload);
 
-        handler() {
-          stop();
-          return true;
-        },
-      },
-      {
-        name: "reload",
-        description: "Reload plugins",
-        minLevel: PermissionLevel.ADMIN,
+      // Fire plugin onLoad events
+      for (const pluginId of pluginIdsToReload) {
+        const plugin = pluginsManager.getPlugin(pluginId);
 
-        async handler({ data }) {
-          data = data.trim().toLowerCase();
+        if (!plugin) {
+          throw new Error(`Plugin ${pluginId} not found (unreachable)`);
+        }
 
-          const pluginIdsToReload = data ? new Set(data.split(/[,\s]+/)) : null;
+        await plugin.run("load", {
+          server,
+        });
+      }
 
-          if (pluginIdsToReload?.size === 0) {
-            return false;
-          }
+      return true;
+    },
+  })
+  .registerCommand({
+    name: "alias",
+    description: "Set an alias for a command",
+    minLevel: PermissionLevel.NONE,
 
-          if (pluginIdsToReload?.has("core")) {
-            throw new CommandError("cannot reload core plugin");
-          }
+    handler({ data, sender }) {
+      if (!data) {
+        // List user's aliases
+        if (!userCommandAliases.has(sender)) {
+          return "You have no aliases set";
+        }
 
-          await pluginsManager.scanPlugins();
+        let msg = "Your aliases:";
 
-          if (!pluginIdsToReload) {
-            for (const plugin of pluginsManager) {
-              if (plugin.id === "core") {
-                continue;
-              }
+        for (const [alias, command] of userCommandAliases.get(sender)!) {
+          msg += `\n* \`${alias}\`: \`${command}\``;
+        }
 
-              await pluginsManager.unloadPlugin(plugin.id);
-            }
-            await pluginsManager.loadPlugins(getConfig().plugins);
-            return true;
-          }
+        return msg;
+      }
 
-          const config = getConfig();
+      const [, alias, command] = data.match(/^\/?(.+)\s+\/?(.+)$/) || [];
 
-          // Unload plugins
-          for (const plugin of pluginIdsToReload) {
-            await pluginsManager.unloadPlugin(plugin);
-          }
+      if (!alias) {
+        throw new CommandError("Usage: `/alias <alias> <command>`");
+      }
 
-          // Reload plugins
-          await pluginsManager.loadPlugins(pluginIdsToReload);
+      this.db.run<[string, string, string]>(
+        "INSERT OR REPLACE INTO aliases (user, alias, command) VALUES (?, ?, ?)",
+        [sender, alias, command],
+      );
 
-          // Fire plugin onLoad events
-          for (const pluginId of pluginIdsToReload) {
-            const plugin = pluginsManager.getPlugin(pluginId);
+      if (!userCommandAliases.has(sender)) {
+        userCommandAliases.set(sender, new Map());
+      }
 
-            if (!plugin) {
-              throw new Error(`Plugin ${pluginId} not found (unreachable)`);
-            }
+      userCommandAliases.get(sender)!.set(alias, command);
 
-            await plugin.run("load", {
-              server,
-            });
-          }
+      return true;
+    },
+  })
+  .registerCommand({
+    name: "unalias",
+    description: "Remove an alias",
+    minLevel: PermissionLevel.NONE,
 
-          return true;
-        },
-      },
-      {
-        name: "alias",
-        description: "Set an alias for a command",
-        minLevel: PermissionLevel.NONE,
+    handler({ data, sender }) {
+      if (!data) {
+        throw new CommandError("Usage: `/unalias <alias>`");
+      }
 
-        handler({ data, sender }) {
-          if (!data) {
-            // List user's aliases
-            if (!userCommandAliases.has(sender)) {
-              return "You have no aliases set";
-            }
+      const userAliases = userCommandAliases.get(sender);
 
-            let msg = "Your aliases:";
+      if (!userAliases) {
+        throw new CommandError("You have no aliases set");
+      }
 
-            for (const [alias, command] of userCommandAliases.get(sender)!) {
-              msg += `\n* \`${alias}\`: \`${command}\``;
-            }
+      if (!userAliases.has(data)) {
+        return `Alias \`${data}\` not found`;
+      }
 
-            return msg;
-          }
+      this.db.run<[string, string]>(
+        "DELETE FROM aliases WHERE user = ? AND alias = ?",
+        [sender, data],
+      );
 
-          const [, alias, command] = data.match(/^\/?(.+)\s+\/?(.+)$/) || [];
+      userAliases.delete(data);
 
-          if (!alias) {
-            throw new CommandError("Usage: `/alias <alias> <command>`");
-          }
+      if (userAliases.size === 0) {
+        userCommandAliases.delete(sender);
+      }
 
-          this.db.run<[string, string, string]>(
-            "INSERT OR REPLACE INTO aliases (user, alias, command) VALUES (?, ?, ?)",
-            [sender, alias, command],
-          );
+      return true;
+    },
+  })
+  .registerCommand({
+    name: "resolvecommand",
+    description: "Resolve a command [DEBUG]",
+    minLevel: PermissionLevel.NONE,
+    hidden: true,
 
-          if (!userCommandAliases.has(sender)) {
-            userCommandAliases.set(sender, new Map());
-          }
+    handler({ data }) {
+      if (!data) {
+        throw new CommandError("Usage: `/resolvecommand <command>`");
+      }
 
-          userCommandAliases.get(sender)!.set(alias, command);
+      const cmd = resolveCommand(data);
 
-          return true;
-        },
-      },
-      {
-        name: "unalias",
-        description: "Remove an alias",
-        minLevel: PermissionLevel.NONE,
-
-        handler({ data, sender }) {
-          if (!data) {
-            throw new CommandError("Usage: `/unalias <alias>`");
-          }
-
-          const userAliases = userCommandAliases.get(sender);
-
-          if (!userAliases) {
-            throw new CommandError("You have no aliases set");
-          }
-
-          if (!userAliases.has(data)) {
-            return `Alias \`${data}\` not found`;
-          }
-
-          this.db.run<[string, string]>(
-            "DELETE FROM aliases WHERE user = ? AND alias = ?",
-            [sender, data],
-          );
-
-          userAliases.delete(data);
-
-          if (userAliases.size === 0) {
-            userCommandAliases.delete(sender);
-          }
-
-          return true;
-        },
-      },
-      {
-        name: "resolvecommand",
-        description: "Resolve a command [DEBUG]",
-        minLevel: PermissionLevel.NONE,
-        hidden: true,
-
-        handler({ data }) {
-          if (!data) {
-            throw new CommandError("Usage: `/resolvecommand <command>`");
-          }
-
-          const cmd = resolveCommand(data);
-
-          if (cmd) {
-            return `Command \`${data}\` resolves to \`${cmd._plugin.id}/${cmd.name}\``;
-          } else {
-            return false;
-          }
-        },
-      },
-    ]);
-
-    this.on("load", () => {
+      if (cmd) {
+        return `Command \`${data}\` resolves to \`${cmd._plugin.id}/${cmd.name}\``;
+      } else {
+        return false;
+      }
+    },
+  })
+  .on({
+    load() {
       // Configure database
       this.db.run(`--sql
         CREATE TABLE IF NOT EXISTS aliases (
@@ -284,9 +277,8 @@ class CorePlugin extends Plugin<"core"> {
           .get(aliasEntry.user)!
           .set(aliasEntry.alias, aliasEntry.command);
       }
-    });
-
-    this.on("reaction", async ({ reaction, message, permissionLevel }) => {
+    },
+    async reaction({ reaction, message, permissionLevel }) {
       if (
         reaction.reaction === "\u{1F5D1}\u{FE0F}" &&
         // Only allow deleting messages from the bot
@@ -296,9 +288,8 @@ class CorePlugin extends Plugin<"core"> {
       ) {
         await message.delete(true);
       }
-    });
-  }
-}
+    },
+  });
 
 const client = new Client({
   authStrategy: new LocalAuth(),
@@ -312,7 +303,7 @@ const client = new Client({
 
 // Load plugins
 const pluginsManager = new PluginsManager(client);
-pluginsManager.registerPlugin(new CorePlugin());
+pluginsManager.registerPlugin(corePlugin);
 await pluginsManager.scanPlugins();
 await pluginsManager.loadPlugins(getConfig().plugins);
 
@@ -356,10 +347,7 @@ for (const plugin of pluginsManager) {
 
 process.on("SIGINT", stopGracefully);
 
-const interactionContinuations = new Map<
-  string,
-  InteractionContinuation<unknown>
->();
+const interactionContinuations = new Map<string, InteractionContinuation>();
 
 client.on("message", async (message) => {
   if (!message.body) {
@@ -414,7 +402,18 @@ client.on("message", async (message) => {
         throw new Error("Interaction continuation has no associated plugin");
       }
 
-      const result = await handler.call(plugin, {
+      // @ts-expect-error: _interactions is private
+      const interactions = plugin._interactions as Record<
+        string,
+        Interaction<unknown>
+      >;
+      const handlerFunc = interactions?.[handler];
+
+      if (!handlerFunc) {
+        throw new Error("Interaction continuation handler not found");
+      }
+
+      const result = await handlerFunc.call(plugin, {
         message,
         sender,
         permissionLevel,
@@ -576,7 +575,7 @@ async function execute(
 
     if (permissionLevel >= command.minLevel) {
       try {
-        const result = await command.handler({
+        const result = await command.handler.call(command._plugin, {
           message,
           data,
           sender,
@@ -634,7 +633,6 @@ async function handleInteractionResult(
     reply.react("\u{1F4AC}");
 
     // expire continuations after 5 minutes
-    // @ts-expect-error: _timer is private
     result._timer = setTimeout(
       async () => {
         await reply.react("\u231B");
@@ -642,7 +640,7 @@ async function handleInteractionResult(
         interactionContinuations.delete(reply.id._serialized);
       },
       5 * 60 * 1000,
-    );
+    ).unref();
 
     interactionContinuations.set(reply.id._serialized, result);
   } else {
@@ -752,15 +750,12 @@ async function cleanupInteractionContinuation(message: Message) {
     throw new Error("Interaction continuation not found");
   }
 
-  // @ts-expect-error: _timer is private
-  const { _timer } = interactionContinuation;
-
-  if (!_timer) {
+  if (!interactionContinuation._timer) {
     throw new Error("Interaction continuation timer not found");
   }
 
   // prevent the expiration timeout from running
-  clearTimeout(_timer);
+  clearTimeout(interactionContinuation._timer);
 
   // delete the interaction continuation to prevent it from being used again
   interactionContinuations.delete(message.id._serialized);

@@ -11,7 +11,8 @@ export function generateHelp(
   let msg = "Plugins:";
 
   for (const plugin of pluginsManager) {
-    if (!showHidden && plugin.hidden) {
+    // @ts-expect-error: _hidden is private
+    if (!showHidden && plugin._hidden) {
       continue;
     }
 
@@ -32,7 +33,7 @@ export function generateHelp(
     }
 
     if (commandsMsg) {
-      msg += `\n\n*${plugin.name}* (${plugin.version})`;
+      msg += `\n\n*${plugin.name}*`;
       msg += `\n> ${plugin.description}`;
       msg += `\nCommands:${commandsMsg}`;
     }

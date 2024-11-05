@@ -28,12 +28,20 @@ export class PluginsManager implements Iterable<Plugin<string>> {
   registerPlugin(plugin: Plugin<string>) {
     consola.debug("Registering plugin:", plugin.id);
 
+    // @ts-expect-error: _loaded is private
+    if (plugin._loaded) {
+      throw new Error(`Plugin already marked as loaded: ${plugin.id}`);
+    }
+
     if (this._loadedPlugins.has(plugin.id)) {
       throw new Error(`Tried to load duplicate plugin: ${plugin.id}`);
     }
 
-    if (plugin.depends) {
-      for (const dependency of plugin.depends) {
+    // @ts-expect-error: _depends is private
+    const { _depends } = plugin;
+
+    if (_depends) {
+      for (const dependency of _depends) {
         const dependencyPlugin = this._loadedPlugins.get(dependency);
 
         if (!dependencyPlugin) {
@@ -42,7 +50,7 @@ export class PluginsManager implements Iterable<Plugin<string>> {
           );
         }
 
-        // @ts-expect-error - dependencies is private
+        // @ts-expect-error
         if (!plugin.dependencies) plugin.dependencies = {};
         // @ts-expect-error
         plugin.dependencies[dependency] = dependencyPlugin;
@@ -51,13 +59,15 @@ export class PluginsManager implements Iterable<Plugin<string>> {
 
     // Set config before storing plugin because setPluginConfig
     // may throw an error if the config is invalid
-    if (plugin.configSchema) {
-      setPluginConfig(plugin.id, plugin.configSchema);
+    // @ts-expect-error: _configSchema is private
+    const { _configSchema } = plugin;
+    if (_configSchema) {
+      setPluginConfig(plugin.id, _configSchema);
     }
 
     this._loadedPlugins.set(plugin.id, plugin);
 
-    // @ts-expect-error - _commands is private so plugins don't access
+    // @ts-expect-error: _commands is private so plugins don't access
     // each other's commands, but we need to access it here
     const { _commands } = plugin;
 
@@ -75,8 +85,11 @@ export class PluginsManager implements Iterable<Plugin<string>> {
       });
     }
 
-    // @ts-expect-error - _client is private
+    // @ts-expect-error: _client is private
     plugin._client = this.client;
+
+    // @ts-expect-error: _loaded is private
+    plugin._loaded = true;
   }
 
   async loadPlugin(pluginId: string) {
@@ -88,9 +101,8 @@ export class PluginsManager implements Iterable<Plugin<string>> {
       throw new Error(`Plugin not found: ${pluginId}`);
     }
 
-    const plugin: Plugin<string> = new (
-      await import(`${path}?${Date.now()}`)
-    ).default(this.client);
+    const plugin: Plugin<string> = (await import(`${path}?${Date.now()}`))
+      .default;
 
     if (plugin.id !== pluginId) {
       throw new Error(
@@ -114,8 +126,10 @@ export class PluginsManager implements Iterable<Plugin<string>> {
       graph.addNode(pluginId);
       graph.setNodeData(pluginId, plugin);
 
-      if (plugin.depends) {
-        for (const dependency of plugin.depends) {
+      // @ts-expect-error: _depends is private
+      const { _depends } = plugin;
+      if (_depends) {
+        for (const dependency of _depends) {
           graph.addNode(dependency);
           graph.addDependency(pluginId, dependency);
         }
@@ -150,13 +164,18 @@ export class PluginsManager implements Iterable<Plugin<string>> {
       await plugin.run("unload").catch(consola.error);
     }
 
-    // @ts-expect-error - _db is private so plugins don't access
+    // @ts-expect-error: _db is private so plugins don't access
     // each other's databases, but we need to access it here
     const { _db } = plugin;
 
     _db?.close();
     // @ts-expect-error
     plugin._db = null;
+
+    // @ts-expect-error: _client is private
+    plugin._client = null;
+    // @ts-expect-error: _loaded is private
+    plugin._loaded = false;
 
     this._loadedPlugins.delete(pluginId);
   }

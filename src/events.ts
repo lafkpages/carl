@@ -5,17 +5,22 @@ type EventMap<T> = Record<keyof T, unknown[]>;
 export class AsyncEventEmitter<T extends EventMap<T>> {
   private _listeners = new Map<string, Set<Function>>();
 
-  on<Event extends keyof T & string>(
-    event: Event,
-    listener: (...args: T[Event]) => MaybePromise<void>,
+  on(
+    events: {
+      [Event in keyof T]?: (...args: T[Event]) => MaybePromise<void>;
+    } & ThisType<this>,
   ) {
-    let listeners = this._listeners.get(event);
-    if (!listeners) {
-      listeners = new Set();
-      this._listeners.set(event, listeners);
+    for (const event in events) {
+      let listeners = this._listeners.get(event);
+      if (!listeners) {
+        listeners = new Set();
+        this._listeners.set(event, listeners);
+      }
+
+      listeners.add(events[event]!);
     }
 
-    listeners.add(listener);
+    return this;
   }
 
   off<Event extends keyof T & string>(
@@ -49,7 +54,7 @@ export class AsyncEventEmitter<T extends EventMap<T>> {
     const promises: Promise<void>[] = [];
 
     for (const listener of listeners) {
-      promises.push(listener(...args));
+      promises.push(listener.apply(this, args));
     }
 
     await Promise.all(promises);
