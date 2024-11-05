@@ -119,11 +119,13 @@ export default new Plugin(
         throw new CommandError("date/time ranges are not supported");
       }
 
+      const message = data.replace(datetime.text, "").trim();
+
       await this.api.loadReminder({
         user: sender,
         channel: chat.id._serialized,
 
-        message: data,
+        message,
         time: datetime.date().getTime(),
       });
 
