@@ -3,7 +3,6 @@ import { Elysia, t } from "elysia";
 import { nanoid } from "nanoid";
 
 import { initialConfig } from "../config";
-import { handleOAuthCallback } from "../google";
 import { publicUrl } from "./common";
 
 const tempShortLinks = new Map<string, string>();

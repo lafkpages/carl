@@ -5,7 +5,6 @@ import { stat } from "node:fs/promises";
 
 import { Database } from "bun:sqlite";
 import filesize from "file-size";
-import { google } from "googleapis";
 import JSZip from "jszip";
 import Mime from "mime";
 import { Page } from "puppeteer";
@@ -13,7 +12,6 @@ import { boolean, object, optional } from "valibot";
 import { MessageMedia } from "whatsapp-web.js";
 
 import { CommandError, CommandPermissionError } from "../../error";
-import { getGoogleClient, getScopes } from "../../google";
 import { PermissionLevel } from "../../perms";
 import { Plugin } from "../../plugins";
 import { pingCheck } from "../../server";
@@ -367,50 +365,6 @@ Stderr:
     async handler() {
       await pingCheck();
       return true;
-    },
-  })
-  .registerCommand({
-    name: "googleauth",
-    description: "View your Google OAuth2 authentication status",
-    minLevel: PermissionLevel.NONE,
-
-    async handler({ sender }) {
-      const scopes = getScopes(sender);
-
-      if (!scopes.size) {
-        return false;
-      }
-
-      let msg = "Authenticated with Google with scopes:";
-      for (const scope of scopes) {
-        msg += `\n* \`${scope}\``;
-      }
-
-      return msg;
-    },
-  })
-  .registerCommand({
-    name: "googletest",
-    description: "Test Google OAuth",
-    minLevel: PermissionLevel.NONE,
-    rateLimit: [{ duration: 10000, max: 1 }],
-    hidden: true,
-
-    async handler({ sender, chat }) {
-      const client = await getGoogleClient(
-        this.client,
-        sender,
-        chat,
-        "https://www.googleapis.com/auth/userinfo.profile",
-      );
-      const oauth = google.oauth2({
-        version: "v2",
-        auth: client,
-      });
-
-      const { data } = await oauth.userinfo.get();
-
-      return `\`\`\`\n${Bun.inspect(data, { colors: false })}\n\`\`\``;
     },
   })
   .registerCommand({

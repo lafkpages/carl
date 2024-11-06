@@ -3,7 +3,6 @@ import type { Chat } from "whatsapp-web.js";
 import { google } from "googleapis";
 
 import { CommandError } from "../../error";
-import { getGoogleClient } from "../../google";
 import { PermissionLevel } from "../../perms";
 import { Plugin } from "../../plugins";
 
@@ -12,10 +11,10 @@ export default new Plugin(
   "Google Calendar",
   "Google Calendar integration",
 )
+  .depends("google")
   .registerApi({
     async cal(sender: string, chat: Chat) {
-      const client = await getGoogleClient(
-        this.client,
+      const client = await this.dependencies.google.api.getGoogleClient(
         sender,
         chat,
         "https://www.googleapis.com/auth/calendar.readonly",
