@@ -38,13 +38,13 @@ interface PluginEvents {
 }
 
 export class Plugin<
-  PluginId extends string,
-  Depends extends string[] = [],
-  Interactions extends { [key: string]: unknown } = {},
-  ConfigSchema extends BaseSchema<any, any, any> = BaseSchema<any, any, any>,
-  Api extends { [key: string]: unknown } | null = {},
+  TPluginId extends string,
+  TDepends extends string[] | null = null,
+  TInteractions extends { [key: string]: unknown } = {},
+  TConfigSchema extends BaseSchema<any, any, any> | null = null,
+  TApi extends { [key: string]: unknown } | null = {},
 > extends AsyncEventEmitter<PluginEvents> {
-  readonly id: PluginId;
+  readonly id: TPluginId;
   readonly name;
   readonly description;
 
@@ -66,16 +66,25 @@ export class Plugin<
     return this;
   }
 
-  private _configSchema?: ConfigSchema;
+  // @ts-expect-error
+  private _configSchema: TConfigSchema = null;
   /**
    * Define a schema for this plugin's configuration.
    *
    * The schema is used to validate the configuration set for this plugin.
    */
-  configSchema<TConfigSchema extends BaseSchema<any, any, any>>(
-    schema: TConfigSchema,
-  ): Plugin<PluginId, Depends, Interactions, TConfigSchema, Api> {
+  configSchema<
+    TNewConfigSchema extends TConfigSchema extends null
+      ? BaseSchema<any, any, any>
+      : never,
+  >(
+    schema: TNewConfigSchema,
+  ): Plugin<TPluginId, TDepends, TInteractions, TNewConfigSchema, TApi> {
     this._ensureNotLoaded();
+
+    if (this._configSchema) {
+      throw new Error("Plugin already has a config schema");
+    }
 
     // @ts-expect-error
     this._configSchema = schema;
@@ -83,11 +92,13 @@ export class Plugin<
     return this;
   }
 
-  get config(): InferOutput<ConfigSchema> {
+  get config(): TConfigSchema extends null
+    ? unknown
+    : InferOutput<NonNullable<TConfigSchema>> {
     return getConfig().pluginsConfig[this.id];
   }
 
-  constructor(id: PluginId, name: string, description: string) {
+  constructor(id: TPluginId, name: string, description: string) {
     super();
 
     this.id = id;
@@ -95,26 +106,29 @@ export class Plugin<
     this.description = description;
   }
 
-  private _depends?: Depends;
-  dependencies: PluginId extends keyof Plugins
-    ? Depends extends readonly string[] // ensure dependencies are defined
-      ? string[] extends Depends // ensure dependencies are marked with `as const`
-        ? null
-        : {
-            [SubPluginId in Depends[number] &
-              keyof Plugins]: Plugins[SubPluginId];
-          }
-      : null
+  // @ts-expect-error
+  private _depends: TDepends = null;
+  dependencies: TDepends extends string[] // ensure dependencies are defined
+    ? string[] extends TDepends // ensure dependencies are marked with `as const`
+      ? null
+      : {
+          [SubPluginId in TDepends[number] &
+            keyof Plugins]: Plugins[SubPluginId];
+        }
     : null = null as any;
 
   /**
    * Plugin IDs that this plugin depends on. They will be loaded before
    * this plugin, and accessible via `this.dependencies`.
    */
-  depends<Depends extends string[]>(
-    ...depends: Depends
-  ): Plugin<PluginId, Depends, Interactions, ConfigSchema, Api> {
+  depends<TNewDepends extends TDepends extends null ? string[] : never>(
+    ...depends: TNewDepends
+  ): Plugin<TPluginId, TNewDepends, TInteractions, TConfigSchema, TApi> {
     this._ensureNotLoaded();
+
+    if (this._depends) {
+      throw new Error("Plugin already has dependencies");
+    }
 
     // @ts-expect-error
     this._depends = depends;
@@ -134,7 +148,7 @@ export class Plugin<
     return this;
   }
 
-  private _interactions?: Interactions;
+  private _interactions?: TInteractions;
   /**
    * Register an interaction for this plugin.
    */
@@ -142,11 +156,11 @@ export class Plugin<
     TKey extends string,
     T,
     TThis extends Plugin<
-      PluginId,
-      Depends,
-      Interactions & { [key in TKey]: T },
-      ConfigSchema,
-      Api
+      TPluginId,
+      TDepends,
+      TInteractions & { [key in TKey]: T },
+      TConfigSchema,
+      TApi
     >,
   >({
     name,
@@ -170,20 +184,26 @@ export class Plugin<
   }
 
   interactionContinuation<
-    THandler extends keyof Interactions & string,
-    T extends Interactions[THandler],
+    THandler extends keyof TInteractions & string,
+    T extends TInteractions[THandler],
   >(handler: THandler, message: string, data?: T) {
     return new InteractionContinuation(this, handler, message, data);
   }
 
   // @ts-expect-error
-  api: Api = null;
-  registerApi<TApi extends { [key: string]: unknown }>(
-    api: TApi &
+  api: TApi = null;
+  registerApi<TNewApi extends { [key: string]: unknown }>(
+    api: TNewApi &
       ThisType<
-        Plugin<PluginId, Depends, Interactions, ConfigSchema, Api & TApi>
+        Plugin<
+          TPluginId,
+          TDepends,
+          TInteractions,
+          TConfigSchema,
+          TApi & TNewApi
+        >
       >,
-  ): Plugin<PluginId, Depends, Interactions, ConfigSchema, Api & TApi> {
+  ): Plugin<TPluginId, TDepends, TInteractions, TConfigSchema, TApi & TNewApi> {
     if (!this.api) {
       // @ts-expect-error
       this.api = {};
